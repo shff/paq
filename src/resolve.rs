@@ -46,7 +46,7 @@ fn test_stringify_normal() {
 #[test]
 fn test_stringify_multiple() {
     let mut deps = HashMap::<String, Resolved>::default();
-    deps.insert("dep1".to_string(), Resolved::Ignore);
-    deps.insert("dep2".to_string(), Resolved::Ignore);
-    assert_eq!(stringify_deps(&deps), "{\"dep1\":Pax.ignored,\"dep2\":Pax.ignored}");
+    deps.insert("depa".to_string(), Resolved::Ignore);
+    deps.insert("depb".to_string(), Resolved::Ignore);
+    assert_eq!(stringify_deps(&deps), "{\"depa\":Pax.ignored,\"depb\":Pax.ignored}");
 }
