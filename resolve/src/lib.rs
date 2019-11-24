@@ -20,9 +20,13 @@ pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
 
     let path = Path::new(&name);
     if path.is_explicitly_relative() {
-        let new_path = context.parent().unwrap().join_normalizing(path);
+        if let Some(parent) = context.parent() {
+            let new_path = parent.join_normalizing(path);
 
-        load(&new_path).ok_or(Error::ModuleNotFound(name))
+            load(&new_path).ok_or(Error::ModuleNotFound(name))
+        } else {
+            Err(Error::ModuleNotFound(name))
+        }
     } else if path.is_absolute() {
         load(path).ok_or(Error::ModuleNotFound(name))
     } else if name == "fs" {
