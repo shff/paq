@@ -1,8 +1,2 @@
-[package]
-name = "paq"
-version = "0.1.0"
-authors = ["Silvio Henrique Ferreira <shferreira@me.com>"]
-edition = "2018"
-
-[dependencies]
-json = "*"
+[workspace]
+members = ["resolve"]

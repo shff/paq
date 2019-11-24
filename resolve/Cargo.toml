@@ -1,0 +1,16 @@
+[package]
+name = "js-resolve"
+version = "0.1.0"
+authors = ["Silvio Henrique Ferreira <shferreira@me.com>"]
+
+description = "A node.js module resolver"
+documentation = "https://docs.rs/js-resolve"
+repository = "https://github.com/shff/paq"
+license = "MIT"
+
+keywords = ["js", "node", "modules"]
+
+exclude = [ "fixtures/*" ]
+
+[dependencies]
+json = "*"
