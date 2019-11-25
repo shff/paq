@@ -29,7 +29,7 @@ pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
         }
     } else if path.is_absolute() {
         load(path).ok_or(Error::ModuleNotFound(name))
-    } else if name == "fs" {
+    } else if CORE.contains(&name.as_str()) {
         Err(Error::Internal)
     } else {
         if let Some(parent) = context.parent() {
@@ -74,6 +74,81 @@ fn load(path: &Path) -> Option<PathBuf> {
     }
     None
 }
+
+const CORE: &[&str] = &[
+    "assert",
+    "async_hooks",
+    "buffer_ieee754",
+    "buffer",
+    "child_process",
+    "cluster",
+    "console",
+    "constants",
+    "crypto",
+    "_debug_agent",
+    "_debugger",
+    "dgram",
+    "dns",
+    "domain",
+    "events",
+    "freelist",
+    "fs",
+    "fs/promises",
+    "_http_agent",
+    "_http_client",
+    "_http_common",
+    "_http_incoming",
+    "_http_outgoing",
+    "_http_server",
+    "http",
+    "http2",
+    "https",
+    "inspector",
+    "_linklist",
+    "module",
+    "net",
+    "node-inspect/lib/_inspect",
+    "node-inspect/lib/internal/inspect_client",
+    "node-inspect/lib/internal/inspect_repl",
+    "os",
+    "path",
+    "perf_hooks",
+    "process",
+    "punycode",
+    "querystring",
+    "readline",
+    "repl",
+    "smalloc",
+    "_stream_duplex",
+    "_stream_transform",
+    "_stream_wrap",
+    "_stream_passthrough",
+    "_stream_readable",
+    "_stream_writable",
+    "stream",
+    "string_decoder",
+    "sys",
+    "timers",
+    "_tls_common",
+    "_tls_legacy",
+    "_tls_wrap",
+    "tls",
+    "trace_events",
+    "tty",
+    "url",
+    "util",
+    "v8/tools/arguments",
+    "v8/tools/codemap",
+    "v8/tools/consarray",
+    "v8/tools/csvparser",
+    "v8/tools/logreader",
+    "v8/tools/profile_view",
+    "v8/tools/splaytree",
+    "v8",
+    "vm",
+    "worker_threads",
+    "zlib",
+];
 
 #[test]
 fn test_resolve() {
@@ -150,5 +225,17 @@ fn test_resolve() {
     assert_eq!(
         resolve("package/lib/counter".to_string(), &fixtures.join("modules-nested/index.js")),
         Ok(fixtures.join("modules-nested/node_modules/package/lib/counter.js"))
+    );
+    assert_eq!(
+        resolve("assert".to_string(), Path::new("/")),
+        Err(Error::Internal)
+    );
+    assert_eq!(
+        resolve("fs".to_string(), Path::new("/")),
+        Err(Error::Internal)
+    );
+    assert_eq!(
+        resolve("events".to_string(), Path::new("/")),
+        Err(Error::Internal)
     );
 }
