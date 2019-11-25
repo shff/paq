@@ -152,90 +152,34 @@ const CORE: &[&str] = &[
 
 #[test]
 fn test_resolve() {
-    let fixtures = std::env::current_dir().unwrap().join("fixtures");
+    fn assert_resolves(name: &str, path: &str, expected: &str) {
+        let fixtures = std::env::current_dir().unwrap().join("fixtures");
+        assert_eq!(resolve(name.to_string(), &fixtures.join(path)), Ok(fixtures.join(expected.to_string())));
+    }
+    fn assert_internal(name: &str) {
+        assert_eq!(resolve(name.to_string(), Path::new("/")), Err(Error::Internal));
+    }
 
-    assert_eq!(
-        resolve("./counter".to_string(), &fixtures.join("relative/index.js")),
-        Ok(fixtures.join("relative/counter"))
-    );
-    assert_eq!(
-        resolve("./counter".to_string(), &fixtures.join("relative-js/index.js")),
-        Ok(fixtures.join("relative-js/counter.js"))
-    );
-    assert_eq!(
-        resolve("./counter".to_string(), &fixtures.join("relative-mjs/index.mjs")),
-        Ok(fixtures.join("relative-mjs/counter.mjs"))
-    );
-    assert_eq!(
-        resolve("../counter".to_string(), &fixtures.join("parent-js/entry/index.js")),
-        Ok(fixtures.join("parent-js/counter.js"))
-    );
-    assert_eq!(
-        resolve("./counter/counter".to_string(), &fixtures.join("relative-nested/index.js")),
-        Ok(fixtures.join("relative-nested/counter/counter.js"))
-    );
-    assert_eq!(
-        resolve("../counter".to_string(), &fixtures.join("relative-dir/entry/index.js")),
-        Ok(fixtures.join("relative-dir/counter/index.js"))
-    );
-    assert_eq!(
-        resolve("../counter/counter".to_string(), &fixtures.join("parent-nested/entry/index.js")),
-        Ok(fixtures.join("parent-nested/counter/counter.js"))
-    );
-    assert_eq!(
-        resolve("./".to_string(), &fixtures.join("pkginfo-basic/index.js")),
-        Ok(fixtures.join("pkginfo-basic/counter.js"))
-    );
-    assert_eq!(
-        resolve(".".to_string(), &fixtures.join("pkginfo-basic/index.js")),
-        Ok(fixtures.join("pkginfo-basic/counter.js"))
-    );
-    assert_eq!(
-        resolve("./counter".to_string(), &fixtures.join("pkginfo-nested/index.js")),
-        Ok(fixtures.join("pkginfo-nested/counter/counter.js"))
-    );
-    assert_eq!(
-        resolve("../".to_string(), &fixtures.join("pkginfo-parent/entry/index.js")),
-        Ok(fixtures.join("pkginfo-parent/counter.js"))
-    );
-    assert_eq!(
-        resolve("..".to_string(), &fixtures.join("pkginfo-parent/entry/index.js")),
-        Ok(fixtures.join("pkginfo-parent/counter.js"))
-    );
-    assert_eq!(
-        resolve(".".to_string(), &fixtures.join("pkginfo-dot/index.js")),
-        Ok(fixtures.join("pkginfo-dot/index.js"))
-    );
-    assert_eq!(
-        resolve("..".to_string(), &fixtures.join("pkginfo-dot/entry/index.js")),
-        Ok(fixtures.join("pkginfo-dot/index.js"))
-    );
-    assert_eq!(
-        resolve("package".to_string(), &fixtures.join("modules-basic/index.js")),
-        Ok(fixtures.join("modules-basic/node_modules/package/index.js"))
-    );
-    assert_eq!(
-        resolve("package".to_string(), &fixtures.join("modules-file/index.js")),
-        Ok(fixtures.join("modules-file/node_modules/package.js"))
-    );
-    assert_eq!(
-        resolve("package".to_string(), &fixtures.join("modules-pkginfo/index.js")),
-        Ok(fixtures.join("modules-pkginfo/node_modules/package/entry.js"))
-    );
-    assert_eq!(
-        resolve("package/lib/counter".to_string(), &fixtures.join("modules-nested/index.js")),
-        Ok(fixtures.join("modules-nested/node_modules/package/lib/counter.js"))
-    );
-    assert_eq!(
-        resolve("assert".to_string(), Path::new("/")),
-        Err(Error::Internal)
-    );
-    assert_eq!(
-        resolve("fs".to_string(), Path::new("/")),
-        Err(Error::Internal)
-    );
-    assert_eq!(
-        resolve("events".to_string(), Path::new("/")),
-        Err(Error::Internal)
-    );
+    assert_resolves("./counter", "relative/index.js", "relative/counter");
+    assert_resolves("./counter", "relative-js/index.js", "relative-js/counter.js");
+    assert_resolves("./counter", "relative-mjs/index.mjs", "relative-mjs/counter.mjs");
+    assert_resolves("../counter", "parent-js/entry/index.js", "parent-js/counter.js");
+    assert_resolves("./counter/counter", "relative-nested/index.js", "relative-nested/counter/counter.js");
+    assert_resolves("../counter", "relative-dir/entry/index.js", "relative-dir/counter/index.js");
+    assert_resolves("../counter/counter", "parent-nested/entry/index.js", "parent-nested/counter/counter.js");
+    assert_resolves("./", "pkginfo-basic/index.js", "pkginfo-basic/counter.js");
+    assert_resolves(".", "pkginfo-basic/index.js", "pkginfo-basic/counter.js");
+    assert_resolves("./counter", "pkginfo-nested/index.js", "pkginfo-nested/counter/counter.js");
+    assert_resolves("../", "pkginfo-parent/entry/index.js", "pkginfo-parent/counter.js");
+    assert_resolves("..", "pkginfo-parent/entry/index.js", "pkginfo-parent/counter.js");
+    assert_resolves(".", "pkginfo-dot/index.js", "pkginfo-dot/index.js");
+    assert_resolves("..", "pkginfo-dot/entry/index.js", "pkginfo-dot/index.js");
+    assert_resolves("package", "modules-basic/index.js", "modules-basic/node_modules/package/index.js");
+    assert_resolves("package", "modules-file/index.js", "modules-file/node_modules/package.js");
+    assert_resolves("package", "modules-pkginfo/index.js", "modules-pkginfo/node_modules/package/entry.js");
+    assert_resolves("package/lib/counter", "modules-nested/index.js", "modules-nested/node_modules/package/lib/counter.js");
+
+    assert_internal("assert");
+    assert_internal("fs");
+    assert_internal("events");
 }
