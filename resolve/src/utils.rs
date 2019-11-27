@@ -9,7 +9,7 @@ impl PathExt for Path {
     fn is_explicitly_relative(&self) -> bool {
         match self.components().next() {
             Some(Component::ParentDir) | Some(Component::CurDir) => true,
-            _ => false
+            _ => false,
         }
     }
     fn join_normalizing(&self, more: &Path) -> PathBuf {
@@ -21,4 +21,16 @@ impl PathExt for Path {
             Component::Normal(part) => path.join(part),
         })
     }
+}
+
+#[test]
+fn test_utils() {
+    assert_eq!(
+        Path::new("/Users/shf/Projects").join_normalizing(Path::new("/Users/shf/Projects/paq")),
+        PathBuf::from("/Users/shf/Projects/paq")
+    );
+    assert_eq!(
+        Path::new("/Users/shf/Projects").join_normalizing(Path::new("paq")),
+        PathBuf::from("/Users/shf/Projects/paq")
+    );
 }
