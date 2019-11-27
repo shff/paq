@@ -3,6 +3,9 @@
 [[package]]
 name = "js-bundler"
 version = "0.1.0"
+dependencies = [
+ "js-resolve 0.1.0",
+]
 
 [[package]]
 name = "js-resolve"

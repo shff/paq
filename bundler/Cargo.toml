@@ -13,3 +13,4 @@ keywords = ["js", "javascript", "bundler"]
 exclude = [ "fixtures/*" ]
 
 [dependencies]
+js-resolve = { version = "0.1.0", path = "../resolve" }
