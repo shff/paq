@@ -13,6 +13,13 @@ pub enum Error {
     Internal,
 }
 
+pub fn resolve_entry(name: String, context: &Path) -> Result<PathBuf, Error> {
+    let path = Path::new(&name);
+    let new_path = context.join_normalizing(path);
+
+    load(&new_path).ok_or(Error::ModuleNotFound(name))
+}
+
 pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
     if name.is_empty() {
         return Err(Error::NameEmpty);
