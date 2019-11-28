@@ -185,6 +185,7 @@ fn test_resolve() {
     assert_resolves("package", "modules-file/index.js", "modules-file/node_modules/package.js");
     assert_resolves("package", "modules-pkginfo/index.js", "modules-pkginfo/node_modules/package/entry.js");
     assert_resolves("package/lib/counter", "modules-nested/index.js", "modules-nested/node_modules/package/lib/counter.js");
+    assert_resolves(".package", "modules-dotted/index.js", "modules-dotted/node_modules/.package/index.js");
 
     assert_internal("assert");
     assert_internal("fs");
