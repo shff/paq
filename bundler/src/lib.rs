@@ -4,16 +4,17 @@ mod queue;
 mod writer;
 
 use std::path::{Path};
+use std::error::Error;
 use std::fs::{read_to_string};
 
-fn bundle(file: String, root: &Path) -> Result<String, String> {
+fn bundle(file: String, root: &Path) -> Result<String, Box<dyn Error>> {
     let entry = js_resolve::resolve_entry(file, &root).or(Err("Can't resolve entry point"))?;
     let modules = queue::run(entry.clone(), |path| {
         let source = read_to_string(&path).expect("Can't read file");
 
         Ok((source, vec![]))
-    }).expect("Can't get dependencies");
-    let content = writer::write(&modules, &entry).expect("Can't write bundle");
+    })?;
+    let content = writer::write(&modules, &entry)?;
 
     Ok(content)
 }
