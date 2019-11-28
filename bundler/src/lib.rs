@@ -1,5 +1,7 @@
 extern crate js_resolve;
+extern crate json;
 mod queue;
+mod writer;
 
 use std::path::{Path};
 use std::fs::{read_to_string};
@@ -11,7 +13,7 @@ fn bundle(file: String, root: &Path) -> Result<String, String> {
 
         Ok((source, vec![]))
     }).expect("Can't get dependencies");
-    let content = modules.iter().map(|(_,b)| b.to_string()).collect::<Vec<String>>().join("");
+    let content = writer::write(&modules, &entry).expect("Can't write bundle");
 
     Ok(content)
 }
