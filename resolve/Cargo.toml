@@ -13,4 +13,4 @@ keywords = ["js", "node", "modules"]
 exclude = [ "fixtures/*" ]
 
 [dependencies]
-json = "*"
+json = "0.12.0"
