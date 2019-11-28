@@ -1,6 +1,6 @@
 extern crate js_resolve;
+extern crate miniqueue;
 extern crate json;
-mod queue;
 mod writer;
 
 use std::path::{Path};
@@ -9,7 +9,7 @@ use std::fs::{read_to_string};
 
 fn bundle(file: String, root: &Path) -> Result<String, Box<dyn Error>> {
     let entry = js_resolve::resolve_entry(file, &root).ok_or("No entry point")?;
-    let modules = queue::run(entry.clone(), |path| {
+    let modules = miniqueue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
 
         Ok((source, vec![]))
