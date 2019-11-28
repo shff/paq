@@ -8,7 +8,6 @@ use utils::PathExt;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    NameEmpty,
     ModuleNotFound(String),
     Internal,
 }
@@ -21,10 +20,6 @@ pub fn resolve_entry(name: String, context: &Path) -> Result<PathBuf, Error> {
 }
 
 pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
-    if name.is_empty() {
-        return Err(Error::NameEmpty);
-    }
-
     let path = Path::new(&name);
     if path.is_explicitly_relative() {
         if let Some(parent) = context.parent() {
@@ -36,6 +31,8 @@ pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
         }
     } else if path.is_absolute() {
         load(path).ok_or(Error::ModuleNotFound(name))
+    } else if name.is_empty() {
+        load(context).ok_or(Error::ModuleNotFound(name))
     } else if CORE.contains(&name.as_str()) {
         Err(Error::Internal)
     } else {
@@ -167,6 +164,7 @@ fn test_resolve() {
         assert_eq!(resolve(name.to_string(), Path::new("/")), Err(Error::Internal));
     }
 
+    assert_resolves("", "no-entry/index.js", "no-entry/index.js");
     assert_resolves("./counter", "relative/index.js", "relative/counter");
     assert_resolves("./counter", "relative-js/index.js", "relative-js/counter.js");
     assert_resolves("./counter", "relative-mjs/index.mjs", "relative-mjs/counter.mjs");
