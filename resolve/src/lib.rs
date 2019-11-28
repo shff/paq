@@ -6,47 +6,31 @@ use std::fs::{read_to_string};
 
 use utils::PathExt;
 
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    ModuleNotFound(String),
-    Internal,
-}
-
-pub fn resolve_entry(name: String, context: &Path) -> Result<PathBuf, Error> {
+pub fn resolve_entry(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
     let new_path = context.join_normalizing(path);
 
-    load(&new_path).ok_or(Error::ModuleNotFound(name))
+    load(&new_path)
 }
 
-pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
+pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
     if path.is_explicitly_relative() {
-        if let Some(parent) = context.parent() {
-            let new_path = parent.join_normalizing(path);
+        let parent = context.parent()?;
+        let new_path = parent.join_normalizing(path);
 
-            load(&new_path).ok_or(Error::ModuleNotFound(name))
-        } else {
-            Err(Error::ModuleNotFound(name))
-        }
+        load(&new_path)
     } else if path.is_absolute() {
-        load(path).ok_or(Error::ModuleNotFound(name))
+        load(path)
     } else if name.is_empty() {
-        load(context).ok_or(Error::ModuleNotFound(name))
+        load(context)
     } else if CORE.contains(&name.as_str()) {
-        Err(Error::Internal)
+        None
     } else {
-        if let Some(parent) = context.parent() {
-            let new_path = parent.join("node_modules").join(&path);
+        let parent = context.parent()?;
+        let new_path = parent.join("node_modules").join(&path);
 
-            if let Some(result) = load(&new_path) {
-                Ok(result)
-            } else {
-                resolve(name, parent)
-            }
-        } else {
-            Err(Error::ModuleNotFound(name))
-        }
+        load(&new_path).or(resolve(name, parent))
     }
 }
 
@@ -158,10 +142,10 @@ const CORE: &[&str] = &[
 fn test_resolve() {
     fn assert_resolves(name: &str, path: &str, expected: &str) {
         let fixtures = std::env::current_dir().unwrap().join("fixtures");
-        assert_eq!(resolve(name.to_string(), &fixtures.join(path)), Ok(fixtures.join(expected.to_string())));
+        assert_eq!(resolve(name.to_string(), &fixtures.join(path)), Some(fixtures.join(expected.to_string())));
     }
     fn assert_internal(name: &str) {
-        assert_eq!(resolve(name.to_string(), Path::new("/")), Err(Error::Internal));
+        assert_eq!(resolve(name.to_string(), Path::new("/")), None);
     }
 
     assert_resolves("", "no-entry/index.js", "no-entry/index.js");

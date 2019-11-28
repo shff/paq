@@ -2,7 +2,7 @@ use std::hash::{Hash};
 use std::error::Error;
 use std::collections::{HashMap, VecDeque};
 
-pub fn run<A, B, F: FnMut(A) -> Result<(B, Vec<A>), String>>(first_job: A, mut perform: F) -> Result<HashMap<A, B>, Box<dyn Error>>
+pub fn run<A, B, F: FnMut(A) -> Result<(B, Vec<A>), Box<dyn Error>>>(first_job: A, mut perform: F) -> Result<HashMap<A, B>, Box<dyn Error>>
 where A: Clone + Eq + Hash, B: Clone {
     let mut results = HashMap::<A, B>::default();
     let mut queue = VecDeque::<A>::new();
@@ -27,7 +27,7 @@ fn test_queue() {
         match num {
             1 => Ok(("one", vec![ 2 ])),
             2 => Ok(("two", vec![])),
-            _ => Err("Failure".to_string())
+            _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Error")))
         }
     }).unwrap();
     assert_eq!(result.get(&1), Some(&"one"));
@@ -39,7 +39,7 @@ fn test_queue() {
     let result = run(1, |num| {
         match num {
             1 => Ok(("one", vec![ 2 ])),
-            _ => Err("Failure".to_string())
+            _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Error")))
         }
     });
     assert_eq!(result.is_err(), true);
