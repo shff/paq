@@ -2,25 +2,33 @@
 
 A minimalist generic single-threaded queue that aggregates results and populates the queue with more tasks.
 
+It is useful when working with dependency graphs. It can be used by package managers and linkers/bundlers.
+
+The semantics are the opposite of `fold`/`reduce`: instead of starting with a bunch of data, it starts with a single data point and recursively traverses it to unfold a bigger structure.
+
 ## Usage
 
 Pass the first **job** that should be run as the first parameter.
 
-The second parameter is a function that receives the **job** and executes, and then returns a tuple containing:
+The second parameter is a function that receives the **job** and executes it.
+
+That function should returns a tuple containing:
 
  - The **job result**
  - A vector with more **jobs** to be executed
 
-All the **jobs** returned in the vector will be enqueued to be ran later. Notice that jobs that were already ran in the past will not be scheduled again.
+All the **jobs** returned in the vector will be unfolded and enqueued to be executed later. Notice that jobs that were already executed in the past will not be scheduled again.
 
 The end result of `run` is a HashMap aggregating **jobs** and **job results**.
 
-Both the **job** and **job result** are generic types.
+Both the **job** and **job result** are generic types, so they can be anything you want.
 
 ```rust
 use miniqueue;
 
 let result = run(1, |num| {
+
+
     match num {
         1 => Ok(("one", vec![ 2 ])),
         2 => Ok(("two", vec![])),

@@ -1,14 +1,34 @@
 # resolve
 
-A node.js module resolver in Rust
+A simple node.js module resolver in Rust.
+
+It is based on the [Node.js resolution algorithm](https://nodejs.org/api/modules.html#modules_all_together).
 
 ## Usage
 
-```rust
-use resolve;
+Just call `resolve`. The first parameter is the module (eg: a package name or a path) and the second one is the reference point. It should be the file that is requesting the module.
 
-resolve::resolve("express", PathBuf::from("/var/apps/server/"));
+The first parameter can be a module, a relative path or an absolute path.
+
+If the first parameter is an empty string it will check `package.json` and try to resolve to `index.js`/`index.mjs`/`index.json`.
+
+```rust
+use resolve_js;
+
+resolve_js::resolve("express", PathBuf::from("/var/apps/server/"));
+resolve_js::resolve("./index.js", PathBuf::from("/var/apps/server/"));
+resolve_js::resolve("/app/index.js", PathBuf::from("/var/apps/server/"));
 ```
+
+A convenience function for finding entry points is also provided:
+
+```
+resolve_js::resolve_entry("index.js", PathBuf::from("/var/apps/server/"));
+```
+
+The difference between `resolve` and `resolve_entry` is that in this case, the first parameter is always considered a relative path.
+
+Like the first function, if the first parameter is an empty string, it will also check `package.json` and try to resolve to `index.js`/`index.mjs`/`index.json`.
 
 ## LICENSE
 
