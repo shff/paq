@@ -15,5 +15,4 @@ exclude = [ "fixtures/*" ]
 [dependencies]
 js-resolve = { version = "0.1.0", path = "../resolve" }
 miniqueue = { version = "0.1.0", path = "../queue" }
-json = "*"
-  
+json = "0.12.0"
