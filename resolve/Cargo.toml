@@ -7,6 +7,7 @@ edition = "2018"
 description = "A node.js module resolver"
 documentation = "https://docs.rs/js-resolve"
 repository = "https://github.com/shff/paq"
+readme = "README.md"
 license = "MIT"
 
 keywords = ["js", "node", "modules"]
