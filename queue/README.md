@@ -1,13 +1,34 @@
-# resolve
+# miniqueue
 
-A node.js module resolver in Rust
+A minimalist generic single-threaded queue that aggregates results and populates the queue with more tasks.
 
 ## Usage
 
-```rust
-use resolve;
+Pass the first **job** that should be run as the first parameter.
 
-resolve::resolve("express", PathBuf::from("/var/apps/server/"));
+The second parameter is a function that receives the **job** and executes, and then returns a tuple containing:
+
+ - The **job result**
+ - A vector with more **jobs** to be executed
+
+All the **jobs** returned in the vector will be enqueued to be ran later. Notice that jobs that were already ran in the past will not be scheduled again.
+
+The end result of `run` is a HashMap aggregating **jobs** and **job results**.
+
+Both the **job** and **job result** are generic types.
+
+```rust
+use miniqueue;
+
+let result = run(1, |num| {
+    match num {
+        1 => Ok(("one", vec![ 2 ])),
+        2 => Ok(("two", vec![])),
+        _ => Ok(("", vec![]))
+    }
+});
+
+assert_eq!(result.unwrap().get(&1), Some(&"one"));
 ```
 
 ## LICENSE

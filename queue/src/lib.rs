@@ -33,6 +33,15 @@ fn test_queue() {
     assert_eq!(result.get(&1), Some(&"one"));
     assert_eq!(result.get(&2), Some(&"two"));
 
+    let result = run(1, |num| {
+        match num {
+            1 => Ok(("one", vec![ 2 ])),
+            2 => Ok(("two", vec![])),
+            _ => Ok(("", vec![]))
+        }
+    });
+    assert_eq!(result.unwrap().get(&1), Some(&"one"));
+
     let result = run("one", |num| { Ok((num, vec![])) });
     assert_eq!(result.unwrap().get(&"one"), Some(&"one"));
 
