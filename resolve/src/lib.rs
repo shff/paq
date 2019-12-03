@@ -1,10 +1,8 @@
-extern crate json;
-mod utils;
-
 use std::path::{Path, PathBuf};
 use std::fs::{read_to_string};
 
 use utils::PathExt;
+mod utils;
 
 pub fn resolve_entry(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
