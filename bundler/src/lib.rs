@@ -1,18 +1,20 @@
-extern crate js_resolve;
-extern crate miniqueue;
-extern crate json;
-mod writer;
-
 use std::path::{Path};
 use std::error::Error;
 use std::fs::{read_to_string};
+
+mod writer;
 
 fn bundle(file: String, root: &Path) -> Result<String, Box<dyn Error>> {
     let entry = js_resolve::resolve_entry(file, &root).ok_or("No entry point")?;
     let modules = miniqueue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
 
-        Ok((source, vec![]))
+        let regexp = regex::Regex::new(r#"require\s*\(\s*['"](.*)['"]\s*\)"#)?;
+        let deps = regexp.captures_iter(&source).map(|dep| {
+            js_resolve::resolve(dep[1].to_string(), &path).unwrap()
+        }).collect();
+
+        Ok((source, deps))
     })?;
     let content = writer::write(&modules, &entry)?;
 
@@ -27,4 +29,7 @@ fn test_bundler() {
         assert!(result.contains(substring))
     }
     assert_bundle("basic", "hello()");
+    assert_bundle("with-dep", "/* math.js */");
+    assert_bundle("double-quotes", "/* math.js */");
+    assert_bundle("crazy-indent", "/* math.js */");
 }
