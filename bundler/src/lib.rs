@@ -4,7 +4,7 @@ use std::fs::{read_to_string};
 
 mod writer;
 
-fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::Error>> {
+pub fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let entry = js_resolve::resolve_entry(file, &root).ok_or("No entry point")?;
     let modules = miniqueue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
