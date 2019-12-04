@@ -1,6 +1,6 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
+use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
-use std::fs::{read_to_string};
 
 mod writer;
 
@@ -9,7 +9,7 @@ pub fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::E
     let modules = miniqueue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
 
-        let regexp = regex::Regex::new(r#"require\s*\(\s*['"](.*)['"]\s*\)"#)?;
+        let regexp = regex::Regex::new(r#"require\s*\(\s*['"](.+?)['"]\s*\)"#)?;
         let deps = regexp.captures_iter(&source).map(|dep| {
             (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path).unwrap())
         }).collect::<HashMap::<String, PathBuf>>();

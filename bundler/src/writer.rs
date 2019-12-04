@@ -1,6 +1,6 @@
-use std::collections::{HashMap};
-use std::path::{PathBuf, Path};
+use std::collections::HashMap;
 use std::fmt::{Write, Error};
+use std::path::{PathBuf, Path};
 
 #[derive(Debug, Clone)]
 pub struct Module {

@@ -1,5 +1,5 @@
+use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
-use std::fs::{read_to_string};
 
 use utils::PathExt;
 mod utils;
@@ -50,7 +50,7 @@ fn load(path: &Path) -> Option<PathBuf> {
         if let Ok(pkg_info) = json::parse(&data) {
             if let Some(main) = pkg_info["main"].as_str() {
                 if main != "." && main != ".." {
-                    return load(&path.join(main))
+                    return load(&path.join(main));
                 }
             }
         }

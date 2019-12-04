@@ -1,6 +1,6 @@
-use std::hash::{Hash};
-use std::error::Error;
 use std::collections::{HashMap, VecDeque};
+use std::error::Error;
+use std::hash::Hash;
 
 pub fn run<A, B, F: FnMut(A) -> Result<(B, Vec<A>), Box<dyn Error>>>(first_job: A, mut perform: F) -> Result<HashMap<A, B>, Box<dyn Error>>
 where A: Clone + Eq + Hash, B: Clone {
