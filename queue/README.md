@@ -2,33 +2,40 @@
 
 A minimalist generic single-threaded queue that aggregates results and populates the queue with more tasks.
 
-It is useful when working with dependency graphs. It can be used by package managers and linkers/bundlers.
-
 The semantics are the opposite of `fold`/`reduce`: instead of starting with a bunch of data, it starts with a single data point and recursively traverses it to unfold a bigger structure.
+
+It is useful when working with dependency graphs. It can be used by package managers and linkers/bundlers.
 
 ## Usage
 
+Here's a simple example:
+
+```rust
+let all_results = miniqueue::run(first_job, |job| {
+    let (result, more_jobs) = run_job(job)
+    (result, more_jobs)
+});
+```
+
 Pass the first **job** that should be run as the first parameter.
 
-The second parameter is a function that receives the **job** and executes it.
-
-That function should returns a tuple containing:
+The second parameter is a closure that receives the **job** and executes it, and should return a tuple containing:
 
  - The **job result**
- - A vector with more **jobs** to be executed
+ - A vector with more **jobs** to be executed in the next iterations
 
-All the **jobs** returned in the vector will be unfolded and enqueued to be executed later. Notice that jobs that were already executed in the past will not be scheduled again.
+All the **jobs** returned in the vector will be enqueued to be executed later. Notice that jobs that were already executed in the past will not be scheduled again.
 
-The end result of `run` is a HashMap aggregating **jobs** and **job results**.
+The end result of `run` itself is a HashMap aggregating **jobs** and **job results**.
 
 Both the **job** and **job result** are generic types, so they can be anything you want.
+
+Here's a test case with a self-contained example:
 
 ```rust
 use miniqueue;
 
 let result = run(1, |num| {
-
-
     match num {
         1 => Ok(("one", vec![ 2 ])),
         2 => Ok(("two", vec![])),
