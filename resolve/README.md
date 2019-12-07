@@ -1,4 +1,4 @@
-# resolve
+# js-resolve
 
 A simple node.js module resolver in Rust.
 
@@ -13,17 +13,17 @@ The first parameter can be a module, a relative path or an absolute path.
 If the first parameter is an empty string it will check `package.json` and try to resolve to `index.js`/`index.mjs`/`index.json`.
 
 ```rust
-use resolve_js;
+use js_resolve;
 
-resolve_js::resolve("express", PathBuf::from("/var/apps/server/"));
-resolve_js::resolve("./index.js", PathBuf::from("/var/apps/server/"));
-resolve_js::resolve("/app/index.js", PathBuf::from("/var/apps/server/"));
+js_resolve::resolve("express", PathBuf::from("/var/apps/server/"));
+js_resolve::resolve("./index.js", PathBuf::from("/var/apps/server/"));
+js_resolve::resolve("/app/index.js", PathBuf::from("/var/apps/server/"));
 ```
 
 A convenience function for finding entry points is also provided:
 
 ```
-resolve_js::resolve_entry("index.js", PathBuf::from("/var/apps/server/"));
+js_resolve::resolve_entry("index.js", PathBuf::from("/var/apps/server/"));
 ```
 
 The difference between `resolve` and `resolve_entry` is that in this case, the first parameter is always considered a relative path.
