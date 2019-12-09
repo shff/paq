@@ -1,12 +1,9 @@
 use std::fs::read_to_string;
-use std::path::{Path, PathBuf};
-
-use utils::PathExt;
-mod utils;
+use std::path::{Component, Path, PathBuf};
 
 pub fn resolve_entry(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
-    let new_path = context.join(path).normalize();
+    let new_path = normalize(&context.join(path));
 
     load(&new_path)
 }
@@ -15,7 +12,7 @@ pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
     if path.starts_with("./") || path.starts_with("../") {
         let parent = context.parent()?;
-        let new_path = parent.join(path).normalize();
+        let new_path = normalize(&parent.join(path));
 
         load(&new_path)
     } else if path.is_absolute() {
@@ -59,6 +56,16 @@ fn load(path: &Path) -> Option<PathBuf> {
         return load(&path.join("index"));
     }
     None
+}
+
+fn normalize(p: &Path) -> PathBuf {
+    p.components().fold(PathBuf::from("/"), |path, c| match c {
+        Component::Prefix(ref prefix) => PathBuf::from(prefix.as_os_str().to_owned()),
+        Component::RootDir => path.join("/"),
+        Component::CurDir => path,
+        Component::ParentDir => path.parent().unwrap().to_owned(),
+        Component::Normal(part) => path.join(part),
+    })
 }
 
 const CORE: &[&str] = &[
@@ -170,4 +177,16 @@ fn test_resolve() {
     assert_internal("assert");
     assert_internal("fs");
     assert_internal("events");
+}
+
+#[test]
+fn test_normalize() {
+    assert_eq!(
+        normalize(&Path::new("/Users/shf/Projects").join(Path::new("/Users/shf/Projects/paq"))),
+        PathBuf::from("/Users/shf/Projects/paq")
+    );
+    assert_eq!(
+        normalize(&Path::new("/Users/shf/Projects").join(Path::new("paq"))),
+        PathBuf::from("/Users/shf/Projects/paq")
+    );
 }
