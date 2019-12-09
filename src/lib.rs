@@ -2,9 +2,14 @@ use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
-mod writer;
 mod queue;
 mod resolve;
+
+#[derive(Debug, Clone)]
+struct Module {
+    source: String,
+    deps: HashMap<String, PathBuf>,
+}
 
 pub fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let entry = resolve::resolve(file, &root).ok_or("No entry point")?;
@@ -17,11 +22,26 @@ pub fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::E
         }).collect::<HashMap::<String, PathBuf>>();
         let modules = deps.values().cloned().collect();
 
-        Ok((writer::Module { source, deps }, modules))
+        Ok((Module { source, deps }, modules))
     })?;
-    let content = writer::write(&modules, &entry)?;
+    let content = write(&modules, &entry);
 
     Ok(content)
+}
+
+fn write(modules: &HashMap<PathBuf, Module>, entry_point: &Path) -> String {
+    let mods = modules.iter().map(|(file, module)| {
+        let filename = modules.keys().position(|v| v == file).unwrap();
+        let deps = json::stringify(module.deps.iter().map(|(dep, path)|
+            (dep.to_string(), modules.keys().position(|v| v == path).unwrap())
+        ).collect::<HashMap::<String, usize>>());
+
+        format!("__deps[{}] = {{ deps: {}, func: function(module, exports, require) {{\n{} \n}} }};", filename, deps, module.source)
+    }).collect::<Vec<String>>().join("\n");
+
+    let prelude = include_str!("prelude.js");
+    let entry_id = modules.keys().position(|v| v == entry_point).unwrap();
+    format!("{}; {}; __req(null)({}) }})()", prelude, mods, entry_id)
 }
 
 #[test]
