@@ -6,7 +6,7 @@ mod utils;
 
 pub fn resolve_entry(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
-    let new_path = context.join_normalizing(path);
+    let new_path = context.join(path).normalize();
 
     load(&new_path)
 }
@@ -15,7 +15,7 @@ pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
     if path.is_explicitly_relative() {
         let parent = context.parent()?;
-        let new_path = parent.join_normalizing(path);
+        let new_path = parent.join(path).normalize();
 
         load(&new_path)
     } else if path.is_absolute() {

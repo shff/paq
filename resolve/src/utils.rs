@@ -2,7 +2,7 @@ use std::path::{Component, Path, PathBuf};
 
 pub trait PathExt {
     fn is_explicitly_relative(&self) -> bool;
-    fn join_normalizing(&self, more: &Path) -> PathBuf;
+    fn normalize(&self) -> PathBuf;
 }
 
 impl PathExt for Path {
@@ -12,10 +12,10 @@ impl PathExt for Path {
             _ => false,
         }
     }
-    fn join_normalizing(&self, more: &Path) -> PathBuf {
-        more.components().fold(self.to_owned(), |path, c| match c {
-            Component::Prefix(prefix) => PathBuf::from(prefix.as_os_str().to_owned()),
-            Component::RootDir => path.join(std::path::MAIN_SEPARATOR.to_string()),
+    fn normalize(&self) -> PathBuf {
+        self.components().fold(PathBuf::from("/"), |path, c| match c {
+            Component::Prefix(ref prefix) => PathBuf::from(prefix.as_os_str().to_owned()),
+            Component::RootDir => path.join("/"),
             Component::CurDir => path,
             Component::ParentDir => path.parent().unwrap().to_owned(),
             Component::Normal(part) => path.join(part),
@@ -26,11 +26,11 @@ impl PathExt for Path {
 #[test]
 fn test_utils() {
     assert_eq!(
-        Path::new("/Users/shf/Projects").join_normalizing(Path::new("/Users/shf/Projects/paq")),
+        Path::new("/Users/shf/Projects").join(Path::new("/Users/shf/Projects/paq")).normalize(),
         PathBuf::from("/Users/shf/Projects/paq")
     );
     assert_eq!(
-        Path::new("/Users/shf/Projects").join_normalizing(Path::new("paq")),
+        Path::new("/Users/shf/Projects").join(Path::new("paq")).normalize(),
         PathBuf::from("/Users/shf/Projects/paq")
     );
 }
