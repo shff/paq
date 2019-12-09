@@ -33,7 +33,6 @@ fn test_bundler() {
         let fixtures = std::env::current_dir().unwrap().join("fixtures");
         let result = bundle("index.js".to_string(), &fixtures.join(path)).expect("Error");
         let output = std::process::Command::new("node").arg("-e").arg(&result).output().expect("Error running node");
-        println!("{}", result);
         assert_eq!(String::from_utf8_lossy(&output.stdout), value);
     }
     assert_bundle("basic", "console.log('hello')");
