@@ -3,15 +3,17 @@ use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
 mod writer;
+mod queue;
+mod resolve;
 
 pub fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let entry = js_resolve::resolve(file, &root).ok_or("No entry point")?;
-    let modules = miniqueue::run(entry.clone(), |path| {
+    let entry = resolve::resolve(file, &root).ok_or("No entry point")?;
+    let modules = queue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
 
         let regexp = regex::Regex::new(r#"require\s*\(\s*['"](.+?)['"]\s*\)"#)?;
         let deps = regexp.captures_iter(&source).map(|dep| {
-            (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path.parent().unwrap()).unwrap())
+            (dep[1].to_string(), resolve::resolve(dep[1].to_string(), &path.parent().unwrap()).unwrap())
         }).collect::<HashMap::<String, PathBuf>>();
         let modules = deps.values().cloned().collect();
 

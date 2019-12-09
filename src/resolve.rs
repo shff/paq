@@ -138,7 +138,7 @@ const CORE: &[&str] = &[
 #[test]
 fn test_resolve() {
     fn assert_resolves(name: &str, path: &str, expected: &str) {
-        let fixtures = std::env::current_dir().unwrap().join("fixtures");
+        let fixtures = std::env::current_dir().unwrap().join("fixtures/resolve");
         assert_eq!(resolve(name.to_string(), &fixtures.join(path)), Some(fixtures.join(expected.to_string())));
     }
     fn assert_internal(name: &str) {
