@@ -1,17 +1,10 @@
 use std::path::{Component, Path, PathBuf};
 
 pub trait PathExt {
-    fn is_explicitly_relative(&self) -> bool;
     fn normalize(&self) -> PathBuf;
 }
 
 impl PathExt for Path {
-    fn is_explicitly_relative(&self) -> bool {
-        match self.components().next() {
-            Some(Component::ParentDir) | Some(Component::CurDir) => true,
-            _ => false,
-        }
-    }
     fn normalize(&self) -> PathBuf {
         self.components().fold(PathBuf::from("/"), |path, c| match c {
             Component::Prefix(ref prefix) => PathBuf::from(prefix.as_os_str().to_owned()),

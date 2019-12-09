@@ -13,7 +13,7 @@ pub fn resolve_entry(name: String, context: &Path) -> Option<PathBuf> {
 
 pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
-    if path.is_explicitly_relative() {
+    if path.starts_with("./") || path.starts_with("../") {
         let parent = context.parent()?;
         let new_path = parent.join(path).normalize();
 
