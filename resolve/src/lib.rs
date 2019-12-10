@@ -1,18 +1,10 @@
 use std::fs::read_to_string;
 use std::path::{Component, Path, PathBuf};
 
-pub fn resolve_entry(name: String, context: &Path) -> Option<PathBuf> {
-    let path = Path::new(&name);
-    let new_path = normalize(&context.join(path));
-
-    load(&new_path)
-}
-
 pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
     if path.starts_with("./") || path.starts_with("../") {
-        let parent = context.parent()?;
-        let new_path = normalize(&parent.join(path));
+        let new_path = normalize(&context.join(path));
 
         load(&new_path)
     } else if path.is_absolute() {
@@ -23,7 +15,7 @@ pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
         None
     } else {
         let parent = context.parent()?;
-        let new_path = parent.join("node_modules").join(&path);
+        let new_path = context.join("node_modules").join(&path);
 
         load(&new_path).or(resolve(name, parent))
     }
@@ -153,26 +145,26 @@ fn test_resolve() {
         assert_eq!(resolve(name.to_string(), Path::new("/")), None);
     }
 
-    assert_resolves("", "no-entry/index.js", "no-entry/index.js");
-    assert_resolves("./counter", "relative/index.js", "relative/counter");
-    assert_resolves("./counter", "relative-js/index.js", "relative-js/counter.js");
-    assert_resolves("./counter", "relative-mjs/index.mjs", "relative-mjs/counter.mjs");
-    assert_resolves("../counter", "parent-js/entry/index.js", "parent-js/counter.js");
-    assert_resolves("./counter/counter", "relative-nested/index.js", "relative-nested/counter/counter.js");
-    assert_resolves("../counter", "relative-dir/entry/index.js", "relative-dir/counter/index.js");
-    assert_resolves("../counter/counter", "parent-nested/entry/index.js", "parent-nested/counter/counter.js");
-    assert_resolves("./", "pkginfo-basic/index.js", "pkginfo-basic/counter.js");
-    assert_resolves(".", "pkginfo-basic/index.js", "pkginfo-basic/counter.js");
-    assert_resolves("./counter", "pkginfo-nested/index.js", "pkginfo-nested/counter/counter.js");
-    assert_resolves("../", "pkginfo-parent/entry/index.js", "pkginfo-parent/counter.js");
-    assert_resolves("..", "pkginfo-parent/entry/index.js", "pkginfo-parent/counter.js");
-    assert_resolves(".", "pkginfo-dot/index.js", "pkginfo-dot/index.js");
-    assert_resolves("..", "pkginfo-dot/entry/index.js", "pkginfo-dot/index.js");
-    assert_resolves("package", "modules-basic/index.js", "modules-basic/node_modules/package/index.js");
-    assert_resolves("package", "modules-file/index.js", "modules-file/node_modules/package.js");
-    assert_resolves("package", "modules-pkginfo/index.js", "modules-pkginfo/node_modules/package/entry.js");
-    assert_resolves("package/lib/counter", "modules-nested/index.js", "modules-nested/node_modules/package/lib/counter.js");
-    assert_resolves(".package", "modules-dotted/index.js", "modules-dotted/node_modules/.package/index.js");
+    assert_resolves("", "no-entry", "no-entry/index.js");
+    assert_resolves("./counter", "relative", "relative/counter");
+    assert_resolves("./counter", "relative-js", "relative-js/counter.js");
+    assert_resolves("./counter", "relative-mjs", "relative-mjs/counter.mjs");
+    assert_resolves("../counter", "parent-js/entry", "parent-js/counter.js");
+    assert_resolves("./counter/counter", "relative-nested", "relative-nested/counter/counter.js");
+    assert_resolves("../counter", "relative-dir/entry", "relative-dir/counter/index.js");
+    assert_resolves("../counter/counter", "parent-nested/entry", "parent-nested/counter/counter.js");
+    assert_resolves("./", "pkginfo-basic", "pkginfo-basic/counter.js");
+    assert_resolves(".", "pkginfo-basic", "pkginfo-basic/counter.js");
+    assert_resolves("./counter", "pkginfo-nested", "pkginfo-nested/counter/counter.js");
+    assert_resolves("../", "pkginfo-parent/entry", "pkginfo-parent/counter.js");
+    assert_resolves("..", "pkginfo-parent/entry", "pkginfo-parent/counter.js");
+    assert_resolves(".", "pkginfo-dot", "pkginfo-dot/index.js");
+    assert_resolves("..", "pkginfo-dot/entry", "pkginfo-dot/index.js");
+    assert_resolves("package", "modules-basic", "modules-basic/node_modules/package/index.js");
+    assert_resolves("package", "modules-file", "modules-file/node_modules/package.js");
+    assert_resolves("package", "modules-pkginfo", "modules-pkginfo/node_modules/package/entry.js");
+    assert_resolves("package/lib/counter", "modules-nested", "modules-nested/node_modules/package/lib/counter.js");
+    assert_resolves(".package", "modules-dotted", "modules-dotted/node_modules/.package/index.js");
 
     assert_internal("assert");
     assert_internal("fs");

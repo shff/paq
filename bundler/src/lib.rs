@@ -5,13 +5,13 @@ use std::path::{Path, PathBuf};
 mod writer;
 
 pub fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::Error>> {
-    let entry = js_resolve::resolve_entry(file, &root).ok_or("No entry point")?;
+    let entry = js_resolve::resolve(file, &root).ok_or("No entry point")?;
     let modules = miniqueue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
 
         let regexp = regex::Regex::new(r#"require\s*\(\s*['"](.+?)['"]\s*\)"#)?;
         let deps = regexp.captures_iter(&source).map(|dep| {
-            (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path).unwrap())
+            (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path.parent().unwrap()).unwrap())
         }).collect::<HashMap::<String, PathBuf>>();
         let modules = deps.values().cloned().collect();
 
@@ -26,12 +26,12 @@ pub fn bundle(file: String, root: &Path) -> Result<String, Box<dyn std::error::E
 fn test_bundler() {
     fn assert_bundle(path: &str, substring: &str) {
         let fixtures = std::env::current_dir().unwrap().join("fixtures");
-        let result = bundle("index.js".to_string(), &fixtures.join(path)).expect("Error");
+        let result = bundle("./index.js".to_string(), &fixtures.join(path)).expect("Error");
         assert!(result.contains(substring))
     }
     fn assert_node(path: &str, value: &str) {
         let fixtures = std::env::current_dir().unwrap().join("fixtures");
-        let result = bundle("index.js".to_string(), &fixtures.join(path)).expect("Error");
+        let result = bundle("./index.js".to_string(), &fixtures.join(path)).expect("Error");
         let output = std::process::Command::new("node").arg("-e").arg(&result).output().expect("Error running node");
         assert_eq!(String::from_utf8_lossy(&output.stdout), value);
     }
