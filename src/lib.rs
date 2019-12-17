@@ -55,12 +55,14 @@ fn test_bundler() {
         let fixtures = std::env::current_dir().unwrap().join("fixtures/bundler");
         let result = bundle("./index.js".to_string(), &fixtures.join(path)).expect("Error");
         let output = std::process::Command::new("node").arg("-e").arg(&result).output().expect("Error running node");
-        assert_eq!(String::from_utf8_lossy(&output.stdout), value);
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), value);
     }
     assert_bundle("basic", "console.log('hello')");
     assert_bundle("with-dep", "/* math.js */");
     assert_bundle("double-quotes", "/* math.js */");
     assert_bundle("crazy-indent", "/* math.js */");
-    assert_node("basic", "hello\n");
-    assert_node("with-dep", "2\n");
+    assert_node("basic", "hello");
+    assert_node("with-dep", "2");
+    assert_node("double-quotes", "");
+    assert_node("crazy-indent", "");
 }
