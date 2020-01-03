@@ -1,17 +1,8 @@
 (function() {
-  var __deps = {};
-  var __req = (self) => {
-    const require = (m) => require._module(m).exports;
-    require._deps = {};
-    require._module = (m) => {
-      let fn = self ? __deps[require._deps[m]] : __deps[m];
-      if (fn.module) return fn.module;
-      const module = { exports: {} };
-      fn.module = module;
-      module.require = __req(module);
-      module.require._deps = fn.deps;
-      fn.func(module, module.exports, module.require);
-      return module;
-    };
-    return require;
+  var __req = self => dep => {
+    let fn = self.deps[dep];
+    if (fn.module) return fn.module.exports;
+    fn.module = { exports: {}, require: __req(fn) };
+    fn(fn.module, fn.module.exports, fn.module.require);
+    return fn.module.exports;
   };

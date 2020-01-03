@@ -28,16 +28,16 @@ pub fn bundle(entry: &PathBuf) -> Result<String, Box<dyn std::error::Error>> {
 fn write(modules: &HashMap<PathBuf, Module>, entry_point: &Path) -> String {
     let mods = modules.iter().map(|(file, module)| {
         let filename = modules.keys().position(|v| v == file).unwrap();
-        let deps = json::stringify(module.deps.iter().map(|(dep, path)|
-            (dep.to_string(), modules.keys().position(|v| v == path).unwrap())
-        ).collect::<HashMap::<String, usize>>());
+        let deps = module.deps.iter().map(|(dep, path)|
+            format!("\"{}\": a{}", dep, modules.keys().position(|v| v == path).unwrap())
+        ).collect::<Vec<String>>().join(",");
 
-        format!("__deps[{}] = {{ deps: {}, func: function(module, exports, require) {{\n{} \n}} }};", filename, deps, module.source)
+        format!("function a{}(module, exports, require) {{\n{} \n}};\na{}.deps = {{ {} }};\n", filename, module.source, filename, deps)
     }).collect::<Vec<String>>().join("\n");
 
     let prelude = include_str!("prelude.js");
     let entry_id = modules.keys().position(|v| v == entry_point).unwrap();
-    format!("{}; {}; __req(null)({}) }})()", prelude, mods, entry_id)
+    format!("{}; {}; __req({{ deps: {{ entry: a{} }} }})('entry'); }})()", prelude, mods, entry_id)
 }
 
 #[test]
