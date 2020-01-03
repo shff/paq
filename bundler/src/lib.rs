@@ -12,7 +12,6 @@ pub fn bundle(entry: &PathBuf) -> Result<String, Box<dyn std::error::Error>> {
     let regexp = regex::Regex::new(r#"require\s*\(\s*['"](.+?)['"]\s*\)"#)?;
     let modules = miniqueue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
-
         let deps = regexp.captures_iter(&source).map(|dep| {
             (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path.parent().unwrap()).unwrap())
         }).collect::<HashMap::<String, PathBuf>>();
@@ -20,24 +19,19 @@ pub fn bundle(entry: &PathBuf) -> Result<String, Box<dyn std::error::Error>> {
 
         Ok((Module { source, deps }, modules))
     })?;
-    let content = write(&modules, &entry);
-
-    Ok(content)
+    Ok(write(&modules, &entry))
 }
 
-fn write(modules: &HashMap<PathBuf, Module>, entry_point: &Path) -> String {
-    let mods = modules.iter().map(|(file, module)| {
-        let filename = modules.keys().position(|v| v == file).unwrap();
-        let deps = module.deps.iter().map(|(dep, path)|
-            format!("\"{}\": a{}", dep, modules.keys().position(|v| v == path).unwrap())
-        ).collect::<Vec<String>>().join(",");
-
-        format!("function a{}(module, exports, require) {{\n{} \n}};\na{}.deps = {{ {} }};\n", filename, module.source, filename, deps)
-    }).collect::<Vec<String>>().join("\n");
-
+fn write(modules: &HashMap<PathBuf, Module>, entry: &Path) -> String {
+    let get_id = |file: &Path| modules.keys().position(|v| v == file).unwrap();
     let prelude = include_str!("prelude.js");
-    let entry_id = modules.keys().position(|v| v == entry_point).unwrap();
-    format!("{}; {}; __req({{ deps: {{ entry: a{} }} }})('entry'); }})()", prelude, mods, entry_id)
+    let mods = modules.iter().map(|(file, module)| {
+        let deps = module.deps.iter().map(|(dep, path)|
+            format!("\"{}\": a{}", dep, get_id(path))
+        ).collect::<Vec<String>>().join(",");
+        format!("function a{}(module, exports, require) {{\n{} \n}};\na{}.deps = {{{}}};\n", get_id(file), module.source, get_id(file), deps)
+    }).collect::<Vec<String>>().join("\n");
+    format!("{}; {}; __req({{ deps: {{ entry: a{} }} }})('entry'); }})()", prelude, mods, get_id(entry))
 }
 
 #[test]
