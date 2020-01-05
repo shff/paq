@@ -11,8 +11,6 @@ pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
         load(path)
     } else if name.is_empty() {
         load(context)
-    } else if CORE.contains(&name.as_str()) {
-        None
     } else {
         let parent = context.parent()?;
         let new_path = context.join("node_modules").join(&path);
@@ -60,81 +58,6 @@ fn normalize(p: &Path) -> PathBuf {
     })
 }
 
-const CORE: &[&str] = &[
-    "assert",
-    "async_hooks",
-    "buffer_ieee754",
-    "buffer",
-    "child_process",
-    "cluster",
-    "console",
-    "constants",
-    "crypto",
-    "_debug_agent",
-    "_debugger",
-    "dgram",
-    "dns",
-    "domain",
-    "events",
-    "freelist",
-    "fs",
-    "fs/promises",
-    "_http_agent",
-    "_http_client",
-    "_http_common",
-    "_http_incoming",
-    "_http_outgoing",
-    "_http_server",
-    "http",
-    "http2",
-    "https",
-    "inspector",
-    "_linklist",
-    "module",
-    "net",
-    "node-inspect/lib/_inspect",
-    "node-inspect/lib/internal/inspect_client",
-    "node-inspect/lib/internal/inspect_repl",
-    "os",
-    "path",
-    "perf_hooks",
-    "process",
-    "punycode",
-    "querystring",
-    "readline",
-    "repl",
-    "smalloc",
-    "_stream_duplex",
-    "_stream_transform",
-    "_stream_wrap",
-    "_stream_passthrough",
-    "_stream_readable",
-    "_stream_writable",
-    "stream",
-    "string_decoder",
-    "sys",
-    "timers",
-    "_tls_common",
-    "_tls_legacy",
-    "_tls_wrap",
-    "tls",
-    "trace_events",
-    "tty",
-    "url",
-    "util",
-    "v8/tools/arguments",
-    "v8/tools/codemap",
-    "v8/tools/consarray",
-    "v8/tools/csvparser",
-    "v8/tools/logreader",
-    "v8/tools/profile_view",
-    "v8/tools/splaytree",
-    "v8",
-    "vm",
-    "worker_threads",
-    "zlib",
-];
-
 #[test]
 fn test_resolve() {
     fn assert_resolves(name: &str, path: &str, expected: &str) {
@@ -142,9 +65,6 @@ fn test_resolve() {
         assert_eq!(resolve(name.to_string(), &fixtures.join(path)), Some(
             normalize(&fixtures.join(path).join(expected.to_string()))
         ));
-    }
-    fn assert_internal(name: &str) {
-        assert_eq!(resolve(name.to_string(), Path::new("/")), None);
     }
 
     assert_resolves("", "no-entry", "index.js");
@@ -178,10 +98,6 @@ fn test_resolve() {
     assert_resolves("😅", "unicode-pkg", "node_modules/😅/index.js");
     assert_resolves("package", "unicode-pkg-entry", "node_modules/package/🤔.js");
     assert_resolves("🤔", "unicode-both", "node_modules/🤔/😅");
-
-    assert_internal("assert");
-    assert_internal("fs");
-    assert_internal("events");
 }
 
 #[test]
