@@ -8,17 +8,17 @@ struct Module {
     deps: HashMap<String, PathBuf>,
 }
 
-pub fn bundle(entry: &PathBuf) -> Result<String, Box<dyn std::error::Error>> {
+pub fn bundle(entry: &PathBuf) -> Result<String, Box<dyn std::error::Error + Send>> {
     let modules = miniqueue::run(entry.clone(), |path| {
-        let regexp = regex::Regex::new(r#"require\s*\(\s*['"](.+?)['"]\s*\)"#).expect("Can't make regex");
+        let re = regex::Regex::new(r#"require\s*\(\s*['"](.+?)['"]\s*\)"#).unwrap();
         let source = read_to_string(&path).expect("Can't open file");
-        let deps = regexp.captures_iter(&source).map(|dep| {
+        let deps = re.captures_iter(&source).map(|dep| {
             (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path.parent().unwrap()).unwrap())
         }).collect::<HashMap::<String, PathBuf>>();
         let modules = deps.values().cloned().collect();
 
         Ok((Module { source, deps }, modules))
-    }).expect("Can't bundle!");
+    })?;
     Ok(write(&modules, &entry))
 }
 
