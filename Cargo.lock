@@ -12,14 +12,14 @@ dependencies = [
 name = "js-bundler"
 version = "0.1.0"
 dependencies = [
- "js-resolve 0.1.0",
+ "js-resolve 0.1.1",
  "miniqueue 0.1.1",
  "regex 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "js-resolve"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "json 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "js-resolve"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Silvio Henrique Ferreira <shferreira@me.com>"]
 edition = "2018"
 
