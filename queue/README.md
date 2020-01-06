@@ -1,10 +1,10 @@
 # miniqueue
 
-A minimalist generic single-threaded queue that aggregates results and populates the queue with more tasks.
+A minimalist generic multi-threaded queue that aggregates results and populates the queue with more tasks.
 
 The semantics are the opposite of `fold`/`reduce`: instead of starting with a bunch of data, it starts with a single data point and recursively traverses it to unfold a bigger structure.
 
-It is useful when working with dependency graphs. It can be used by package managers and linkers/bundlers.
+It is useful when working with dependency graphs. It can be used by compilers, package managers and linkers/bundlers.
 
 ## Usage
 
