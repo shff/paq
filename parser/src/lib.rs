@@ -181,10 +181,10 @@ fn prefix(i: &str) -> Result<Expression> {
 }
 
 fn postfix(i: &str) -> Result<Expression> {
-    context("postfix", preceded(ws, map(pair(action, opt(preceded(ws, alt((
+    context("postfix", preceded(ws, map(pair(action, many0(preceded(ws, alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
-    ))))), makepostfix)))(i)
+    ))))), makechainb)))(i)
 }
 
 fn action(i: &str) -> Result<Expression> {
@@ -297,15 +297,12 @@ fn maketernary(e: (Expression, Option<(Expression, Expression)>)) -> Expression 
     }
 }
 
-fn makepostfix(e: (Expression, Option<Operator>)) -> Expression {
-    match e.1 {
-        Some(a) => Expression::Unary(a, Box::new(e.0)),
-        None => e.0
-    }
-}
-
 fn makechain(e: (Vec<Operator>, Expression)) -> Expression {
     e.0.iter().fold(e.1, |acc, op| Expression::Unary(*op, Box::new(acc)))
+}
+
+fn makechainb(e: (Expression, Vec<Operator>)) -> Expression {
+    e.1.iter().fold(e.0, |acc, op| Expression::Unary(*op, Box::new(acc)))
 }
 
 fn makechain2(e: (Expression, Vec<(Operator, Expression)>)) -> Expression {
