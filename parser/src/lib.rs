@@ -22,8 +22,9 @@ pub enum Expression {
     Hexadecimal(u64),
     BinaryNum(u64),
     List(Vec<Expression>),
-    Object(Vec<(Expression, Expression)>),
+    Object(Vec<Expression>),
     Paren(Box<Expression>),
+    KeyValue(Box<Expression>, Box<Expression>),
 
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
@@ -242,18 +243,19 @@ fn ident(i: &str) -> Result<String> {
     context("ident", ws(map(many1(alphanumeric1), |s| s.join(""))))(i)
 }
 
-fn object(i: &str) -> Result<Vec<(Expression, Expression)>> {
-    let inner = separated_list(ws(char(',')), key_value);
+fn object(i: &str) -> Result<Vec<Expression>> {
+    let inner = separated_list(ws(char(',')), alt((splat, key_value)));
     context("object", delimited(char('{'), ws(cut(inner)), ws(char('}'))))(i)
 }
 
-fn key_value(i: &str) -> Result<(Expression, Expression)> {
-    separated_pair(ws(alt((
+fn key_value(i: &str) -> Result<Expression> {
+    let mapping = |(a,b)| Expression::KeyValue(Box::new(a), Box::new(b));
+    map(separated_pair(ws(alt((
         map(string, Expression::Str),
         map(string2, Expression::Str),
         map(ident, Expression::Str),
         delimited(char('['), expression, char(']')),
-    ))), cut(ws(char(':'))), expression)(i)
+    ))), cut(ws(char(':'))), expression), mapping)(i)
 }
 
 fn paren(i: &str) -> Result<Box<Expression>> {
@@ -440,17 +442,25 @@ mod test {
 
     #[test]
     fn test_object() {
-        assert_eq!(expression("{\"a\": 1}"), Ok(("", Expression::Object(vec![(Expression::Str(String::from("a")), Expression::Double(1.0))]))));
+        assert_eq!(expression("{\"a\": 1}"), Ok(("", Expression::Object(vec![
+            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Double(1.0))),
+        ]))));
         assert_eq!(expression("{a: 1, b: 2}"), Ok(("", Expression::Object(vec![
-            (Expression::Str(String::from("a")), Expression::Double(1.0)),
-            (Expression::Str(String::from("b")), Expression::Double(2.0)),
+            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Double(1.0))),
+            Expression::KeyValue(Box::new(Expression::Str(String::from("b"))), Box::new(Expression::Double(2.0))),
         ]))));
         assert_eq!(expression("{[1]: 1, [\"a\"]: 2}"), Ok(("", Expression::Object(vec![
-            (Expression::Double(1.0), Expression::Double(1.0)),
-            (Expression::Str(String::from("a")), Expression::Double(2.0)),
+            Expression::KeyValue(Box::new(Expression::Double(1.0)), Box::new(Expression::Double(1.0))),
+            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Double(2.0))),
         ]))));
         assert_eq!(expression("{a: {}}"), Ok(("", Expression::Object(vec![
-            (Expression::Str(String::from("a")), Expression::Object(vec![])),
+            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Object(vec![]))),
+        ]))));
+        assert_eq!(expression("{ ...a }"), Ok(("", Expression::Object(vec![
+            Expression::Splat(Box::new(Expression::Ident(String::from("a")))),
+        ]))));
+        assert_eq!(expression("{ ...[] }"), Ok(("", Expression::Object(vec![
+            Expression::Splat(Box::new(Expression::List(vec![]))),
         ]))));
     }
 
