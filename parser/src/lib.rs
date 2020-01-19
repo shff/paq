@@ -26,7 +26,6 @@ pub enum Expression {
     Args(Vec<Expression>),
     Paren(Box<Expression>),
     KeyValue(Box<Expression>, Box<Expression>),
-
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
@@ -45,10 +44,6 @@ pub enum Operator {
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
-    ws(yieldd)(i)
-}
-
-fn yieldd(i: &str) -> Result<Expression> {
     context("yield", ws(map(pair(many0(
         value(Operator::Yield, tag("yield")),
     ), mutation), makechain)))(i)
