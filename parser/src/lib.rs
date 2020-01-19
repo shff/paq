@@ -34,6 +34,7 @@ pub enum Operator {
     Equal, NotEqual, LessThan, GreaterThan, LessEqual, GreaterEqual, StrictEqual, StrictNotEqual,
     InstanceOf, In,
     LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
+    URightShift, RightShift, LeftShift,
     Add, Sub, Mult, Div, Power,
     Not, Incr, Decr,
     Array, Application, Dot, Optional,
@@ -155,7 +156,7 @@ fn equality(i: &str) -> Result<Expression> {
 }
 
 fn comparison(i: &str) -> Result<Expression> {
-    context("comparison", map(pair(logic_or, opt(preceded(ws, pair(alt((
+    context("comparison", map(pair(bitwise, opt(preceded(ws, pair(alt((
         value(Operator::GreaterEqual, tag(">=")),
         value(Operator::LessEqual, tag("<=")),
         value(Operator::GreaterThan, tag(">")),
@@ -163,6 +164,14 @@ fn comparison(i: &str) -> Result<Expression> {
         value(Operator::InstanceOf, tag("instanceof")),
         value(Operator::In, tag("in")),
     )), comparison)))), makebinary))(i)
+}
+
+fn bitwise(i: &str) -> Result<Expression> {
+    context("bitwise", map(pair(logic_or, opt(preceded(ws, pair(alt((
+        value(Operator::URightShift, tag(">>>")),
+        value(Operator::RightShift, tag(">>")),
+        value(Operator::LeftShift, tag("<<")),
+    )), bitwise)))), makebinary))(i)
 }
 
 fn logic_or(i: &str) -> Result<Expression> {
@@ -502,6 +511,10 @@ fn test_bitwise() {
     assert_eq!(expression(" 1 | 2 "), Ok((" ", Expression::Binary(Operator::BitwiseOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 ^ 2 "), Ok((" ", Expression::Binary(Operator::BitwiseXor, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 & 2 "), Ok((" ", Expression::Binary(Operator::BitwiseAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+
+    assert_eq!(expression(" 1 >> 2 "), Ok((" ", Expression::Binary(Operator::RightShift, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 >>> 2 "), Ok((" ", Expression::Binary(Operator::URightShift, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 << 2 "), Ok((" ", Expression::Binary(Operator::LeftShift, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
