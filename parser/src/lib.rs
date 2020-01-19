@@ -127,7 +127,7 @@ fn mutation(i: &str) -> Result<Expression> {
         value(Operator::AssignMod, tag("%=")),
         value(Operator::AssignMul, tag("*=")),
         value(Operator::AssignDiv, tag("/=")),
-    )), ternary)))), makebinary))(i)
+    )), mutation)))), makebinary))(i)
 }
 
 fn ternary(i: &str) -> Result<Expression> {
@@ -146,13 +146,13 @@ fn comparison(i: &str) -> Result<Expression> {
         value(Operator::LessEqual, tag("<=")),
         value(Operator::LessThan, tag("<")),
         value(Operator::GreaterThan, tag(">")),
-    )), logic_or)))), makebinary))(i)
+    )), comparison)))), makebinary))(i)
 }
 
 fn logic_or(i: &str) -> Result<Expression> {
     context("logic", map(pair(logic_and, opt(preceded(ws, pair(
         value(Operator::LogicalOr, tag("&&")),
-    logic_and)))), makebinary))(i)
+    logic_or)))), makebinary))(i)
 }
 
 fn logic_and(i: &str) -> Result<Expression> {
@@ -189,20 +189,20 @@ fn addition(i: &str) -> Result<Expression> {
     context("addition", map(pair(multiplication, opt(preceded(ws, pair(alt((
         value(Operator::Add, tag("+")),
         value(Operator::Sub, tag("-")),
-    )), multiplication)))), makebinary))(i)
+    )), addition)))), makebinary))(i)
 }
 
 fn multiplication(i: &str) -> Result<Expression> {
     context("multiplication", map(pair(power, opt(preceded(ws, pair(alt((
         value(Operator::Mult, tag("*")),
         value(Operator::Div, tag("/")),
-    )), power)))), makebinary))(i)
+    )), multiplication)))), makebinary))(i)
 }
 
 fn power(i: &str) -> Result<Expression> {
     context("power", map(pair(negation, opt(preceded(ws, pair(
         value(Operator::Power, tag("**")),
-    negation)))), makebinary))(i)
+    power)))), makebinary))(i)
 }
 
 fn negation(i: &str) -> Result<Expression> {
@@ -512,6 +512,38 @@ fn test_application() {
     assert_eq!(expression(" a[a]"), Ok(("", Expression::Binary(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression(" a(a)"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression(" a.a"), Ok(("", Expression::Binary(Operator::Dot, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+}
+
+#[test]
+fn test_complex() {
+    fn assert_complete(i: &str) {
+        assert!(expression(i).is_ok());
+        assert_eq!(expression(i).unwrap().0, "");
+    }
+
+    assert_complete("a = b");
+    assert_complete("1");
+    assert_complete("1==1? 1+1 : 1-1");
+    assert_complete("1==1? 1+1 : 1-1");
+    assert_complete("-1");
+    assert_complete("!1");
+    assert_complete("-1");
+    assert_complete("(1)");
+    assert_complete("1*(1+1)");
+    assert_complete("x");
+    assert_complete("x");
+    assert_complete("a+b+c+d");
+    assert_complete("a-b-c-d");
+    assert_complete("a*b*c*d");
+    assert_complete("a/b/c/d");
+    assert_complete("1**1**1");
+    assert_complete("x*x*x");
+    assert_complete("1 + 1 || 1 == 1 ^ 1 != 1/1 - 1");
+    assert_complete("first += second += third");
+    assert_complete("one += two /= 12");
+    // assert_complete("a()");
+    // assert_complete(" a . b . c");
+    // assert_complete("a.b.c[7]");
 }
 
 #[test]
