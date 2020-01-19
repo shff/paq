@@ -32,7 +32,7 @@ pub enum Expression {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operator {
     Equal, NotEqual, LessThan, GreaterThan, LessEqual, GreaterEqual, StrictEqual, StrictNotEqual,
-    LogicalAnd, LogicalOr,
+    LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
     Add, Sub, Mult, Div, Power,
     Not, Incr, Decr,
     Array, Application, Dot,
@@ -156,9 +156,33 @@ fn logic_or(i: &str) -> Result<Expression> {
 }
 
 fn logic_and(i: &str) -> Result<Expression> {
-    context("logic", map(pair(addition, opt(preceded(ws, pair(
+    context("logic", map(pair(coalesce, opt(preceded(ws, pair(
         value(Operator::LogicalAnd, tag("||")),
-    addition)))), makebinary))(i)
+    logic_and)))), makebinary))(i)
+}
+
+fn coalesce(i: &str) -> Result<Expression> {
+    context("logic", map(pair(bitwise_or, opt(preceded(ws, pair(
+        value(Operator::Coalesce, tag("??")),
+    coalesce)))), makebinary))(i)
+}
+
+fn bitwise_or(i: &str) -> Result<Expression> {
+    context("logic", map(pair(bitwise_xor, opt(preceded(ws, pair(
+        value(Operator::BitwiseOr, tag("|")),
+    bitwise_or)))), makebinary))(i)
+}
+
+fn bitwise_xor(i: &str) -> Result<Expression> {
+    context("logic", map(pair(bitwise_and, opt(preceded(ws, pair(
+        value(Operator::BitwiseXor, tag("^")),
+    bitwise_xor)))), makebinary))(i)
+}
+
+fn bitwise_and(i: &str) -> Result<Expression> {
+    context("logic", map(pair(addition, opt(preceded(ws, pair(
+        value(Operator::BitwiseAnd, tag("&")),
+    bitwise_and)))), makebinary))(i)
 }
 
 fn addition(i: &str) -> Result<Expression> {
@@ -445,6 +469,14 @@ fn test_comparison() {
 fn test_logic() {
     assert_eq!(expression(" 1 || 2 "), Ok((" ", Expression::Binary(Operator::LogicalAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 && 2 "), Ok((" ", Expression::Binary(Operator::LogicalOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 ?? 2 "), Ok((" ", Expression::Binary(Operator::Coalesce, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+}
+
+#[test]
+fn test_bitwise() {
+    assert_eq!(expression(" 1 | 2 "), Ok((" ", Expression::Binary(Operator::BitwiseOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 ^ 2 "), Ok((" ", Expression::Binary(Operator::BitwiseXor, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 & 2 "), Ok((" ", Expression::Binary(Operator::BitwiseAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
