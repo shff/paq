@@ -44,15 +44,12 @@ pub enum Operator {
 
 pub fn expression(i: &str) -> Result<Expression> {
     preceded(ws, yieldd)(i)
-    // context("expression", preceded(ws, separated_list(preceded(ws, tag(",")),
-    //     yieldd), 
-    // ), mutation), makeprefix)))(i)
 }
 
 fn yieldd(i: &str) -> Result<Expression> {
-    context("yield", preceded(ws, map(pair(opt(
+    context("yield", preceded(ws, map(pair(many0(
         value(Operator::Yield, tag("yield")),
-    ), mutation), makeprefix)))(i)
+    ), mutation), makechain)))(i)
 }
 
 fn mutation(i: &str) -> Result<Expression> {
@@ -170,7 +167,7 @@ fn negation(i: &str) -> Result<Expression> {
 }
 
 fn prefix(i: &str) -> Result<Expression> {
-    context("prefix", preceded(ws, map(pair(opt(alt((
+    context("prefix", preceded(ws, map(pair(many0(alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
         value(Operator::Add, tag("+")),
@@ -179,7 +176,7 @@ fn prefix(i: &str) -> Result<Expression> {
         value(Operator::Void, tag("void")),
         value(Operator::Delete, tag("delete")),
         value(Operator::Await , tag("await ")),
-    ))), postfix), makeprefix)))(i)
+    ))), postfix), makechain)))(i)
 }
 
 fn postfix(i: &str) -> Result<Expression> {
@@ -299,13 +296,6 @@ fn maketernary(e: (Expression, Option<(Expression, Expression)>)) -> Expression 
     }
 }
 
-fn makeprefix(e: (Option<Operator>, Expression)) -> Expression {
-    match e.0 {
-        Some(a) => Expression::Unary(a, Box::new(e.1)),
-        None => e.1
-    }
-}
-
 fn makepostfix(e: (Expression, Option<Operator>)) -> Expression {
     match e.1 {
         Some(a) => Expression::Unary(a, Box::new(e.0)),
@@ -314,7 +304,7 @@ fn makepostfix(e: (Expression, Option<Operator>)) -> Expression {
 }
 
 fn makechain(e: (Vec<Operator>, Expression)) -> Expression {
-    e.0.iter().fold(e.1, |acc, item| Expression::Unary(*item, Box::new(acc)))
+    e.0.iter().fold(e.1, |acc, op| Expression::Unary(*op, Box::new(acc)))
 }
 
 fn makechain2(e: (Expression, Vec<(Operator, Expression)>)) -> Expression {
