@@ -24,6 +24,7 @@ pub enum Expression {
     List(Vec<Expression>),
     Object(Vec<(Expression, Expression)>),
     Paren(Box<Expression>),
+
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
@@ -43,6 +44,9 @@ pub enum Operator {
 
 pub fn expression(i: &str) -> Result<Expression> {
     preceded(ws, yieldd)(i)
+    // context("expression", preceded(ws, separated_list(preceded(ws, tag(",")),
+    //     yieldd), 
+    // ), mutation), makeprefix)))(i)
 }
 
 fn yieldd(i: &str) -> Result<Expression> {
@@ -52,7 +56,7 @@ fn yieldd(i: &str) -> Result<Expression> {
 }
 
 fn mutation(i: &str) -> Result<Expression> {
-    context("mutation", map(pair(ternary, opt(preceded(ws, pair(alt((
+    context("mutation", map(pair(ternary, many0(preceded(ws, pair(alt((
         value(Operator::Assign, tag("=")),
         value(Operator::AssignAdd, tag("+=")),
         value(Operator::AssignSub, tag("-=")),
@@ -66,7 +70,7 @@ fn mutation(i: &str) -> Result<Expression> {
         value(Operator::AssignAnd, tag("&=")),
         value(Operator::AssignXor, tag("^=")),
         value(Operator::AssignOr, tag("|=")),
-    )), mutation)))), makebinary))(i)
+    )), ternary)))), makechain2))(i)
 }
 
 fn ternary(i: &str) -> Result<Expression> {
@@ -76,87 +80,87 @@ fn ternary(i: &str) -> Result<Expression> {
 }
 
 fn equality(i: &str) -> Result<Expression> {
-    context("equality", map(pair(comparison, opt(preceded(ws, pair(alt((
+    context("equality", map(pair(comparison, many0(preceded(ws, pair(alt((
         value(Operator::StrictEqual, tag("===")),
         value(Operator::Equal, tag("==")),
         value(Operator::StrictNotEqual, tag("!==")),
         value(Operator::NotEqual, tag("!=")),
-    )), equality)))), makebinary))(i)
+    )), comparison)))), makechain2))(i)
 }
 
 fn comparison(i: &str) -> Result<Expression> {
-    context("comparison", map(pair(bitwise, opt(preceded(ws, pair(alt((
+    context("comparison", map(pair(bitwise, many0(preceded(ws, pair(alt((
         value(Operator::GreaterEqual, tag(">=")),
         value(Operator::LessEqual, tag("<=")),
         value(Operator::GreaterThan, tag(">")),
         value(Operator::LessThan, tag("<")),
         value(Operator::InstanceOf, tag("instanceof")),
         value(Operator::In, tag("in")),
-    )), comparison)))), makebinary))(i)
+    )), bitwise)))), makechain2))(i)
 }
 
 fn bitwise(i: &str) -> Result<Expression> {
-    context("bitwise", map(pair(logic_or, opt(preceded(ws, pair(alt((
+    context("bitwise", map(pair(logic_or, many0(preceded(ws, pair(alt((
         value(Operator::URightShift, tag(">>>")),
         value(Operator::RightShift, tag(">>")),
         value(Operator::LeftShift, tag("<<")),
-    )), bitwise)))), makebinary))(i)
+    )), logic_or)))), makechain2))(i)
 }
 
 fn logic_or(i: &str) -> Result<Expression> {
-    context("logic_or", map(pair(logic_and, opt(preceded(ws, pair(
+    context("logic_or", map(pair(logic_and, many0(preceded(ws, pair(
         value(Operator::LogicalOr, tag("&&")),
-    logic_or)))), makebinary))(i)
+    logic_and)))), makechain2))(i)
 }
 
 fn logic_and(i: &str) -> Result<Expression> {
-    context("logic_and", map(pair(coalesce, opt(preceded(ws, pair(
+    context("logic_and", map(pair(coalesce, many0(preceded(ws, pair(
         value(Operator::LogicalAnd, tag("||")),
-    logic_and)))), makebinary))(i)
+    coalesce)))), makechain2))(i)
 }
 
 fn coalesce(i: &str) -> Result<Expression> {
-    context("coalesce", map(pair(bitwise_or, opt(preceded(ws, pair(
+    context("coalesce", map(pair(bitwise_or, many0(preceded(ws, pair(
         value(Operator::Coalesce, tag("??")),
-    coalesce)))), makebinary))(i)
+    bitwise_or)))), makechain2))(i)
 }
 
 fn bitwise_or(i: &str) -> Result<Expression> {
-    context("bitwise_or", map(pair(bitwise_xor, opt(preceded(ws, pair(
+    context("bitwise_or", map(pair(bitwise_xor, many0(preceded(ws, pair(
         value(Operator::BitwiseOr, tag("|")),
-    bitwise_or)))), makebinary))(i)
+    bitwise_xor)))), makechain2))(i)
 }
 
 fn bitwise_xor(i: &str) -> Result<Expression> {
-    context("bitwise_xor", map(pair(bitwise_and, opt(preceded(ws, pair(
+    context("bitwise_xor", map(pair(bitwise_and, many0(preceded(ws, pair(
         value(Operator::BitwiseXor, tag("^")),
-    bitwise_xor)))), makebinary))(i)
+    bitwise_and)))), makechain2))(i)
 }
 
 fn bitwise_and(i: &str) -> Result<Expression> {
-    context("bitwise_and", map(pair(addition, opt(preceded(ws, pair(
+    context("bitwise_and", map(pair(addition, many0(preceded(ws, pair(
         value(Operator::BitwiseAnd, tag("&")),
-    bitwise_and)))), makebinary))(i)
+    addition)))), makechain2))(i)
 }
 
 fn addition(i: &str) -> Result<Expression> {
-    context("addition", map(pair(multiplication, opt(preceded(ws, pair(alt((
+    context("addition", map(pair(multiplication, many0(preceded(ws, pair(alt((
         value(Operator::Add, tag("+")),
         value(Operator::Sub, tag("-")),
-    )), addition)))), makebinary))(i)
+    )), multiplication)))), makechain2))(i)
 }
 
 fn multiplication(i: &str) -> Result<Expression> {
-    context("multiplication", map(pair(power, opt(preceded(ws, pair(alt((
+    context("multiplication", map(pair(power, many0(preceded(ws, pair(alt((
         value(Operator::Mult, tag("*")),
         value(Operator::Div, tag("/")),
-    )), multiplication)))), makebinary))(i)
+    )), power)))), makechain2))(i)
 }
 
 fn power(i: &str) -> Result<Expression> {
-    context("power", map(pair(negation, opt(preceded(ws, pair(
+    context("power", map(pair(negation, many0(preceded(ws, pair(
         value(Operator::Power, tag("**")),
-    power)))), makebinary))(i)
+    negation)))), makechain2))(i)
 }
 
 fn negation(i: &str) -> Result<Expression> {
@@ -186,12 +190,12 @@ fn postfix(i: &str) -> Result<Expression> {
 }
 
 fn action(i: &str) -> Result<Expression> {
-    context("action", preceded(ws, map(pair(primitive, opt(preceded(ws, alt((
+    context("action", preceded(ws, map(pair(primitive, many0(preceded(ws, alt((
         pair(value(Operator::Array, char('[')), terminated(expression, char(']'))),
         pair(value(Operator::Optional, tag("?.")), preceded(ws, map(ident, Expression::Ident))),
         pair(value(Operator::Dot, char('.')), preceded(ws, map(ident, Expression::Ident))),
         pair(value(Operator::Application, char('(')), terminated(expression, char(')'))),
-    ))))), makebinary)))(i)
+    ))))), makechain2)))(i)
 }
 
 fn primitive(i: &str) -> Result<Expression> {
@@ -288,13 +292,6 @@ fn ws(i: &str) -> Result<&str> {
     take_while(|c: char| c.is_whitespace())(i)
 }
 
-fn makebinary(e: (Expression, Option<(Operator, Expression)>)) -> Expression {
-    match e.1 {
-        Some((op,r)) => Expression::Binary(op, Box::new(e.0), Box::new(r)),
-        None => e.0
-    }
-}
-
 fn maketernary(e: (Expression, Option<(Expression, Expression)>)) -> Expression {
     match e.1 {
         Some((b,c)) => Expression::Ternary(Box::new(e.0), Box::new(b), Box::new(c)),
@@ -318,6 +315,10 @@ fn makepostfix(e: (Expression, Option<Operator>)) -> Expression {
 
 fn makechain(e: (Vec<Operator>, Expression)) -> Expression {
     e.0.iter().fold(e.1, |acc, item| Expression::Unary(*item, Box::new(acc)))
+}
+
+fn makechain2(e: (Expression, Vec<(Operator, Expression)>)) -> Expression {
+    e.1.iter().fold(e.0, |a,(op,b)| Expression::Binary(*op, Box::new(a), Box::new(b.clone())))
 }
 
 #[test]
@@ -484,7 +485,7 @@ fn test_mutation() {
     assert_eq!(expression(" 1 &= 2 "), Ok((" ", Expression::Binary(Operator::AssignAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 ^= 2 "), Ok((" ", Expression::Binary(Operator::AssignXor, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 |= 2 "), Ok((" ", Expression::Binary(Operator::AssignOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    // assert_eq!(expression(" 1 = 2 = 3 "), Ok((" ", Expression::Binary(Operator::Assign, Box::new(Expression::Binary(Operator::Assign, Box::new(Expression::Double(2.0)), Box::new(Expression::Double(3.0)))), Box::new(Expression::Double(1.0))))));
+    assert_eq!(expression(" 1 = 2 = 3 "), Ok((" ", Expression::Binary(Operator::Assign, Box::new(Expression::Binary(Operator::Assign, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0)))), Box::new(Expression::Double(3.0))))));
 }
 
 #[test]
@@ -504,7 +505,7 @@ fn test_comparison() {
     assert_eq!(expression(" 1 !== 2 "), Ok((" ", Expression::Binary(Operator::StrictNotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 instanceof 2 "), Ok((" ", Expression::Binary(Operator::InstanceOf, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 in 2 "), Ok((" ", Expression::Binary(Operator::In, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    // assert_eq!(expression(" 1 == 2 == 3 "), Ok((" ", Expression::Binary(Operator::Equal, Box::new(Expression::Binary(Operator::Equal, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(1.0)))), Box::new(Expression::Double(3.0))))));
+    assert_eq!(expression(" 1 == 2 == 3 "), Ok((" ", Expression::Binary(Operator::Equal, Box::new(Expression::Binary(Operator::Equal, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0)))), Box::new(Expression::Double(3.0))))));
 }
 
 #[test]
@@ -594,9 +595,9 @@ fn test_complex() {
     assert_complete("first += second += third");
     assert_complete("one += two /= 12");
     assert_complete("x = a && b == c + d * !z[0]++ || d ? 2 : 3");
+    assert_complete(" a . b . c");
+    assert_complete("a.b.c[7]");
     // assert_complete("a()");
-    // assert_complete(" a . b . c");
-    // assert_complete("a.b.c[7]");
 }
 
 #[test]
