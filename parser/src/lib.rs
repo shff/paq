@@ -36,7 +36,7 @@ pub enum Operator {
     AssignLeft, AssignRight, AssignURight, AssignAnd, AssignXor, AssignOr,
     Equal, NotEqual, LessThan, GreaterThan, LessEqual, GreaterEqual, StrictEqual, StrictNotEqual,
     LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
-    Add, Sub, Mult, Div, Power, URightShift, RightShift, LeftShift,
+    Add, Sub, Mult, Div, Mod, Power, URightShift, RightShift, LeftShift,
     Not, Incr, Decr,
     Array, Application, Dot, Optional,
     InstanceOf, In, TypeOf, Void, Delete, Await, Yield,
@@ -151,6 +151,7 @@ fn multiplication(i: &str) -> Result<Expression> {
     context("multiplication", map(pair(power, many0(preceded(ws, pair(alt((
         value(Operator::Mult, tag("*")),
         value(Operator::Div, tag("/")),
+        value(Operator::Mod, tag("%")),
     )), power)))), makechain2))(i)
 }
 
@@ -522,6 +523,7 @@ fn test_arithmetic() {
     assert_eq!(expression(" 1 - 2 "), Ok((" ", Expression::Binary(Operator::Sub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 * 2 "), Ok((" ", Expression::Binary(Operator::Mult, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 / 2 "), Ok((" ", Expression::Binary(Operator::Div, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 % 2 "), Ok((" ", Expression::Binary(Operator::Mod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 ** 2 "), Ok((" ", Expression::Binary(Operator::Power, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
