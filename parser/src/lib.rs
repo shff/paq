@@ -119,7 +119,7 @@ fn list(i: &str) -> Result<Vec<Expression>> {
 }
 
 fn splat(i: &str) -> Result<Expression> {
-    map(preceded(tag("..."), expression), |e| Expression::Splat(Box::new(e)))(i)
+    map(map(preceded(tag("..."), expression), Box::new), Expression::Splat)(i)
 }
 
 fn yieldd(i: &str) -> Result<Expression> {
@@ -181,37 +181,37 @@ fn bitwise(i: &str) -> Result<Expression> {
 }
 
 fn logic_or(i: &str) -> Result<Expression> {
-    context("logic", map(pair(logic_and, opt(preceded(ws, pair(
+    context("logic_or", map(pair(logic_and, opt(preceded(ws, pair(
         value(Operator::LogicalOr, tag("&&")),
     logic_or)))), makebinary))(i)
 }
 
 fn logic_and(i: &str) -> Result<Expression> {
-    context("logic", map(pair(coalesce, opt(preceded(ws, pair(
+    context("logic_and", map(pair(coalesce, opt(preceded(ws, pair(
         value(Operator::LogicalAnd, tag("||")),
     logic_and)))), makebinary))(i)
 }
 
 fn coalesce(i: &str) -> Result<Expression> {
-    context("logic", map(pair(bitwise_or, opt(preceded(ws, pair(
+    context("coalesce", map(pair(bitwise_or, opt(preceded(ws, pair(
         value(Operator::Coalesce, tag("??")),
     coalesce)))), makebinary))(i)
 }
 
 fn bitwise_or(i: &str) -> Result<Expression> {
-    context("logic", map(pair(bitwise_xor, opt(preceded(ws, pair(
+    context("bitwise_or", map(pair(bitwise_xor, opt(preceded(ws, pair(
         value(Operator::BitwiseOr, tag("|")),
     bitwise_or)))), makebinary))(i)
 }
 
 fn bitwise_xor(i: &str) -> Result<Expression> {
-    context("logic", map(pair(bitwise_and, opt(preceded(ws, pair(
+    context("bitwise_xor", map(pair(bitwise_and, opt(preceded(ws, pair(
         value(Operator::BitwiseXor, tag("^")),
     bitwise_xor)))), makebinary))(i)
 }
 
 fn bitwise_and(i: &str) -> Result<Expression> {
-    context("logic", map(pair(addition, opt(preceded(ws, pair(
+    context("bitwise_and", map(pair(addition, opt(preceded(ws, pair(
         value(Operator::BitwiseAnd, tag("&")),
     bitwise_and)))), makebinary))(i)
 }
