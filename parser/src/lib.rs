@@ -39,7 +39,7 @@ pub enum Operator {
     Not, Incr, Decr, TypeOf, Void, Delete, Await, Yield,
     Array, Application, Dot, Optional,
     Assign, AssignAdd, AssignSub, AssignPow, AssignMod, AssignMul, AssignDiv,
-    AssignLeft, AssignRight, AssignURight, AssignAnd, AssignXor, AssignOr
+    AssignLeft, AssignRight, AssignURight, AssignAnd, AssignXor, AssignOr,
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -256,18 +256,18 @@ fn prefix(i: &str) -> Result<Expression> {
 }
 
 fn postfix(i: &str) -> Result<Expression> {
-    context("postfix", preceded(ws, map(pair(application, opt(preceded(ws, alt((
+    context("postfix", preceded(ws, map(pair(action, opt(preceded(ws, alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
     ))))), makepostfix)))(i)
 }
 
-fn application(i: &str) -> Result<Expression> {
-    context("application", preceded(ws, map(pair(primitive, opt(preceded(ws, alt((
-        pair(value(Operator::Array, char('[')), terminated(primitive, char(']'))),
+fn action(i: &str) -> Result<Expression> {
+    context("action", preceded(ws, map(pair(primitive, opt(preceded(ws, alt((
+        pair(value(Operator::Array, char('[')), terminated(expression, char(']'))),
         pair(value(Operator::Optional, tag("?.")), preceded(ws, map(ident, Expression::Ident))),
         pair(value(Operator::Dot, char('.')), preceded(ws, map(ident, Expression::Ident))),
-        pair(value(Operator::Application, char('(')), terminated(primitive, char(')'))),
+        pair(value(Operator::Application, char('(')), terminated(expression, char(')'))),
     ))))), makebinary)))(i)
 }
 
@@ -560,11 +560,12 @@ fn test_postfix() {
 }
 
 #[test]
-fn test_application() {
+fn test_action() {
     assert_eq!(expression(" a?.a"), Ok(("", Expression::Binary(Operator::Optional, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression(" a[a]"), Ok(("", Expression::Binary(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression(" a(a)"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression(" a.a"), Ok(("", Expression::Binary(Operator::Dot, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+    // assert_eq!(expression(" a()"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
 }
 
 #[test]
