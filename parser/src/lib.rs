@@ -36,7 +36,8 @@ pub enum Operator {
     Add, Sub, Mult, Div, Power,
     Not, Incr, Decr,
     Array, Application, Dot, Optional,
-    Assign, AssignAdd, AssignSub, AssignMod, AssignMul, AssignDiv,
+    Assign, AssignAdd, AssignSub, AssignPow, AssignMod, AssignMul, AssignDiv,
+    AssignLeft, AssignRight, AssignURight, AssignAnd, AssignXor, AssignOr
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -124,9 +125,16 @@ fn mutation(i: &str) -> Result<Expression> {
         value(Operator::Assign, tag("=")),
         value(Operator::AssignAdd, tag("+=")),
         value(Operator::AssignSub, tag("-=")),
-        value(Operator::AssignMod, tag("%=")),
+        value(Operator::AssignPow, tag("**=")),
         value(Operator::AssignMul, tag("*=")),
         value(Operator::AssignDiv, tag("/=")),
+        value(Operator::AssignMod, tag("%=")),
+        value(Operator::AssignLeft, tag("<<=")),
+        value(Operator::AssignURight, tag(">>>=")),
+        value(Operator::AssignRight, tag(">>=")),
+        value(Operator::AssignAnd, tag("&=")),
+        value(Operator::AssignXor, tag("^=")),
+        value(Operator::AssignOr, tag("|=")),
     )), mutation)))), makebinary))(i)
 }
 
@@ -447,6 +455,12 @@ fn test_mutation() {
     assert_eq!(expression(" 1 %= 2 "), Ok((" ", Expression::Binary(Operator::AssignMod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 *= 2 "), Ok((" ", Expression::Binary(Operator::AssignMul, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 /= 2 "), Ok((" ", Expression::Binary(Operator::AssignDiv, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 <<= 2 "), Ok((" ", Expression::Binary(Operator::AssignLeft, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 >>>= 2 "), Ok((" ", Expression::Binary(Operator::AssignURight, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 >>= 2 "), Ok((" ", Expression::Binary(Operator::AssignRight, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 &= 2 "), Ok((" ", Expression::Binary(Operator::AssignAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 ^= 2 "), Ok((" ", Expression::Binary(Operator::AssignXor, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 |= 2 "), Ok((" ", Expression::Binary(Operator::AssignOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
