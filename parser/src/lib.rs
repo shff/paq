@@ -51,11 +51,17 @@ pub enum Operator {
     Array,
     Application,
     Dot,
+    Assign,
+    AssignAdd,
+    AssignSub,
+    AssignMod,
+    AssignMul,
+    AssignDiv,
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
     preceded(ws, alt((
-        comparison,
+        mutation,
         primitive,
     )))(i)
 }
@@ -134,6 +140,17 @@ fn list_item(i: &str) -> Result<Expression> {
         map(preceded(tag("..."), expression), |e| Expression::Splat(Box::new(e))),
         expression
     ))(i)
+}
+
+fn mutation(i: &str) -> Result<Expression> {
+    context("mutation", map(pair(comparison, opt(preceded(ws, pair(alt((
+        value(Operator::Assign, tag("=")),
+        value(Operator::AssignAdd, tag("+=")),
+        value(Operator::AssignSub, tag("-=")),
+        value(Operator::AssignMod, tag("%=")),
+        value(Operator::AssignMul, tag("*=")),
+        value(Operator::AssignDiv, tag("/=")),
+    )), comparison)))), makepair))(i)
 }
 
 fn comparison(i: &str) -> Result<Expression> {
@@ -394,6 +411,16 @@ fn test_parenthesis() {
     assert_eq!(expression("([])"), Ok(("", Expression::Paren(Box::new(Expression::List(vec![]))))));
     assert_eq!(expression(" ( 1 ) "), Ok((" ", Expression::Paren(Box::new(Expression::Double(1.0))))));
     assert_eq!(expression(" ( [ ] ) "), Ok((" ", Expression::Paren(Box::new(Expression::List(vec![]))))));
+}
+
+#[test]
+fn test_mutation() {
+    assert_eq!(expression(" 1 = 2 "), Ok((" ", Expression::Pair(Operator::Assign, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 += 2 "), Ok((" ", Expression::Pair(Operator::AssignAdd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 -= 2 "), Ok((" ", Expression::Pair(Operator::AssignSub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 %= 2 "), Ok((" ", Expression::Pair(Operator::AssignMod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 *= 2 "), Ok((" ", Expression::Pair(Operator::AssignMul, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 /= 2 "), Ok((" ", Expression::Pair(Operator::AssignDiv, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
