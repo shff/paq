@@ -26,6 +26,7 @@ pub enum Expression {
     Paren(Box<Expression>),
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
+    Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -119,14 +120,20 @@ fn splat(i: &str) -> Result<Expression> {
 }
 
 fn mutation(i: &str) -> Result<Expression> {
-    context("mutation", map(pair(comparison, opt(preceded(ws, pair(alt((
+    context("mutation", map(pair(ternary, opt(preceded(ws, pair(alt((
         value(Operator::Assign, tag("=")),
         value(Operator::AssignAdd, tag("+=")),
         value(Operator::AssignSub, tag("-=")),
         value(Operator::AssignMod, tag("%=")),
         value(Operator::AssignMul, tag("*=")),
         value(Operator::AssignDiv, tag("/=")),
-    )), comparison)))), makebinary))(i)
+    )), ternary)))), makebinary))(i)
+}
+
+fn ternary(i: &str) -> Result<Expression> {
+    context("ternary", preceded(ws, map(pair(comparison, opt(preceded(preceded(ws, tag("?")),
+        separated_pair(preceded(ws, comparison), preceded(ws, tag(":")),
+          preceded(ws, comparison))))), maketernary)))(i)
 }
 
 fn comparison(i: &str) -> Result<Expression> {
@@ -229,6 +236,13 @@ fn makebinary(e: (Expression, Option<(Operator, Expression)>)) -> Expression {
     match e.1 {
         Some((op,r)) => Expression::Binary(op, Box::new(e.0), Box::new(r)),
         None => e.0
+    }
+}
+
+fn maketernary(e: (Expression, Option<(Expression, Expression)>)) -> Expression {
+    match e.1 {
+        Some((b,c)) => Expression::Ternary(Box::new(e.0), Box::new(b), Box::new(c)),
+        None => e.0,
     }
 }
 
@@ -396,6 +410,11 @@ fn test_parenthesis() {
 }
 
 #[test]
+fn test_everything() {
+    assert!(expression("x = a && b == c + d * !z[0]++ || d ? 2 : 3").is_ok());
+}
+
+#[test]
 fn test_mutation() {
     assert_eq!(expression(" 1 = 2 "), Ok((" ", Expression::Binary(Operator::Assign, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 += 2 "), Ok((" ", Expression::Binary(Operator::AssignAdd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
@@ -403,6 +422,11 @@ fn test_mutation() {
     assert_eq!(expression(" 1 %= 2 "), Ok((" ", Expression::Binary(Operator::AssignMod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 *= 2 "), Ok((" ", Expression::Binary(Operator::AssignMul, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 /= 2 "), Ok((" ", Expression::Binary(Operator::AssignDiv, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+}
+
+#[test]
+fn test_ternary() {
+    assert_eq!(expression("1 ? 2 : 3"), Ok(("", Expression::Ternary(Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0)), Box::new(Expression::Double(3.0))))));
 }
 
 #[test]
