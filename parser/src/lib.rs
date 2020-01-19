@@ -45,79 +45,6 @@ pub fn expression(i: &str) -> Result<Expression> {
     preceded(ws, yieldd)(i)
 }
 
-pub fn primitive(i: &str) -> Result<Expression> {
-    preceded(ws, alt((
-        map(string, Expression::Str),
-        map(string2, Expression::Str),
-        map(octal, Expression::Octal),
-        map(hexadecimal, Expression::Hexadecimal),
-        map(binary, Expression::BinaryNum),
-        map(double, Expression::Double),
-        map(ident, Expression::Ident),
-        map(object, Expression::Object),
-        map(paren, Expression::Paren),
-        map(list, Expression::List),
-    )))(i)
-}
-
-fn string(i: &str) -> Result<String> {
-    let chars = verify(is_not("\"\\"), |s: &str| !s.is_empty());
-    let inner = map(many0(alt((chars, escaped_char))), |s| s.join(""));
-    context("string", delimited(char('"'), inner, char('"')))(i)
-}
-
-fn string2(i: &str) -> Result<String> {
-    let chars = verify(is_not("\'\\"), |s: &str| !s.is_empty());
-    let inner = map(many0(alt((chars, escaped_char))), |s| s.join(""));
-    context("string", delimited(char('\''), inner, char('\'')))(i)
-}
-
-fn octal(i: &str) -> Result<u64> {
-    let inner = map_res(oct_digit1, |s| u64::from_str_radix(s, 8));
-    context("octal", preceded(tag("0o"), cut(inner)))(i)
-}
-
-fn hexadecimal(i: &str) -> Result<u64> {
-    let inner = map_res(hex_digit1, |s| u64::from_str_radix(s, 16));
-    context("hexadecimal", preceded(tag("0x"), cut(inner)))(i)
-}
-
-fn binary(i: &str) -> Result<u64> {
-    let inner = map_res(alphanumeric1, |s| u64::from_str_radix(s, 2));
-    context("binary", preceded(tag("0b"), cut(inner)))(i)
-}
-
-fn ident(i: &str) -> Result<String> {
-    context("ident", map(many1(alphanumeric1), |s| s.join("")))(i)
-}
-
-fn object(i: &str) -> Result<Vec<(Expression, Expression)>> {
-    let inner = separated_list(preceded(ws, char(',')), key_value);
-    context("object", delimited(char('{'), delimited(ws, cut(inner), ws), char('}')))(i)
-}
-
-fn key_value(i: &str) -> Result<(Expression, Expression)> {
-    separated_pair(preceded(ws, alt((
-        map(string, Expression::Str),
-        map(string2, Expression::Str),
-        map(ident, Expression::Str),
-        delimited(char('['), expression, char(']')),
-    ))), cut(preceded(ws, char(':'))), expression)(i)
-}
-
-fn paren(i: &str) -> Result<Box<Expression>> {
-    context("list", delimited(char('('), map(expression, Box::new), preceded(ws, char(')'))))(i)
-}
-
-fn list(i: &str) -> Result<Vec<Expression>> {
-    let inner = separated_list(preceded(ws, char(',')), alt((splat, expression)));
-    context("list", delimited(char('['), delimited(ws, cut(inner), ws), char(']')))(i)
-}
-
-fn splat(i: &str) -> Result<Expression> {
-    map(map(preceded(tag("..."), expression), Box::new), Expression::Splat)(i)
-}
-
 fn yieldd(i: &str) -> Result<Expression> {
     context("yield", preceded(ws, map(pair(opt(
         value(Operator::Yield, tag("yield")),
@@ -265,6 +192,79 @@ fn action(i: &str) -> Result<Expression> {
         pair(value(Operator::Dot, char('.')), preceded(ws, map(ident, Expression::Ident))),
         pair(value(Operator::Application, char('(')), terminated(expression, char(')'))),
     ))))), makebinary)))(i)
+}
+
+fn primitive(i: &str) -> Result<Expression> {
+    preceded(ws, alt((
+        map(string, Expression::Str),
+        map(string2, Expression::Str),
+        map(octal, Expression::Octal),
+        map(hexadecimal, Expression::Hexadecimal),
+        map(binary, Expression::BinaryNum),
+        map(double, Expression::Double),
+        map(ident, Expression::Ident),
+        map(object, Expression::Object),
+        map(paren, Expression::Paren),
+        map(list, Expression::List),
+    )))(i)
+}
+
+fn string(i: &str) -> Result<String> {
+    let chars = verify(is_not("\"\\"), |s: &str| !s.is_empty());
+    let inner = map(many0(alt((chars, escaped_char))), |s| s.join(""));
+    context("string", delimited(char('"'), inner, char('"')))(i)
+}
+
+fn string2(i: &str) -> Result<String> {
+    let chars = verify(is_not("\'\\"), |s: &str| !s.is_empty());
+    let inner = map(many0(alt((chars, escaped_char))), |s| s.join(""));
+    context("string", delimited(char('\''), inner, char('\'')))(i)
+}
+
+fn octal(i: &str) -> Result<u64> {
+    let inner = map_res(oct_digit1, |s| u64::from_str_radix(s, 8));
+    context("octal", preceded(tag("0o"), cut(inner)))(i)
+}
+
+fn hexadecimal(i: &str) -> Result<u64> {
+    let inner = map_res(hex_digit1, |s| u64::from_str_radix(s, 16));
+    context("hexadecimal", preceded(tag("0x"), cut(inner)))(i)
+}
+
+fn binary(i: &str) -> Result<u64> {
+    let inner = map_res(alphanumeric1, |s| u64::from_str_radix(s, 2));
+    context("binary", preceded(tag("0b"), cut(inner)))(i)
+}
+
+fn ident(i: &str) -> Result<String> {
+    context("ident", map(many1(alphanumeric1), |s| s.join("")))(i)
+}
+
+fn object(i: &str) -> Result<Vec<(Expression, Expression)>> {
+    let inner = separated_list(preceded(ws, char(',')), key_value);
+    context("object", delimited(char('{'), delimited(ws, cut(inner), ws), char('}')))(i)
+}
+
+fn key_value(i: &str) -> Result<(Expression, Expression)> {
+    separated_pair(preceded(ws, alt((
+        map(string, Expression::Str),
+        map(string2, Expression::Str),
+        map(ident, Expression::Str),
+        delimited(char('['), expression, char(']')),
+    ))), cut(preceded(ws, char(':'))), expression)(i)
+}
+
+fn paren(i: &str) -> Result<Box<Expression>> {
+    context("list", delimited(char('('), map(expression, Box::new), preceded(ws, char(')'))))(i)
+}
+
+fn list(i: &str) -> Result<Vec<Expression>> {
+    let inner = separated_list(preceded(ws, char(',')), alt((splat, expression)));
+    context("list", delimited(char('['), delimited(ws, cut(inner), ws), char(']')))(i)
+}
+
+fn splat(i: &str) -> Result<Expression> {
+    map(map(preceded(tag("..."), expression), Box::new), Expression::Splat)(i)
 }
 
 fn escaped_char(i: &str) -> Result<&str> {
