@@ -71,9 +71,9 @@ fn mutation(i: &str) -> Result<Expression> {
 }
 
 fn ternary(i: &str) -> Result<Expression> {
-    context("ternary", preceded(ws, map(pair(equality, opt(preceded(preceded(ws, tag("?")),
-        separated_pair(preceded(ws, ternary), preceded(ws, tag(":")),
-          preceded(ws, ternary))))), maketernary)))(i)
+    let conds = opt(preceded(preceded(ws, tag("?")), separated_pair(
+        preceded(ws, ternary), preceded(ws, tag(":")), preceded(ws, ternary))));
+    context("ternary", preceded(ws, map(pair(equality, conds), maketernary)))(i)
 }
 
 fn equality(i: &str) -> Result<Expression> {
