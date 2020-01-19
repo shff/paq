@@ -45,6 +45,7 @@ pub enum Operator {
     Sub,
     Mult,
     Div,
+    Power,
     Not,
     Incr,
     Decr,
@@ -186,10 +187,16 @@ fn addition(i: &str) -> Result<Expression> {
 }
 
 fn multiplication(i: &str) -> Result<Expression> {
-    context("multiplication", map(pair(negation, opt(preceded(ws, pair(alt((
+    context("multiplication", map(pair(power, opt(preceded(ws, pair(alt((
         value(Operator::Mult, tag("*")),
         value(Operator::Div, tag("/")),
-    )), negation)))), makepair))(i)
+    )), power)))), makepair))(i)
+}
+
+fn power(i: &str) -> Result<Expression> {
+    context("power", map(pair(negation, opt(preceded(ws, pair(
+        value(Operator::Power, tag("**")),
+    negation)))), makepair))(i)
 }
 
 fn negation(i: &str) -> Result<Expression> {
@@ -447,6 +454,7 @@ fn test_arithmetic() {
     assert_eq!(expression(" 1 - 2 "), Ok((" ", Expression::Pair(Operator::Sub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 * 2 "), Ok((" ", Expression::Pair(Operator::Mult, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 / 2 "), Ok((" ", Expression::Pair(Operator::Div, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 ** 2 "), Ok((" ", Expression::Pair(Operator::Power, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
