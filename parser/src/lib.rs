@@ -36,7 +36,7 @@ pub enum Operator {
     LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
     URightShift, RightShift, LeftShift,
     Add, Sub, Mult, Div, Power,
-    Not, Incr, Decr, TypeOf, Void, Delete, Await,
+    Not, Incr, Decr, TypeOf, Void, Delete, Await, Yield,
     Array, Application, Dot, Optional,
     Assign, AssignAdd, AssignSub, AssignPow, AssignMod, AssignMul, AssignDiv,
     AssignLeft, AssignRight, AssignURight, AssignAnd, AssignXor, AssignOr
@@ -44,7 +44,7 @@ pub enum Operator {
 
 pub fn expression(i: &str) -> Result<Expression> {
     preceded(ws, alt((
-        mutation,
+        yieldd,
         primitive,
     )))(i)
 }
@@ -120,6 +120,12 @@ fn list(i: &str) -> Result<Vec<Expression>> {
 
 fn splat(i: &str) -> Result<Expression> {
     map(preceded(tag("..."), expression), |e| Expression::Splat(Box::new(e)))(i)
+}
+
+fn yieldd(i: &str) -> Result<Expression> {
+    context("yield", preceded(ws, map(pair(opt(
+        value(Operator::Yield, tag("yield")),
+    ), mutation), makeprefix)))(i)
 }
 
 fn mutation(i: &str) -> Result<Expression> {
@@ -544,6 +550,7 @@ fn test_prefix() {
     assert_eq!(expression("void a"), Ok(("", Expression::Unary(Operator::Void, Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression("delete a"), Ok(("", Expression::Unary(Operator::Delete, Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression("await a"), Ok(("", Expression::Unary(Operator::Await, Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression("yield a"), Ok(("", Expression::Unary(Operator::Yield, Box::new(Expression::Ident(String::from("a")))))));
 }
 
 #[test]
