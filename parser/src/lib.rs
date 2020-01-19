@@ -257,7 +257,7 @@ fn key_value(i: &str) -> Result<(Expression, Expression)> {
 }
 
 fn paren(i: &str) -> Result<Box<Expression>> {
-    context("list", delimited(char('('), map(expression, Box::new), ws(char(')'))))(i)
+    context("paren", delimited(char('('), map(expression, Box::new), ws(char(')'))))(i)
 }
 
 fn list(i: &str) -> Result<Vec<Expression>> {
