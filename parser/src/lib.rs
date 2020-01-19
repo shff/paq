@@ -132,15 +132,12 @@ fn paren(i: &str) -> Result<Box<Expression>> {
 }
 
 fn list(i: &str) -> Result<Vec<Expression>> {
-    let inner = separated_list(preceded(ws, char(',')), list_item);
+    let inner = separated_list(preceded(ws, char(',')), alt((splat, expression)));
     context("list", delimited(char('['), delimited(ws, cut(inner), ws), char(']')))(i)
 }
 
-fn list_item(i: &str) -> Result<Expression> {
-    alt((
-        map(preceded(tag("..."), expression), |e| Expression::Splat(Box::new(e))),
-        expression
-    ))(i)
+fn splat(i: &str) -> Result<Expression> {
+    map(preceded(tag("..."), expression), |e| Expression::Splat(Box::new(e)))(i)
 }
 
 fn mutation(i: &str) -> Result<Expression> {
