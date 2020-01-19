@@ -24,9 +24,8 @@ pub enum Expression {
     List(Vec<Expression>),
     Object(Vec<(Expression, Expression)>),
     Paren(Box<Expression>),
-    Pair(Operator, Box<Expression>, Box<Expression>),
-    Prefix(Operator, Box<Expression>),
-    Postfix(Box<Expression>, Operator),
+    Unary(Operator, Box<Expression>),
+    Binary(Operator, Box<Expression>, Box<Expression>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -148,7 +147,7 @@ fn mutation(i: &str) -> Result<Expression> {
         value(Operator::AssignMod, tag("%=")),
         value(Operator::AssignMul, tag("*=")),
         value(Operator::AssignDiv, tag("/=")),
-    )), comparison)))), makepair))(i)
+    )), comparison)))), makebinary))(i)
 }
 
 fn comparison(i: &str) -> Result<Expression> {
@@ -161,39 +160,39 @@ fn comparison(i: &str) -> Result<Expression> {
         value(Operator::LessEqual, tag("<=")),
         value(Operator::LessThan, tag("<")),
         value(Operator::GreaterThan, tag(">")),
-    )), logic_or)))), makepair))(i)
+    )), logic_or)))), makebinary))(i)
 }
 
 fn logic_or(i: &str) -> Result<Expression> {
     context("logic", map(pair(logic_and, opt(preceded(ws, pair(
         value(Operator::LogicalOr, tag("&&")),
-    logic_and)))), makepair))(i)
+    logic_and)))), makebinary))(i)
 }
 
 fn logic_and(i: &str) -> Result<Expression> {
     context("logic", map(pair(addition, opt(preceded(ws, pair(
         value(Operator::LogicalAnd, tag("||")),
-    addition)))), makepair))(i)
+    addition)))), makebinary))(i)
 }
 
 fn addition(i: &str) -> Result<Expression> {
     context("addition", map(pair(multiplication, opt(preceded(ws, pair(alt((
         value(Operator::Add, tag("+")),
         value(Operator::Sub, tag("-")),
-    )), multiplication)))), makepair))(i)
+    )), multiplication)))), makebinary))(i)
 }
 
 fn multiplication(i: &str) -> Result<Expression> {
     context("multiplication", map(pair(power, opt(preceded(ws, pair(alt((
         value(Operator::Mult, tag("*")),
         value(Operator::Div, tag("/")),
-    )), power)))), makepair))(i)
+    )), power)))), makebinary))(i)
 }
 
 fn power(i: &str) -> Result<Expression> {
     context("power", map(pair(negation, opt(preceded(ws, pair(
         value(Operator::Power, tag("**")),
-    negation)))), makepair))(i)
+    negation)))), makebinary))(i)
 }
 
 fn negation(i: &str) -> Result<Expression> {
@@ -223,7 +222,7 @@ fn application(i: &str) -> Result<Expression> {
         pair(value(Operator::Array, char('[')), terminated(primitive, char(']'))),
         pair(value(Operator::Application, char('(')), terminated(primitive, char(')'))),
         pair(value(Operator::Dot, char('.')), preceded(ws, map(ident, Expression::Ident))),
-    ))))), makepair)))(i)
+    ))))), makebinary)))(i)
 }
 
 fn escaped_char(i: &str) -> Result<&str> {
@@ -247,29 +246,29 @@ fn ws(i: &str) -> Result<&str> {
     take_while(|c: char| c.is_whitespace())(i)
 }
 
-fn makepair(e: (Expression, Option<(Operator, Expression)>)) -> Expression {
+fn makebinary(e: (Expression, Option<(Operator, Expression)>)) -> Expression {
     match e.1 {
-        Some((op,r)) => Expression::Pair(op, Box::new(e.0), Box::new(r)),
+        Some((op,r)) => Expression::Binary(op, Box::new(e.0), Box::new(r)),
         None => e.0
     }
 }
 
 fn makeprefix(e: (Option<Operator>, Expression)) -> Expression {
     match e.0 {
-        Some(a) => Expression::Prefix(a, Box::new(e.1)),
+        Some(a) => Expression::Unary(a, Box::new(e.1)),
         None => e.1
     }
 }
 
 fn makepostfix(e: (Expression, Option<Operator>)) -> Expression {
     match e.1 {
-        Some(a) => Expression::Postfix(Box::new(e.0), a),
+        Some(a) => Expression::Unary(a, Box::new(e.0)),
         None => e.0
     }
 }
 
 fn makechain(e: (Vec<Operator>, Expression)) -> Expression {
-    e.0.iter().fold(e.1, |acc, item| Expression::Prefix(*item, Box::new(acc)))
+    e.0.iter().fold(e.1, |acc, item| Expression::Unary(*item, Box::new(acc)))
 }
 
 #[test]
@@ -419,63 +418,63 @@ fn test_parenthesis() {
 
 #[test]
 fn test_mutation() {
-    assert_eq!(expression(" 1 = 2 "), Ok((" ", Expression::Pair(Operator::Assign, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 += 2 "), Ok((" ", Expression::Pair(Operator::AssignAdd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 -= 2 "), Ok((" ", Expression::Pair(Operator::AssignSub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 %= 2 "), Ok((" ", Expression::Pair(Operator::AssignMod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 *= 2 "), Ok((" ", Expression::Pair(Operator::AssignMul, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 /= 2 "), Ok((" ", Expression::Pair(Operator::AssignDiv, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 = 2 "), Ok((" ", Expression::Binary(Operator::Assign, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 += 2 "), Ok((" ", Expression::Binary(Operator::AssignAdd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 -= 2 "), Ok((" ", Expression::Binary(Operator::AssignSub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 %= 2 "), Ok((" ", Expression::Binary(Operator::AssignMod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 *= 2 "), Ok((" ", Expression::Binary(Operator::AssignMul, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 /= 2 "), Ok((" ", Expression::Binary(Operator::AssignDiv, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
 fn test_comparison() {
-    assert_eq!(expression(" 1 == 2 "), Ok((" ", Expression::Pair(Operator::Equal, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 != 2 "), Ok((" ", Expression::Pair(Operator::NotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 > 2 "), Ok((" ", Expression::Pair(Operator::GreaterThan, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 < 2 "), Ok((" ", Expression::Pair(Operator::LessThan, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 >= 2 "), Ok((" ", Expression::Pair(Operator::GreaterEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 <= 2 "), Ok((" ", Expression::Pair(Operator::LessEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 === 2 "), Ok((" ", Expression::Pair(Operator::StrictEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 !== 2 "), Ok((" ", Expression::Pair(Operator::StrictNotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 == 2 "), Ok((" ", Expression::Binary(Operator::Equal, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 != 2 "), Ok((" ", Expression::Binary(Operator::NotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 > 2 "), Ok((" ", Expression::Binary(Operator::GreaterThan, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 < 2 "), Ok((" ", Expression::Binary(Operator::LessThan, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 >= 2 "), Ok((" ", Expression::Binary(Operator::GreaterEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 <= 2 "), Ok((" ", Expression::Binary(Operator::LessEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 === 2 "), Ok((" ", Expression::Binary(Operator::StrictEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 !== 2 "), Ok((" ", Expression::Binary(Operator::StrictNotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
 fn test_logic() {
-    assert_eq!(expression(" 1 || 2 "), Ok((" ", Expression::Pair(Operator::LogicalAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 && 2 "), Ok((" ", Expression::Pair(Operator::LogicalOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 || 2 "), Ok((" ", Expression::Binary(Operator::LogicalAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 && 2 "), Ok((" ", Expression::Binary(Operator::LogicalOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
 fn test_arithmetic() {
-    assert_eq!(expression(" 1 + 2 "), Ok((" ", Expression::Pair(Operator::Add, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 - 2 "), Ok((" ", Expression::Pair(Operator::Sub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 * 2 "), Ok((" ", Expression::Pair(Operator::Mult, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 / 2 "), Ok((" ", Expression::Pair(Operator::Div, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" 1 ** 2 "), Ok((" ", Expression::Pair(Operator::Power, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 + 2 "), Ok((" ", Expression::Binary(Operator::Add, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 - 2 "), Ok((" ", Expression::Binary(Operator::Sub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 * 2 "), Ok((" ", Expression::Binary(Operator::Mult, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 / 2 "), Ok((" ", Expression::Binary(Operator::Div, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 ** 2 "), Ok((" ", Expression::Binary(Operator::Power, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
 fn test_prefix() {
-    assert_eq!(expression(" ++ 2 "), Ok((" ", Expression::Prefix(Operator::Incr, Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" -- 2 "), Ok((" ", Expression::Prefix(Operator::Decr, Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" + 2 "), Ok((" ", Expression::Prefix(Operator::Add, Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" - 2 "), Ok((" ", Expression::Prefix(Operator::Sub, Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" ! 2 "), Ok((" ", Expression::Prefix(Operator::Not, Box::new(Expression::Double(2.0))))));
-    assert_eq!(expression(" !!2 "), Ok((" ", Expression::Prefix(Operator::Not, Box::new(Expression::Prefix(Operator::Not, Box::new(Expression::Double(2.0))))))));
-    assert_eq!(expression(" ! ! 2 "), Ok((" ", Expression::Prefix(Operator::Not, Box::new(Expression::Prefix(Operator::Not, Box::new(Expression::Double(2.0))))))));
+    assert_eq!(expression(" ++ 2 "), Ok((" ", Expression::Unary(Operator::Incr, Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" -- 2 "), Ok((" ", Expression::Unary(Operator::Decr, Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" + 2 "), Ok((" ", Expression::Unary(Operator::Add, Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" - 2 "), Ok((" ", Expression::Unary(Operator::Sub, Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" ! 2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" !!2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))))));
+    assert_eq!(expression(" ! ! 2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))))));
 }
 
 #[test]
 fn test_postfix() {
-    assert_eq!(expression(" a++"), Ok(("", Expression::Postfix(Box::new(Expression::Ident(String::from("a"))), Operator::Incr))));
-    assert_eq!(expression(" a--"), Ok(("", Expression::Postfix(Box::new(Expression::Ident(String::from("a"))), Operator::Decr))));
+    assert_eq!(expression(" a++"), Ok(("", Expression::Unary(Operator::Incr, Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression(" a--"), Ok(("", Expression::Unary(Operator::Decr, Box::new(Expression::Ident(String::from("a")))))));
 }
 
 #[test]
 fn test_application() {
-    assert_eq!(expression(" a[a] "), Ok((" ", Expression::Pair(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-    assert_eq!(expression(" a(a) "), Ok((" ", Expression::Pair(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-    assert_eq!(expression(" a.a"), Ok(("", Expression::Pair(Operator::Dot, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression(" a[a] "), Ok((" ", Expression::Binary(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression(" a(a) "), Ok((" ", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression(" a.a"), Ok(("", Expression::Binary(Operator::Dot, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
 }
 
 #[test]
