@@ -36,7 +36,7 @@ pub enum Operator {
     LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
     URightShift, RightShift, LeftShift,
     Add, Sub, Mult, Div, Power,
-    Not, Incr, Decr,
+    Not, Incr, Decr, TypeOf, Void, Delete, Await,
     Array, Application, Dot, Optional,
     Assign, AssignAdd, AssignSub, AssignPow, AssignMod, AssignMul, AssignDiv,
     AssignLeft, AssignRight, AssignURight, AssignAnd, AssignXor, AssignOr
@@ -242,6 +242,10 @@ fn prefix(i: &str) -> Result<Expression> {
         value(Operator::Decr, tag("--")),
         value(Operator::Add, tag("+")),
         value(Operator::Sub, tag("-")),
+        value(Operator::TypeOf, tag("typeof")),
+        value(Operator::Void, tag("void")),
+        value(Operator::Delete, tag("delete")),
+        value(Operator::Await , tag("await ")),
     ))), postfix), makeprefix)))(i)
 }
 
@@ -535,6 +539,11 @@ fn test_prefix() {
     assert_eq!(expression(" ! 2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" !!2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))))));
     assert_eq!(expression(" ! ! 2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))))));
+
+    assert_eq!(expression("typeof a"), Ok(("", Expression::Unary(Operator::TypeOf, Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression("void a"), Ok(("", Expression::Unary(Operator::Void, Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression("delete a"), Ok(("", Expression::Unary(Operator::Delete, Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression("await a"), Ok(("", Expression::Unary(Operator::Await, Box::new(Expression::Ident(String::from("a")))))));
 }
 
 #[test]
