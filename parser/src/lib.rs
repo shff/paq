@@ -43,10 +43,7 @@ pub enum Operator {
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
-    preceded(ws, alt((
-        yieldd,
-        primitive,
-    )))(i)
+    preceded(ws, yieldd)(i)
 }
 
 pub fn primitive(i: &str) -> Result<Expression> {
