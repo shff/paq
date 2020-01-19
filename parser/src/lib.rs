@@ -442,6 +442,7 @@ fn test_list() {
     assert_eq!(expression("[ 1, 2 ]"), Ok(("", Expression::List(vec![ Expression::Double(1.0), Expression::Double(2.0) ]))));
     assert_eq!(expression("[ 1, \"2\" ]"), Ok(("", Expression::List(vec![ Expression::Double(1.0), Expression::Str(String::from("2")) ]))));
     assert_eq!(expression("[ ...a, 1 ]"), Ok(("", Expression::List(vec![ Expression::Splat(Box::new(Expression::Ident(String::from("a")))), Expression::Double(1.0) ]))));
+    assert_eq!(expression("[ ...[], 1 ]"), Ok(("", Expression::List(vec![ Expression::Splat(Box::new(Expression::List(vec![]))), Expression::Double(1.0) ]))));
 }
 
 #[test]
@@ -455,6 +456,9 @@ fn test_object() {
         (Expression::Double(1.0), Expression::Double(1.0)),
         (Expression::Str(String::from("a")), Expression::Double(2.0)),
     ]))));
+    assert_eq!(expression("{a: {}}"), Ok(("", Expression::Object(vec![
+        (Expression::Str(String::from("a")), Expression::Object(vec![])),
+    ]))));
 }
 
 #[test]
@@ -463,11 +467,7 @@ fn test_parenthesis() {
     assert_eq!(expression("([])"), Ok(("", Expression::Paren(Box::new(Expression::List(vec![]))))));
     assert_eq!(expression(" ( 1 ) "), Ok((" ", Expression::Paren(Box::new(Expression::Double(1.0))))));
     assert_eq!(expression(" ( [ ] ) "), Ok((" ", Expression::Paren(Box::new(Expression::List(vec![]))))));
-}
-
-#[test]
-fn test_everything() {
-    assert!(expression("x = a && b == c + d * !z[0]++ || d ? 2 : 3").is_ok());
+    // assert_eq!(expression("()"), Ok(("", Expression::Paren(Box::new(Expression::Double(1.0))))));
 }
 
 #[test]
@@ -484,6 +484,7 @@ fn test_mutation() {
     assert_eq!(expression(" 1 &= 2 "), Ok((" ", Expression::Binary(Operator::AssignAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 ^= 2 "), Ok((" ", Expression::Binary(Operator::AssignXor, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 |= 2 "), Ok((" ", Expression::Binary(Operator::AssignOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    // assert_eq!(expression(" 1 = 2 = 3 "), Ok((" ", Expression::Binary(Operator::Assign, Box::new(Expression::Binary(Operator::Assign, Box::new(Expression::Double(2.0)), Box::new(Expression::Double(3.0)))), Box::new(Expression::Double(1.0))))));
 }
 
 #[test]
@@ -503,6 +504,7 @@ fn test_comparison() {
     assert_eq!(expression(" 1 !== 2 "), Ok((" ", Expression::Binary(Operator::StrictNotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 instanceof 2 "), Ok((" ", Expression::Binary(Operator::InstanceOf, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 in 2 "), Ok((" ", Expression::Binary(Operator::In, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    // assert_eq!(expression(" 1 == 2 == 3 "), Ok((" ", Expression::Binary(Operator::Equal, Box::new(Expression::Binary(Operator::Equal, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(1.0)))), Box::new(Expression::Double(3.0))))));
 }
 
 #[test]
@@ -591,6 +593,7 @@ fn test_complex() {
     assert_complete("1 + 1 || 1 == 1 ^ 1 != 1/1 - 1");
     assert_complete("first += second += third");
     assert_complete("one += two /= 12");
+    assert_complete("x = a && b == c + d * !z[0]++ || d ? 2 : 3");
     // assert_complete("a()");
     // assert_complete(" a . b . c");
     // assert_complete("a.b.c[7]");
