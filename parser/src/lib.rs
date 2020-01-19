@@ -32,6 +32,7 @@ pub enum Expression {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operator {
     Equal, NotEqual, LessThan, GreaterThan, LessEqual, GreaterEqual, StrictEqual, StrictNotEqual,
+    InstanceOf, In,
     LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
     Add, Sub, Mult, Div, Power,
     Not, Incr, Decr,
@@ -139,21 +140,28 @@ fn mutation(i: &str) -> Result<Expression> {
 }
 
 fn ternary(i: &str) -> Result<Expression> {
-    context("ternary", preceded(ws, map(pair(comparison, opt(preceded(preceded(ws, tag("?")),
-        separated_pair(preceded(ws, comparison), preceded(ws, tag(":")),
-          preceded(ws, comparison))))), maketernary)))(i)
+    context("ternary", preceded(ws, map(pair(equality, opt(preceded(preceded(ws, tag("?")),
+        separated_pair(preceded(ws, equality), preceded(ws, tag(":")),
+          preceded(ws, equality))))), maketernary)))(i)
 }
 
-fn comparison(i: &str) -> Result<Expression> {
-    context("comparison", map(pair(logic_or, opt(preceded(ws, pair(alt((
+fn equality(i: &str) -> Result<Expression> {
+    context("equality", map(pair(comparison, opt(preceded(ws, pair(alt((
         value(Operator::StrictEqual, tag("===")),
         value(Operator::Equal, tag("==")),
         value(Operator::StrictNotEqual, tag("!==")),
         value(Operator::NotEqual, tag("!=")),
+    )), equality)))), makebinary))(i)
+}
+
+fn comparison(i: &str) -> Result<Expression> {
+    context("comparison", map(pair(logic_or, opt(preceded(ws, pair(alt((
         value(Operator::GreaterEqual, tag(">=")),
         value(Operator::LessEqual, tag("<=")),
-        value(Operator::LessThan, tag("<")),
         value(Operator::GreaterThan, tag(">")),
+        value(Operator::LessThan, tag("<")),
+        value(Operator::InstanceOf, tag("instanceof")),
+        value(Operator::In, tag("in")),
     )), comparison)))), makebinary))(i)
 }
 
@@ -478,6 +486,8 @@ fn test_comparison() {
     assert_eq!(expression(" 1 <= 2 "), Ok((" ", Expression::Binary(Operator::LessEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 === 2 "), Ok((" ", Expression::Binary(Operator::StrictEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
     assert_eq!(expression(" 1 !== 2 "), Ok((" ", Expression::Binary(Operator::StrictNotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 instanceof 2 "), Ok((" ", Expression::Binary(Operator::InstanceOf, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+    assert_eq!(expression(" 1 in 2 "), Ok((" ", Expression::Binary(Operator::In, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
 }
 
 #[test]
