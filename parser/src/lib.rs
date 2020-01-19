@@ -31,15 +31,14 @@ pub enum Expression {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operator {
-    Equal, NotEqual, LessThan, GreaterThan, LessEqual, GreaterEqual, StrictEqual, StrictNotEqual,
-    InstanceOf, In,
-    LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
-    URightShift, RightShift, LeftShift,
-    Add, Sub, Mult, Div, Power,
-    Not, Incr, Decr, TypeOf, Void, Delete, Await, Yield,
-    Array, Application, Dot, Optional,
     Assign, AssignAdd, AssignSub, AssignPow, AssignMod, AssignMul, AssignDiv,
     AssignLeft, AssignRight, AssignURight, AssignAnd, AssignXor, AssignOr,
+    Equal, NotEqual, LessThan, GreaterThan, LessEqual, GreaterEqual, StrictEqual, StrictNotEqual,
+    LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
+    Add, Sub, Mult, Div, Power, URightShift, RightShift, LeftShift,
+    Not, Incr, Decr,
+    Array, Application, Dot, Optional,
+    InstanceOf, In, TypeOf, Void, Delete, Await, Yield,
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
