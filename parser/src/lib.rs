@@ -35,7 +35,7 @@ pub enum Operator {
     LogicalAnd, LogicalOr, Coalesce, BitwiseOr, BitwiseXor, BitwiseAnd,
     Add, Sub, Mult, Div, Power,
     Not, Incr, Decr,
-    Array, Application, Dot,
+    Array, Application, Dot, Optional,
     Assign, AssignAdd, AssignSub, AssignMod, AssignMul, AssignDiv,
 }
 
@@ -230,8 +230,9 @@ fn postfix(i: &str) -> Result<Expression> {
 fn application(i: &str) -> Result<Expression> {
     context("application", preceded(ws, map(pair(primitive, opt(preceded(ws, alt((
         pair(value(Operator::Array, char('[')), terminated(primitive, char(']'))),
-        pair(value(Operator::Application, char('(')), terminated(primitive, char(')'))),
+        pair(value(Operator::Optional, tag("?.")), preceded(ws, map(ident, Expression::Ident))),
         pair(value(Operator::Dot, char('.')), preceded(ws, map(ident, Expression::Ident))),
+        pair(value(Operator::Application, char('(')), terminated(primitive, char(')'))),
     ))))), makebinary)))(i)
 }
 
@@ -507,8 +508,9 @@ fn test_postfix() {
 
 #[test]
 fn test_application() {
-    assert_eq!(expression(" a[a] "), Ok((" ", Expression::Binary(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-    assert_eq!(expression(" a(a) "), Ok((" ", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression(" a?.a"), Ok(("", Expression::Binary(Operator::Optional, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression(" a[a]"), Ok(("", Expression::Binary(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+    assert_eq!(expression(" a(a)"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
     assert_eq!(expression(" a.a"), Ok(("", Expression::Binary(Operator::Dot, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
 }
 
