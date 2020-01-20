@@ -23,6 +23,7 @@ pub enum Expression {
     BinaryNum(u64),
     List(Vec<Expression>),
     Object(Vec<Expression>),
+    Args(Vec<Expression>),
     Paren(Box<Expression>),
     KeyValue(Box<Expression>, Box<Expression>),
 
@@ -193,7 +194,7 @@ fn action(i: &str) -> Result<Expression> {
         pair(value(Operator::Array, char('[')), terminated(expression, char(']'))),
         pair(value(Operator::Optional, tag("?.")), map(ident, Expression::Ident)),
         pair(value(Operator::Dot, char('.')), map(ident, Expression::Ident)),
-        pair(value(Operator::Application, char('(')), terminated(expression, char(')'))),
+        pair(value(Operator::Application, char('(')), terminated(map(arguments, Expression::Args), char(')')))
     ))))), makechain2))(i)
 }
 
@@ -263,8 +264,11 @@ fn paren(i: &str) -> Result<Box<Expression>> {
 }
 
 fn list(i: &str) -> Result<Vec<Expression>> {
-    let inner = separated_list(ws(char(',')), alt((splat, expression)));
-    context("list", delimited(char('['), ws(cut(inner)), ws(char(']'))))(i)
+    context("list", delimited(char('['), ws(cut(arguments)), ws(char(']'))))(i)
+}
+
+fn arguments(i: &str) -> Result<Vec<Expression>> {
+    separated_list(ws(char(',')), alt((splat, expression)))(i)
 }
 
 fn splat(i: &str) -> Result<Expression> {
@@ -565,9 +569,9 @@ mod test {
     fn test_action() {
         assert_eq!(expression(" a?.a"), Ok(("", Expression::Binary(Operator::Optional, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
         assert_eq!(expression(" a[a]"), Ok(("", Expression::Binary(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression(" a(a)"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+        assert_eq!(expression(" a(a)"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Args(vec![(Expression::Ident(String::from("a")))]))))));
         assert_eq!(expression(" a.a"), Ok(("", Expression::Binary(Operator::Dot, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-        // assert_eq!(expression(" a()"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
+        assert_eq!(expression(" a()"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Args(vec![]))))));
     }
 
     #[test]
@@ -600,7 +604,8 @@ mod test {
         assert_complete("x = a && b == c + d * !z[0]++ || d ? 2 : 3");
         assert_complete(" a . b . c");
         assert_complete("a.b.c[7]");
-        // assert_complete("a()");
+        assert_complete("a()");
+        assert_complete("a()[0]()");
     }
 
     #[test]
