@@ -25,6 +25,7 @@ pub enum Expression {
     Object(Vec<Expression>),
     Args(Vec<Expression>),
     Paren(Box<Expression>),
+    Closure((Vec<(String, Option<Expression>)>, Box<Expression>)),
     KeyValue(Box<Expression>, Box<Expression>),
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
@@ -203,6 +204,7 @@ fn primitive(i: &str) -> Result<Expression> {
         map(double, Expression::Double),
         map(ident, Expression::Ident),
         map(object, Expression::Object),
+        map(closure, Expression::Closure),
         map(paren, Expression::Paren),
         map(list, Expression::List),
     )))(i)
@@ -264,6 +266,15 @@ fn list(i: &str) -> Result<Vec<Expression>> {
 
 fn arguments(i: &str) -> Result<Vec<Expression>> {
     separated_list(ws(char(',')), alt((splat, expression)))(i)
+}
+
+fn closure(i: &str) -> Result<(Vec<(String, Option<Expression>)>, Box<Expression>)> {
+    context("closure", ws(separated_pair(parameters, ws(tag("=>")), map(expression, Box::new))))(i)
+}
+
+fn parameters(i: &str) -> Result<Vec<(String, Option<Expression>)>> {
+    let inner = separated_list(ws(char(',')), pair(ws(ident), opt(preceded(ws(char('=')), ws(expression)))));
+    delimited(char('('), inner, char(')'))(i)
 }
 
 fn splat(i: &str) -> Result<Expression> {
@@ -469,7 +480,18 @@ mod test {
         assert_eq!(expression("([])"), Ok(("", Expression::Paren(Box::new(Expression::List(vec![]))))));
         assert_eq!(expression(" ( 1 ) "), Ok((" ", Expression::Paren(Box::new(Expression::Double(1.0))))));
         assert_eq!(expression(" ( [ ] ) "), Ok((" ", Expression::Paren(Box::new(Expression::List(vec![]))))));
-        // assert_eq!(expression("()"), Ok(("", Expression::Paren(Box::new(Expression::Double(1.0))))));
+    }
+
+    #[test]
+    fn test_closure() {
+        assert_eq!(expression("(a, b) => 1 + 1"), Ok(("", Expression::Closure((
+            vec![(String::from("a"), None), (String::from("b"), None)],
+            Box::new(Expression::Binary(Operator::Add, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(1.0)))))
+        ))));
+        assert_eq!(expression("(a) => ({})"), Ok(("", Expression::Closure((
+            vec![(String::from("a"), None)],
+            Box::new(Expression::Paren(Box::new(Expression::Object(vec![]))))
+        )))));
     }
 
     #[test]
@@ -601,6 +623,10 @@ mod test {
         assert_complete("a.b.c[7]");
         assert_complete("a()");
         assert_complete("a()[0]()");
+        assert_complete("(a) => 1 + 1");
+        assert_complete("(a) => [ 1 + 1 ]");
+        assert_complete("(a) => ({a: 1})");
+        assert_complete("((a) => a + 1)(1)");
     }
 
     #[test]
