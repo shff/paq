@@ -18,6 +18,9 @@ pub enum Statement {
     Return(Option<Expression>),
     Continue,
     Break,
+    Var(Vec<Expression>),
+    Let(Vec<Expression>),
+    Const(Vec<Expression>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -57,8 +60,15 @@ pub fn statement(i: &str) -> Result<Statement> {
         map(tag("continue"), |_| Statement::Continue),
         map(tag("break"), |_| Statement::Break),
         map(preceded(tag("return"), opt(expression)), Statement::Return),
+        map(preceded(tag("var"), mutation_chain), Statement::Var),
+        map(preceded(tag("let"), mutation_chain), Statement::Let),
+        map(preceded(tag("const"), mutation_chain), Statement::Const),
         map(expression, Statement::Expression),
     )), opt(tag(";")))))(i)
+}
+
+fn mutation_chain(i: &str) -> Result<Vec<Expression>> {
+    separated_list(ws(char(',')), mutation)(i)
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -352,6 +362,16 @@ mod test {
         assert_eq!(statement("return 1"), Ok(("", Statement::Return(Some(Expression::Double(1.0))))));
         assert_eq!(statement("return;"), Ok(("", Statement::Return(None))));
         assert_eq!(statement("a = 2;"), Ok(("", Statement::Expression(Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0)))))));
+        assert_eq!(statement("var a = 2;"), Ok(("", Statement::Var(vec![
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
+        ]))));
+        assert_eq!(statement("let a = 2, b = 3"), Ok(("", Statement::Let(vec![
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("b"))), Box::new(Expression::Double(3.0))),
+        ]))));
+        assert_eq!(statement("const x = []"), Ok(("", Statement::Const(vec![
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("x"))), Box::new(Expression::List(vec![]))),
+        ]))));
     }
 
     #[test]
