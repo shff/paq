@@ -12,6 +12,14 @@ use nom::IResult;
 
 type Result<'a, T> = IResult<&'a str, T, VerboseError<&'a str>>;
 
+#[derive(Debug, PartialEq)]
+pub enum Statement {
+    Expression(Expression),
+    Return(Option<Expression>),
+    Continue,
+    Break,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Str(String),
@@ -42,6 +50,15 @@ pub enum Operator {
     Not, Incr, Decr,
     Array, Application, Dot, Optional,
     InstanceOf, In, TypeOf, Void, Delete, Await, Yield,
+}
+
+pub fn statement(i: &str) -> Result<Statement> {
+    context("statement", ws(terminated(alt((
+        map(tag("continue"), |_| Statement::Continue),
+        map(tag("break"), |_| Statement::Break),
+        map(preceded(tag("return"), opt(expression)), Statement::Return),
+        map(expression, Statement::Expression),
+    )), opt(tag(";")))))(i)
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -323,7 +340,19 @@ fn makechain2(e: (Expression, Vec<(Operator, Expression)>)) -> Expression {
 
 #[cfg(test)]
 mod test {
-    use crate::{expression, Expression, Operator};
+    use crate::{statement, expression, Statement, Expression, Operator};
+
+    #[test]
+    fn test_statement() {
+        assert_eq!(statement("continue;"), Ok(("", Statement::Continue)));
+        assert_eq!(statement("continue"), Ok(("", Statement::Continue)));
+        assert_eq!(statement("break;"), Ok(("", Statement::Break)));
+        assert_eq!(statement("break"), Ok(("", Statement::Break)));
+        assert_eq!(statement("return 1;"), Ok(("", Statement::Return(Some(Expression::Double(1.0))))));
+        assert_eq!(statement("return 1"), Ok(("", Statement::Return(Some(Expression::Double(1.0))))));
+        assert_eq!(statement("return;"), Ok(("", Statement::Return(None))));
+        assert_eq!(statement("a = 2;"), Ok(("", Statement::Expression(Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0)))))));
+    }
 
     #[test]
     fn test_string() {
