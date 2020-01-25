@@ -67,7 +67,7 @@ pub fn block(i: &str) -> Result<Vec<Statement>> {
         map(preceded(tag("let"), mutation_chain), Statement::Let),
         map(preceded(tag("const"), mutation_chain), Statement::Const),
         map(expression, Statement::Expression),
-    )), alt((eoi, line_ending, ws(tag(";")), value("", ws(peek(char('}'))))))))))(i)
+    )), alt((eoi, ws(tag(";")), line_ending, value("", ws(peek(char('}'))))))))))(i)
 }
 
 fn mutation_chain(i: &str) -> Result<Vec<Expression>> {
@@ -226,7 +226,7 @@ fn action(i: &str) -> Result<Expression> {
         pair(value(Operator::Array, char('[')), terminated(expression, char(']'))),
         pair(value(Operator::Optional, tag("?.")), map(ident, Expression::Ident)),
         pair(value(Operator::Dot, char('.')), map(ident, Expression::Ident)),
-        pair(value(Operator::Application, char('(')), terminated(map(arguments, Expression::Args), char(')')))
+        pair(value(Operator::Application, char('(')), terminated(map(arguments, Expression::Args), ws(char(')'))))
     ))))), makechain2))(i)
 }
 
