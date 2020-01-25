@@ -22,6 +22,7 @@ pub enum Statement {
     Var(Vec<Expression>),
     Let(Vec<Expression>),
     Const(Vec<Expression>),
+    Block(Vec<Statement>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -68,6 +69,7 @@ pub fn block(i: &str) -> Result<Vec<Statement>> {
         map(preceded(tag("var"), mutation_chain), Statement::Var),
         map(preceded(tag("let"), mutation_chain), Statement::Let),
         map(preceded(tag("const"), mutation_chain), Statement::Const),
+        map(codeblock, Statement::Block),
         map(expression, Statement::Expression),
     )), alt((eoi, ws(tag(";")), line_ending, value("", ws(peek(char('}'))))))))))(i)
 }
@@ -399,7 +401,11 @@ mod test {
 
     #[test]
     fn test_statement() {
-        assert_eq!(block("continue}"), Ok(("}", vec![Statement::Continue])));
+        assert_eq!(block("continue}"), Ok(("}", vec![Statement::Continue]) ));
+        assert_eq!(
+            block("{continue}"),
+            Ok(("", vec![Statement::Block(vec![Statement::Continue])]))
+        );
         assert_eq!(
             block("continue;continue;"),
             Ok(("", vec![Statement::Continue, Statement::Continue]))
