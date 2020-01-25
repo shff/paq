@@ -45,7 +45,7 @@ pub enum Expression {
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
 
     Args(Vec<Expression>),
-    KeyValue(Box<Expression>, Box<Expression>),
+    KeyValue((Box<Expression>, Box<Expression>)),
     Parameter((String, Option<Box<Expression>>)),
 }
 
@@ -293,17 +293,16 @@ fn object(i: &str) -> Result<Vec<Expression>> {
 }
 
 fn key_value(i: &str) -> Result<Expression> {
-    let mapping = |(a,b)| Expression::KeyValue(Box::new(a), Box::new(b));
-    map(separated_pair(ws(alt((
+    map(separated_pair(ws(boxed(alt((
         map(string, Expression::Str),
         map(string2, Expression::Str),
         map(ident, Expression::Str),
         delimited(char('['), expression, char(']')),
-    ))), cut(ws(char(':'))), expression), mapping)(i)
+    )))), cut(ws(char(':'))), boxed(expression)), Expression::KeyValue)(i)
 }
 
 fn paren(i: &str) -> Result<Box<Expression>> {
-    context("paren", delimited(char('('), map(expression, Box::new), ws(char(')'))))(i)
+    context("paren", delimited(char('('), boxed(expression), ws(char(')'))))(i)
 }
 
 fn list(i: &str) -> Result<Vec<Expression>> {
@@ -315,7 +314,7 @@ fn arguments(i: &str) -> Result<Vec<Expression>> {
 }
 
 fn closure(i: &str) -> Result<(Vec<Expression>, Box<Expression>)> {
-    context("closure", ws(separated_pair(parameters, ws(tag("=>")), map(expression, Box::new))))(i)
+    context("closure", ws(separated_pair(parameters, ws(tag("=>")), boxed(expression))))(i)
 }
 
 fn function(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
@@ -338,12 +337,12 @@ fn parameters(i: &str) -> Result<Vec<Expression>> {
 }
 
 fn parameter(i: &str) -> Result<Expression> {
-    let default = map(ws(expression), Box::new);
+    let default = boxed(ws(expression));
     map(pair(ws(ident), opt(preceded(ws(char('=')), default))), Expression::Parameter)(i)
 }
 
 fn splat(i: &str) -> Result<Expression> {
-    map(map(preceded(tag("..."), expression), Box::new), Expression::Splat)(i)
+    map(boxed(preceded(tag("..."), expression)), Expression::Splat)(i)
 }
 
 fn escaped_char(i: &str) -> Result<&str> {
@@ -367,6 +366,10 @@ fn ws<'a, T>(item: impl Fn(&'a str) -> Result<T>) -> impl Fn(&'a str) -> Result<
     preceded(take_while(|c: char| c.is_whitespace()), item)
 }
 
+fn boxed<'a, T>(i: impl Fn(&'a str) -> Result<T>) -> impl Fn(&'a str) -> Result<Box<T>> {
+    map(i, Box::new)
+}
+
 fn eoi(i: &str) -> Result<&str> {
     if i.is_empty() {
         Ok((i, ""))
@@ -376,8 +379,8 @@ fn eoi(i: &str) -> Result<&str> {
 }
 
 fn maketernary(e: (Expression, Vec<(Expression, Expression)>)) -> Expression {
-    e.1.iter().fold(e.0, |a, (b,c)| Expression::Ternary(
-        Box::new(a), Box::new(b.clone()), Box::new(c.clone())))
+    e.1.iter().fold(e.0, |a, (b,c)| Expression::Ternary(Box::new(a),
+        Box::new(b.clone()), Box::new(c.clone())))
 }
 
 fn makechain(e: (Vec<Operator>, Expression)) -> Expression {
@@ -930,10 +933,10 @@ mod test {
             expression("{\"a\": 1}"),
             Ok((
                 "",
-                Expression::Object(vec![Expression::KeyValue(
+                Expression::Object(vec![Expression::KeyValue((
                     Box::new(Expression::Str(String::from("a"))),
                     Box::new(Expression::Double(1.0))
-                ),])
+                ))])
             ))
         );
         assert_eq!(
@@ -941,14 +944,14 @@ mod test {
             Ok((
                 "",
                 Expression::Object(vec![
-                    Expression::KeyValue(
+                    Expression::KeyValue((
                         Box::new(Expression::Str(String::from("a"))),
                         Box::new(Expression::Double(1.0))
-                    ),
-                    Expression::KeyValue(
+                    )),
+                    Expression::KeyValue((
                         Box::new(Expression::Str(String::from("b"))),
                         Box::new(Expression::Double(2.0))
-                    ),
+                    )),
                 ])
             ))
         );
@@ -957,14 +960,14 @@ mod test {
             Ok((
                 "",
                 Expression::Object(vec![
-                    Expression::KeyValue(
+                    Expression::KeyValue((
                         Box::new(Expression::Double(1.0)),
                         Box::new(Expression::Double(1.0))
-                    ),
-                    Expression::KeyValue(
+                    )),
+                    Expression::KeyValue((
                         Box::new(Expression::Str(String::from("a"))),
                         Box::new(Expression::Double(2.0))
-                    ),
+                    )),
                 ])
             ))
         );
@@ -972,10 +975,10 @@ mod test {
             expression("{a: {}}"),
             Ok((
                 "",
-                Expression::Object(vec![Expression::KeyValue(
+                Expression::Object(vec![Expression::KeyValue((
                     Box::new(Expression::Str(String::from("a"))),
                     Box::new(Expression::Object(vec![]))
-                ),])
+                ))])
             ))
         );
         assert_eq!(
