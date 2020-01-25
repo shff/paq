@@ -103,9 +103,9 @@ fn mutation(i: &str) -> Result<Expression> {
 }
 
 fn ternary(i: &str) -> Result<Expression> {
-    let conds = opt(preceded(ws(tag("?")), separated_pair(
-        ws(ternary), ws(tag(":")), ws(ternary))));
-    ws(map(pair(equality, conds), maketernary))(i)
+    let conds = preceded(ws(tag("?")), separated_pair(
+        ws(equality), ws(tag(":")), ws(equality)));
+    ws(map(pair(equality, many0(conds)), maketernary))(i)
 }
 
 fn equality(i: &str) -> Result<Expression> {
@@ -375,11 +375,9 @@ fn eoi(i: &str) -> Result<&str> {
     }
 }
 
-fn maketernary(e: (Expression, Option<(Expression, Expression)>)) -> Expression {
-    match e.1 {
-        Some((b,c)) => Expression::Ternary(Box::new(e.0), Box::new(b), Box::new(c)),
-        None => e.0,
-    }
+fn maketernary(e: (Expression, Vec<(Expression, Expression)>)) -> Expression {
+    e.1.iter().fold(e.0, |a, (b,c)| Expression::Ternary(
+        Box::new(a), Box::new(b.clone()), Box::new(c.clone())))
 }
 
 fn makechain(e: (Vec<Operator>, Expression)) -> Expression {
