@@ -85,7 +85,7 @@ pub fn expression(i: &str) -> Result<Expression> {
 }
 
 fn mutation(i: &str) -> Result<Expression> {
-    context("mutation", map(pair(ternary, many0(ws(pair(alt((
+    map(pair(ternary, many0(ws(pair(alt((
         value(Operator::Assign, tag("=")),
         value(Operator::AssignAdd, tag("+=")),
         value(Operator::AssignSub, tag("-=")),
@@ -99,108 +99,108 @@ fn mutation(i: &str) -> Result<Expression> {
         value(Operator::AssignAnd, tag("&=")),
         value(Operator::AssignXor, tag("^=")),
         value(Operator::AssignOr, tag("|=")),
-    )), ternary)))), makechain2))(i)
+    )), ternary)))), makechain2)(i)
 }
 
 fn ternary(i: &str) -> Result<Expression> {
     let conds = opt(preceded(ws(tag("?")), separated_pair(
         ws(ternary), ws(tag(":")), ws(ternary))));
-    context("ternary", ws(map(pair(equality, conds), maketernary)))(i)
+    ws(map(pair(equality, conds), maketernary))(i)
 }
 
 fn equality(i: &str) -> Result<Expression> {
-    context("equality", map(pair(comparison, many0(ws(pair(alt((
+    map(pair(comparison, many0(ws(pair(alt((
         value(Operator::StrictEqual, tag("===")),
         value(Operator::Equal, tag("==")),
         value(Operator::StrictNotEqual, tag("!==")),
         value(Operator::NotEqual, tag("!=")),
-    )), comparison)))), makechain2))(i)
+    )), comparison)))), makechain2)(i)
 }
 
 fn comparison(i: &str) -> Result<Expression> {
-    context("comparison", map(pair(bitwise, many0(ws(pair(alt((
+    map(pair(bitwise, many0(ws(pair(alt((
         value(Operator::GreaterEqual, tag(">=")),
         value(Operator::LessEqual, tag("<=")),
         value(Operator::GreaterThan, tag(">")),
         value(Operator::LessThan, tag("<")),
         value(Operator::InstanceOf, tag("instanceof")),
         value(Operator::In, tag("in")),
-    )), bitwise)))), makechain2))(i)
+    )), bitwise)))), makechain2)(i)
 }
 
 fn bitwise(i: &str) -> Result<Expression> {
-    context("bitwise", map(pair(logic_or, many0(ws(pair(alt((
+    map(pair(logic_or, many0(ws(pair(alt((
         value(Operator::URightShift, tag(">>>")),
         value(Operator::RightShift, tag(">>")),
         value(Operator::LeftShift, tag("<<")),
-    )), logic_or)))), makechain2))(i)
+    )), logic_or)))), makechain2)(i)
 }
 
 fn logic_or(i: &str) -> Result<Expression> {
-    context("logic_or", map(pair(logic_and, many0(ws(pair(
+    map(pair(logic_and, many0(ws(pair(
         value(Operator::LogicalOr, tag("&&")),
-    logic_and)))), makechain2))(i)
+    logic_and)))), makechain2)(i)
 }
 
 fn logic_and(i: &str) -> Result<Expression> {
-    context("logic_and", map(pair(coalesce, many0(ws(pair(
+    map(pair(coalesce, many0(ws(pair(
         value(Operator::LogicalAnd, tag("||")),
-    coalesce)))), makechain2))(i)
+    coalesce)))), makechain2)(i)
 }
 
 fn coalesce(i: &str) -> Result<Expression> {
-    context("coalesce", map(pair(bitwise_or, many0(ws(pair(
+    map(pair(bitwise_or, many0(ws(pair(
         value(Operator::Coalesce, tag("??")),
-    bitwise_or)))), makechain2))(i)
+    bitwise_or)))), makechain2)(i)
 }
 
 fn bitwise_or(i: &str) -> Result<Expression> {
-    context("bitwise_or", map(pair(bitwise_xor, many0(ws(pair(
+    map(pair(bitwise_xor, many0(ws(pair(
         value(Operator::BitwiseOr, tag("|")),
-    bitwise_xor)))), makechain2))(i)
+    bitwise_xor)))), makechain2)(i)
 }
 
 fn bitwise_xor(i: &str) -> Result<Expression> {
-    context("bitwise_xor", map(pair(bitwise_and, many0(ws(pair(
+    map(pair(bitwise_and, many0(ws(pair(
         value(Operator::BitwiseXor, tag("^")),
-    bitwise_and)))), makechain2))(i)
+    bitwise_and)))), makechain2)(i)
 }
 
 fn bitwise_and(i: &str) -> Result<Expression> {
-    context("bitwise_and", map(pair(addition, many0(ws(pair(
+    map(pair(addition, many0(ws(pair(
         value(Operator::BitwiseAnd, tag("&")),
-    addition)))), makechain2))(i)
+    addition)))), makechain2)(i)
 }
 
 fn addition(i: &str) -> Result<Expression> {
-    context("addition", map(pair(multiplication, many0(ws(pair(alt((
+    map(pair(multiplication, many0(ws(pair(alt((
         value(Operator::Add, tag("+")),
         value(Operator::Sub, tag("-")),
-    )), multiplication)))), makechain2))(i)
+    )), multiplication)))), makechain2)(i)
 }
 
 fn multiplication(i: &str) -> Result<Expression> {
-    context("multiplication", map(pair(power, many0(ws(pair(alt((
+    map(pair(power, many0(ws(pair(alt((
         value(Operator::Mult, tag("*")),
         value(Operator::Div, tag("/")),
         value(Operator::Mod, tag("%")),
-    )), power)))), makechain2))(i)
+    )), power)))), makechain2)(i)
 }
 
 fn power(i: &str) -> Result<Expression> {
-    context("power", map(pair(negation, many0(ws(pair(
+    map(pair(negation, many0(ws(pair(
         value(Operator::Power, tag("**")),
-    negation)))), makechain2))(i)
+    negation)))), makechain2)(i)
 }
 
 fn negation(i: &str) -> Result<Expression> {
-    context("negation", ws(map(pair(many0(ws(
+    ws(map(pair(many0(ws(
         value(Operator::Not, tag("!"))
-    )), prefix), makechain)))(i)
+    )), prefix), makechain))(i)
 }
 
 fn prefix(i: &str) -> Result<Expression> {
-    context("prefix", ws(map(pair(many0(alt((
+    ws(map(pair(many0(alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
         value(Operator::Add, tag("+")),
@@ -209,29 +209,29 @@ fn prefix(i: &str) -> Result<Expression> {
         value(Operator::Void, tag("void")),
         value(Operator::Delete, tag("delete")),
         value(Operator::Await , tag("await ")),
-    ))), postfix), makechain)))(i)
+    ))), postfix), makechain))(i)
 }
 
 fn postfix(i: &str) -> Result<Expression> {
-    context("postfix", ws(map(pair(creation, many0(ws(alt((
+    ws(map(pair(creation, many0(ws(alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
-    ))))), makechainb)))(i)
+    ))))), makechainb))(i)
 }
 
 fn creation(i: &str) -> Result<Expression> {
-    context("creation", ws(map(pair(many0(
+    ws(map(pair(many0(
         value(Operator::New, tag("new")),
-    ), action), makechain)))(i)
+    ), action), makechain))(i)
 }
 
 fn action(i: &str) -> Result<Expression> {
-    context("action", map(pair(ws(primitive), many0(ws(alt((
+    map(pair(ws(primitive), cut(many0(ws(alt((
         pair(value(Operator::Array, char('[')), terminated(expression, char(']'))),
         pair(value(Operator::Optional, tag("?.")), map(ident, Expression::Ident)),
         pair(value(Operator::Dot, char('.')), map(ident, Expression::Ident)),
         pair(value(Operator::Application, char('(')), terminated(map(arguments, Expression::Args), ws(char(')'))))
-    ))))), makechain2))(i)
+    )))))), makechain2)(i)
 }
 
 fn primitive(i: &str) -> Result<Expression> {
