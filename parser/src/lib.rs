@@ -37,9 +37,10 @@ pub enum Expression {
     Object(Vec<Expression>),
     Args(Vec<Expression>),
     Paren(Box<Expression>),
-    Closure((Vec<(String, Option<Expression>)>, Box<Expression>)),
-    Function((Option<String>, Vec<(String, Option<Expression>)>, Vec<Statement>)),
+    Closure((Vec<Expression>, Box<Expression>)),
+    Function((Option<String>, Vec<Expression>, Vec<Statement>)),
     KeyValue(Box<Expression>, Box<Expression>),
+    Parameter((String, Option<Box<Expression>>)),
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
@@ -304,11 +305,11 @@ fn arguments(i: &str) -> Result<Vec<Expression>> {
     separated_list(ws(char(',')), alt((splat, expression)))(i)
 }
 
-fn closure(i: &str) -> Result<(Vec<(String, Option<Expression>)>, Box<Expression>)> {
+fn closure(i: &str) -> Result<(Vec<Expression>, Box<Expression>)> {
     context("closure", ws(separated_pair(parameters, ws(tag("=>")), map(expression, Box::new))))(i)
 }
 
-fn function(i: &str) -> Result<(Option<String>, Vec<(String, Option<Expression>)>, Vec<Statement>)> {
+fn function(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
     let inner = tuple((ws(opt(ident)), parameters, codeblock));
     context("function", ws(preceded(tag("function"), ws(inner))))(i)
 }
@@ -317,9 +318,14 @@ fn codeblock(i: &str) -> Result<Vec<Statement>> {
     ws(delimited(char('{'), ws(block), ws(char('}'))))(i)
 }
 
-fn parameters(i: &str) -> Result<Vec<(String, Option<Expression>)>> {
-    let inner = separated_list(ws(char(',')), pair(ws(ident), opt(preceded(ws(char('=')), ws(expression)))));
+fn parameters(i: &str) -> Result<Vec<Expression>> {
+    let inner = separated_list(ws(char(',')), alt((splat, parameter)));
     delimited(ws(char('(')), ws(inner), ws(char(')')))(i)
+}
+
+fn parameter(i: &str) -> Result<Expression> {
+    let default = map(ws(expression), Box::new);
+    map(pair(ws(ident), opt(preceded(ws(char('=')), default))), Expression::Parameter)(i)
 }
 
 fn splat(i: &str) -> Result<Expression> {
@@ -575,11 +581,14 @@ mod test {
     #[test]
     fn test_closure() {
         assert_eq!(expression("(a, b) => 1 + 1"), Ok(("", Expression::Closure((
-            vec![(String::from("a"), None), (String::from("b"), None)],
+            vec![
+                Expression::Parameter((String::from("a"), None)),
+                Expression::Parameter((String::from("b"), None))
+            ],
             Box::new(Expression::Binary(Operator::Add, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(1.0)))))
         ))));
         assert_eq!(expression("(a) => ({})"), Ok(("", Expression::Closure((
-            vec![(String::from("a"), None)],
+            vec![ Expression::Parameter((String::from("a"), None)) ],
             Box::new(Expression::Paren(Box::new(Expression::Object(vec![]))))
         )))));
     }
@@ -590,10 +599,10 @@ mod test {
             None, vec![], vec![]
         )))));
         assert_eq!(expression("function f(x, y){ return x; }"), Ok(("", Expression::Function((
-            Some(String::from("f")), vec![(String::from("x"), None), (String::from("y"), None)], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
+            Some(String::from("f")), vec![ Expression::Parameter((String::from("x"), None)),  Expression::Parameter((String::from("y"), None)) ], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
         )))));
         assert_eq!(expression("function f ( x, y) { return x }"), Ok(("", Expression::Function((
-            Some(String::from("f")), vec![(String::from("x"), None), (String::from("y"), None)], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
+            Some(String::from("f")), vec![ Expression::Parameter((String::from("x"), None)), Expression::Parameter((String::from("y"), None)) ], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
         )))));
     }
 
