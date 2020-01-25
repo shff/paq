@@ -20,6 +20,7 @@ pub enum Statement {
     If((Box<Expression>, Box<Statement>)),
     Declaration((Operator, Vec<Expression>)),
     Return(Option<Expression>),
+    Throw(Option<Expression>),
     Continue,
     Break,
 }
@@ -70,6 +71,7 @@ fn statement(i: &str) -> Result<Statement> {
         map(tag("continue"), |_| Statement::Continue),
         map(tag("break"), |_| Statement::Break),
         map(preceded(tag("return"), opt(expression)), Statement::Return),
+        map(preceded(tag("throw"), opt(expression)), Statement::Throw),
         map(declaration, Statement::Declaration),
         map(if_block, Statement::If),
         map(codeblock, Statement::Block),
@@ -454,6 +456,10 @@ mod test {
         assert_eq!(
             block("return 1;"),
             Ok(("", vec![Statement::Return(Some(Expression::Double(1.0)))]))
+        );
+        assert_eq!(
+            block("throw 1;"),
+            Ok(("", vec![Statement::Throw(Some(Expression::Double(1.0)))]))
         );
         assert_eq!(
             block("return 1\n"),
