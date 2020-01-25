@@ -29,7 +29,6 @@ pub enum Statement {
 pub enum Expression {
     Str(String),
     Ident(String),
-    Splat(Box<Expression>),
     Double(f64),
     Octal(u64),
     Hexadecimal(u64),
@@ -45,6 +44,7 @@ pub enum Expression {
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
 
     Args(Vec<Expression>),
+    Splat(Box<Expression>),
     KeyValue((Box<Expression>, Box<Expression>)),
     Parameter((String, Option<Box<Expression>>)),
 }
@@ -309,10 +309,6 @@ fn list(i: &str) -> Result<Vec<Expression>> {
     context("list", delimited(char('['), ws(cut(arguments)), ws(char(']'))))(i)
 }
 
-fn arguments(i: &str) -> Result<Vec<Expression>> {
-    separated_list(ws(char(',')), alt((splat, expression)))(i)
-}
-
 fn closure(i: &str) -> Result<(Vec<Expression>, Box<Expression>)> {
     context("closure", ws(separated_pair(parameters, ws(tag("=>")), boxed(expression))))(i)
 }
@@ -332,13 +328,14 @@ fn codeblock(i: &str) -> Result<Vec<Statement>> {
 }
 
 fn parameters(i: &str) -> Result<Vec<Expression>> {
-    let inner = separated_list(ws(char(',')), alt((splat, parameter)));
+    let param = map(pair(ws(ident), opt(preceded(ws(char('=')),
+        boxed(ws(expression))))), Expression::Parameter);
+    let inner = separated_list(ws(char(',')), alt((splat, param)));
     delimited(ws(char('(')), ws(inner), ws(char(')')))(i)
 }
 
-fn parameter(i: &str) -> Result<Expression> {
-    let default = boxed(ws(expression));
-    map(pair(ws(ident), opt(preceded(ws(char('=')), default))), Expression::Parameter)(i)
+fn arguments(i: &str) -> Result<Vec<Expression>> {
+    separated_list(ws(char(',')), alt((splat, expression)))(i)
 }
 
 fn splat(i: &str) -> Result<Expression> {
