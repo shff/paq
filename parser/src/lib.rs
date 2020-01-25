@@ -39,6 +39,7 @@ pub enum Expression {
     Paren(Box<Expression>),
     Closure((Vec<Expression>, Box<Expression>)),
     Function((Option<String>, Vec<Expression>, Vec<Statement>)),
+    Generator((Option<String>, Vec<Expression>, Vec<Statement>)),
     KeyValue(Box<Expression>, Box<Expression>),
     Parameter((String, Option<Box<Expression>>)),
     Unary(Operator, Box<Expression>),
@@ -239,6 +240,7 @@ fn primitive(i: &str) -> Result<Expression> {
         map(binary, Expression::BinaryNum),
         map(number, Expression::Double),
         map(function, Expression::Function),
+        map(generator, Expression::Generator),
         map(ident, Expression::Ident),
         map(object, Expression::Object),
         map(closure, Expression::Closure),
@@ -319,6 +321,11 @@ fn closure(i: &str) -> Result<(Vec<Expression>, Box<Expression>)> {
 fn function(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
     let inner = tuple((ws(opt(ident)), parameters, codeblock));
     context("function", ws(preceded(tag("function"), ws(inner))))(i)
+}
+
+fn generator(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
+    let inner = tuple((ws(opt(ident)), parameters, codeblock));
+    context("generator", ws(preceded(tag("function*"), ws(inner))))(i)
 }
 
 fn codeblock(i: &str) -> Result<Vec<Statement>> {
@@ -612,6 +619,13 @@ mod test {
         assert_eq!(expression("function f ( x, y) { return x }"), Ok(("", Expression::Function((
             Some(String::from("f")), vec![ Expression::Parameter((String::from("x"), None)), Expression::Parameter((String::from("y"), None)) ], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
         )))));
+    }
+
+    #[test]
+    fn test_generator() {
+        assert_eq!(expression("function*() {}"), Ok(("",
+            Expression::Generator((None, vec![], vec![])),
+        )));
     }
 
     #[test]
