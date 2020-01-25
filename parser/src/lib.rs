@@ -1,5 +1,5 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while};
+use nom::bytes::complete::{tag, take_until, take_while};
 use nom::bytes::streaming::{is_not};
 use nom::character::complete::{alphanumeric1, char, hex_digit1, oct_digit1, line_ending};
 use nom::character::streaming::{multispace1};
@@ -80,11 +80,11 @@ fn statement(i: &str) -> Result<Statement> {
 }
 
 fn declaration(i: &str) -> Result<(Operator, Vec<Expression>)> {
-    pair(alt((
+    ws(pair(alt((
         value(Operator::Var, tag("var")),
         value(Operator::Let, tag("let")),
         value(Operator::Const, tag("const")),
-    )), separated_list(ws(char(',')), mutation))(i)
+    )), separated_list(ws(char(',')), mutation)))(i)
 }
 
 fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
@@ -374,7 +374,14 @@ fn escaped_char(i: &str) -> Result<&str> {
 }
 
 fn ws<'a, T>(item: impl Fn(&'a str) -> Result<T>) -> impl Fn(&'a str) -> Result<T> {
-    preceded(take_while(|c: char| c.is_whitespace()), item)
+    preceded(take_while(|c: char| c.is_whitespace()), preceded(comments, item))
+}
+
+fn comments(i: &str) -> Result<Vec<&str>> {
+    many0(preceded(char('/'), alt((
+        preceded(char('/'), cut(terminated(take_until("\n"), tag("\n")))),
+        preceded(char('*'), cut(terminated(take_until("*/"), tag("*/")))),
+    ))))(i)
 }
 
 fn boxed<'a, T>(i: impl Fn(&'a str) -> Result<T>) -> impl Fn(&'a str) -> Result<Box<T>> {
@@ -410,6 +417,19 @@ fn makechain2(e: (Expression, Vec<(Operator, Expression)>)) -> Expression {
 mod test {
     use crate::{block, expression, Expression, Operator, Statement};
     use std::fs::read_to_string;
+
+    #[test]
+    fn test_comments() {
+        assert_eq!(
+            block("  // hello\n asdf"),
+            Ok((
+                "",
+                vec![
+                    Statement::Expression(Expression::Ident(String::from("asdf")))
+                ]
+            ))
+        );
+    }
 
     #[test]
     fn test_statement() {
