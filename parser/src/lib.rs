@@ -54,7 +54,7 @@ pub enum Operator {
     Add, Sub, Mult, Div, Mod, Power, URightShift, RightShift, LeftShift,
     Not, Incr, Decr,
     Array, Application, Dot, Optional,
-    InstanceOf, In, TypeOf, Void, Delete, Await, Yield,
+    InstanceOf, In, TypeOf, Void, Delete, Await, Yield, New,
 }
 
 pub fn block(i: &str) -> Result<Vec<Statement>> {
@@ -208,10 +208,16 @@ fn prefix(i: &str) -> Result<Expression> {
 }
 
 fn postfix(i: &str) -> Result<Expression> {
-    context("postfix", ws(map(pair(action, many0(ws(alt((
+    context("postfix", ws(map(pair(creation, many0(ws(alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
     ))))), makechainb)))(i)
+}
+
+fn creation(i: &str) -> Result<Expression> {
+    context("creation", ws(map(pair(many0(
+        value(Operator::New, tag("new")),
+    ), action), makechain)))(i)
 }
 
 fn action(i: &str) -> Result<Expression> {
@@ -671,6 +677,7 @@ mod test {
         assert_eq!(expression("delete a"), Ok(("", Expression::Unary(Operator::Delete, Box::new(Expression::Ident(String::from("a")))))));
         assert_eq!(expression("await a"), Ok(("", Expression::Unary(Operator::Await, Box::new(Expression::Ident(String::from("a")))))));
         assert_eq!(expression("yield a"), Ok(("", Expression::Unary(Operator::Yield, Box::new(Expression::Ident(String::from("a")))))));
+        assert_eq!(expression("new a"), Ok(("", Expression::Unary(Operator::New, Box::new(Expression::Ident(String::from("a")))))));
     }
 
     #[test]
