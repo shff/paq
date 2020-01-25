@@ -18,6 +18,7 @@ pub enum Statement {
     Expression(Expression),
     Block(Vec<Statement>),
     If((Box<Expression>, Box<Statement>)),
+    While((Box<Expression>, Box<Statement>)),
     Declaration((Operator, Vec<Expression>)),
     Return(Option<Expression>),
     Throw(Option<Expression>),
@@ -74,6 +75,7 @@ fn statement(i: &str) -> Result<Statement> {
         map(preceded(tag("throw"), opt(expression)), Statement::Throw),
         map(declaration, Statement::Declaration),
         map(if_block, Statement::If),
+        map(while_block, Statement::While),
         map(codeblock, Statement::Block),
         map(expression, Statement::Expression),
     )), alt((ws(eoi), ws(tag(";")), line_ending, value("", ws(peek(char('}'))))))))(i)
@@ -90,6 +92,11 @@ fn declaration(i: &str) -> Result<(Operator, Vec<Expression>)> {
 fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
     let inner = pair(paren, ws(boxed(statement)));
     context("if_block", ws(preceded(tag("if"), ws(inner))))(i)
+}
+
+fn while_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
+    let inner = pair(paren, ws(boxed(statement)));
+    context("while_block", ws(preceded(tag("while"), ws(inner))))(i)
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -666,6 +673,26 @@ mod test {
             Ok((
                 "",
                 vec![Statement::If((
+                    Box::new(Expression::Ident(String::from("true"))),
+                    Box::new(Statement::Return(None))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("while(true){return;}"),
+            Ok((
+                "",
+                vec![Statement::While((
+                    Box::new(Expression::Ident(String::from("true"))),
+                    Box::new(Statement::Block(vec![Statement::Return(None)]))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("while(true)return;"),
+            Ok((
+                "",
+                vec![Statement::While((
                     Box::new(Expression::Ident(String::from("true"))),
                     Box::new(Statement::Return(None))
                 ))]
