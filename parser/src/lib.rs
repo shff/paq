@@ -35,16 +35,17 @@ pub enum Expression {
     BinaryNum(u64),
     List(Vec<Expression>),
     Object(Vec<Expression>),
-    Args(Vec<Expression>),
     Paren(Box<Expression>),
     Closure((Vec<Expression>, Box<Expression>)),
     Function((Option<String>, Vec<Expression>, Vec<Statement>)),
     Generator((Option<String>, Vec<Expression>, Vec<Statement>)),
-    KeyValue(Box<Expression>, Box<Expression>),
-    Parameter((String, Option<Box<Expression>>)),
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
+
+    Args(Vec<Expression>),
+    KeyValue(Box<Expression>, Box<Expression>),
+    Parameter((String, Option<Box<Expression>>)),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
