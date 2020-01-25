@@ -237,7 +237,7 @@ fn primitive(i: &str) -> Result<Expression> {
         map(octal, Expression::Octal),
         map(hexadecimal, Expression::Hexadecimal),
         map(binary, Expression::BinaryNum),
-        map(double, Expression::Double),
+        map(number, Expression::Double),
         map(function, Expression::Function),
         map(ident, Expression::Ident),
         map(object, Expression::Object),
@@ -272,6 +272,13 @@ fn hexadecimal(i: &str) -> Result<u64> {
 fn binary(i: &str) -> Result<u64> {
     let inner = map_res(alphanumeric1, |s| u64::from_str_radix(s, 2));
     context("binary", preceded(tag("0b"), cut(inner)))(i)
+}
+
+fn number(i: &str) -> Result<f64> {
+    if i.starts_with("e") {
+       return Err(nom::Err::Error(make_error(i, ErrorKind::Eof))) 
+    }
+    double(i)
 }
 
 fn ident(i: &str) -> Result<String> {
@@ -532,6 +539,7 @@ mod test {
     #[test]
     fn test_identifier() {
         assert_eq!(expression("hello"), Ok(("", Expression::Ident(String::from("hello")))));
+        assert_eq!(expression("e"), Ok(("", Expression::Ident(String::from("e")))));
     }
 
     #[test]
