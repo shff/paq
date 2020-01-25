@@ -7,13 +7,13 @@ use nom::combinator::{cut, map, map_res, opt, value, verify};
 use nom::error::{context, VerboseError};
 use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::double;
-use nom::sequence::{pair, preceded, separated_pair, delimited, terminated};
+use nom::sequence::{pair, preceded, separated_pair, delimited, terminated, tuple};
 use nom::error::{make_error, ErrorKind};
 use nom::IResult;
 
 type Result<'a, T> = IResult<&'a str, T, VerboseError<&'a str>>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Expression(Expression),
     Return(Option<Expression>),
@@ -38,6 +38,7 @@ pub enum Expression {
     Args(Vec<Expression>),
     Paren(Box<Expression>),
     Closure((Vec<(String, Option<Expression>)>, Box<Expression>)),
+    Function((Option<String>, Vec<(String, Option<Expression>)>, Vec<Statement>)),
     KeyValue(Box<Expression>, Box<Expression>),
     Unary(Operator, Box<Expression>),
     Binary(Operator, Box<Expression>, Box<Expression>),
@@ -230,6 +231,7 @@ fn primitive(i: &str) -> Result<Expression> {
         map(hexadecimal, Expression::Hexadecimal),
         map(binary, Expression::BinaryNum),
         map(double, Expression::Double),
+        map(function, Expression::Function),
         map(ident, Expression::Ident),
         map(object, Expression::Object),
         map(closure, Expression::Closure),
@@ -298,6 +300,11 @@ fn arguments(i: &str) -> Result<Vec<Expression>> {
 
 fn closure(i: &str) -> Result<(Vec<(String, Option<Expression>)>, Box<Expression>)> {
     context("closure", ws(separated_pair(parameters, ws(tag("=>")), map(expression, Box::new))))(i)
+}
+
+fn function(i: &str) -> Result<(Option<String>, Vec<(String, Option<Expression>)>, Vec<Statement>)> {
+    let inner = tuple((opt(ident), parameters, delimited(char('{'), ws(block), ws(char('}')))));
+    context("function", ws(preceded(tag("function"), ws(inner))))(i)
 }
 
 fn parameters(i: &str) -> Result<Vec<(String, Option<Expression>)>> {
@@ -385,6 +392,7 @@ mod test {
         assert_eq!(block("const x = [];"), Ok(("", vec![ Statement::Const(vec![
             Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("x"))), Box::new(Expression::List(vec![]))),
         ])])));
+        assert_eq!(block("z"), Ok(("", vec![ Statement::Expression(Expression::Ident(String::from("z"))) ])));
     }
 
     #[test]
@@ -553,6 +561,16 @@ mod test {
         assert_eq!(expression("(a) => ({})"), Ok(("", Expression::Closure((
             vec![(String::from("a"), None)],
             Box::new(Expression::Paren(Box::new(Expression::Object(vec![]))))
+        )))));
+    }
+
+    #[test]
+    fn test_function() {
+        assert_eq!(expression("function(){}"), Ok(("", Expression::Function((
+            None, vec![], vec![]
+        )))));
+        assert_eq!(expression("function f(x, y){ return x; }"), Ok(("", Expression::Function((
+            Some(String::from("f")), vec![(String::from("x"), None), (String::from("y"), None)], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
         )))));
     }
 
