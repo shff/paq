@@ -1896,6 +1896,9 @@ mod test {
         assert_parses("require.js");
         assert_parses("exports.js");
         assert_parses("crazy-indent.js");
+        assert_parses("peter.js");
         assert_parses("itt_prelude.js");
+        assert_parses("matrix.js");
+        assert_parses("math.js");
     }
 }
