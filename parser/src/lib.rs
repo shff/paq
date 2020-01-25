@@ -18,9 +18,7 @@ pub enum Statement {
     Expression(Expression),
     Block(Vec<Statement>),
     If((Box<Expression>, Box<Statement>)),
-    Var(Vec<Expression>),
-    Let(Vec<Expression>),
-    Const(Vec<Expression>),
+    Declaration((Operator, Vec<Expression>)),
     Return(Option<Expression>),
     Continue,
     Break,
@@ -60,6 +58,7 @@ pub enum Operator {
     Not, Incr, Decr,
     Array, Application, Dot, Optional,
     InstanceOf, In, TypeOf, Void, Delete, Await, Yield, New,
+    Var, Let, Const,
 }
 
 pub fn block(i: &str) -> Result<Vec<Statement>> {
@@ -71,17 +70,19 @@ fn statement(i: &str) -> Result<Statement> {
         map(tag("continue"), |_| Statement::Continue),
         map(tag("break"), |_| Statement::Break),
         map(preceded(tag("return"), opt(expression)), Statement::Return),
-        map(preceded(tag("var"), mutation_chain), Statement::Var),
-        map(preceded(tag("let"), mutation_chain), Statement::Let),
-        map(preceded(tag("const"), mutation_chain), Statement::Const),
+        map(declaration, Statement::Declaration),
         map(if_block, Statement::If),
         map(codeblock, Statement::Block),
         map(expression, Statement::Expression),
     )), alt((ws(eoi), ws(tag(";")), line_ending, value("", ws(peek(char('}'))))))))(i)
 }
 
-fn mutation_chain(i: &str) -> Result<Vec<Expression>> {
-    separated_list(ws(char(',')), mutation)(i)
+fn declaration(i: &str) -> Result<(Operator, Vec<Expression>)> {
+    pair(alt((
+        value(Operator::Var, tag("var")),
+        value(Operator::Let, tag("let")),
+        value(Operator::Const, tag("const")),
+    )), separated_list(ws(char(',')), mutation))(i)
 }
 
 fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
@@ -500,18 +501,18 @@ mod test {
             block("var a = 2;"),
             Ok((
                 "",
-                vec![Statement::Var(vec![Expression::Binary(
+                vec![Statement::Declaration((Operator::Var, vec![Expression::Binary(
                     Operator::Assign,
                     Box::new(Expression::Ident(String::from("a"))),
                     Box::new(Expression::Double(2.0))
-                ),])]
+                )]))]
             ))
         );
         assert_eq!(
             block("let a = 2, b = 3"),
             Ok((
                 "",
-                vec![Statement::Let(vec![
+                vec![Statement::Declaration((Operator::Let, vec![
                     Expression::Binary(
                         Operator::Assign,
                         Box::new(Expression::Ident(String::from("a"))),
@@ -522,14 +523,14 @@ mod test {
                         Box::new(Expression::Ident(String::from("b"))),
                         Box::new(Expression::Double(3.0))
                     ),
-                ])]
+                ]))]
             ))
         );
         assert_eq!(
             block("let a=2,b=3"),
             Ok((
                 "",
-                vec![Statement::Let(vec![
+                vec![Statement::Declaration((Operator::Let, vec![
                     Expression::Binary(
                         Operator::Assign,
                         Box::new(Expression::Ident(String::from("a"))),
@@ -540,18 +541,18 @@ mod test {
                         Box::new(Expression::Ident(String::from("b"))),
                         Box::new(Expression::Double(3.0))
                     ),
-                ])]
+                ]))]
             ))
         );
         assert_eq!(
             block("const x = [];"),
             Ok((
                 "",
-                vec![Statement::Const(vec![Expression::Binary(
+                vec![Statement::Declaration((Operator::Const, vec![Expression::Binary(
                     Operator::Assign,
                     Box::new(Expression::Ident(String::from("x"))),
                     Box::new(Expression::List(vec![]))
-                ),])]
+                )]))]
             ))
         );
         assert_eq!(
@@ -591,7 +592,7 @@ mod test {
             block("const empty = G()"),
             Ok((
                 "",
-                vec![Statement::Const(vec![Expression::Binary(
+                vec![Statement::Declaration((Operator::Const, vec![Expression::Binary(
                     Operator::Assign,
                     Box::new(Expression::Ident(String::from("empty"))),
                     Box::new(Expression::Binary(
@@ -599,7 +600,7 @@ mod test {
                         Box::new(Expression::Ident(String::from("G"))),
                         Box::new(Expression::Args(vec![]))
                     ))
-                )])]
+                )]))]
             ))
         );
         assert_eq!(
