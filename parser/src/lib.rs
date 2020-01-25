@@ -278,10 +278,7 @@ fn binary(i: &str) -> Result<u64> {
 }
 
 fn number(i: &str) -> Result<f64> {
-    if i.starts_with("e") {
-       return Err(nom::Err::Error(make_error(i, ErrorKind::Eof))) 
-    }
-    double(i)
+    verify(double, |_| !i.starts_with("e") && !i.starts_with("E"))(i)
 }
 
 fn ident(i: &str) -> Result<String> {
