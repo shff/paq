@@ -16,13 +16,14 @@ type Result<'a, T> = IResult<&'a str, T, VerboseError<&'a str>>;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Expression(Expression),
-    Return(Option<Expression>),
-    Continue,
-    Break,
+    Block(Vec<Statement>),
+    If((Box<Expression>, Box<Statement>)),
     Var(Vec<Expression>),
     Let(Vec<Expression>),
     Const(Vec<Expression>),
-    Block(Vec<Statement>),
+    Return(Option<Expression>),
+    Continue,
+    Break,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -62,20 +63,30 @@ pub enum Operator {
 }
 
 pub fn block(i: &str) -> Result<Vec<Statement>> {
-    context("block", many0(ws(terminated(alt((
+    context("block", many0(statement))(i)
+}
+
+fn statement(i: &str) -> Result<Statement> {
+    ws(terminated(alt((
         map(tag("continue"), |_| Statement::Continue),
         map(tag("break"), |_| Statement::Break),
         map(preceded(tag("return"), opt(expression)), Statement::Return),
         map(preceded(tag("var"), mutation_chain), Statement::Var),
         map(preceded(tag("let"), mutation_chain), Statement::Let),
         map(preceded(tag("const"), mutation_chain), Statement::Const),
+        map(if_block, Statement::If),
         map(codeblock, Statement::Block),
         map(expression, Statement::Expression),
-    )), alt((eoi, ws(tag(";")), line_ending, value("", ws(peek(char('}'))))))))))(i)
+    )), alt((ws(eoi), ws(tag(";")), line_ending, value("", ws(peek(char('}'))))))))(i)
 }
 
 fn mutation_chain(i: &str) -> Result<Vec<Expression>> {
     separated_list(ws(char(',')), mutation)(i)
+}
+
+fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
+    let inner = pair(paren, ws(boxed(statement)));
+    context("if_block", ws(preceded(tag("if"), ws(inner))))(i)
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -596,6 +607,26 @@ mod test {
             Ok((
                 "",
                 vec![Statement::Expression(Expression::Ident(String::from("z")))]
+            ))
+        );
+        assert_eq!(
+            block("if(true){return;}"),
+            Ok((
+                "",
+                vec![Statement::If((
+                    Box::new(Expression::Ident(String::from("true"))),
+                    Box::new(Statement::Block(vec![ Statement::Return(None) ]))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("if(true)return;"),
+            Ok((
+                "",
+                vec![Statement::If((
+                    Box::new(Expression::Ident(String::from("true"))),
+                    Box::new(Statement::Return(None))
+                ))]
             ))
         );
     }
@@ -1815,6 +1846,8 @@ mod test {
         assert_complete("(a) => [ 1 + 1 ]");
         assert_complete("(a) => ({a: 1})");
         assert_complete("((a) => a + 1)(1)");
+        assert_complete("if (1 + 1 == 2) { return true; }");
+        assert_complete("if ( true ) \n { \n return ; \n } \n ");
     }
 
     #[test]
