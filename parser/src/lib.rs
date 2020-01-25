@@ -3,7 +3,7 @@ use nom::bytes::complete::{tag, take_while};
 use nom::bytes::streaming::{is_not};
 use nom::character::complete::{alphanumeric1, char, hex_digit1, oct_digit1, line_ending};
 use nom::character::streaming::{multispace1};
-use nom::combinator::{cut, map, map_res, opt, value, verify};
+use nom::combinator::{cut, map, map_res, opt, peek, value, verify};
 use nom::error::{context, VerboseError};
 use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::double;
@@ -58,7 +58,7 @@ pub enum Operator {
 }
 
 pub fn block(i: &str) -> Result<Vec<Statement>> {
-    context("block", ws(many0(terminated(alt((
+    context("block", many0(ws(terminated(alt((
         map(tag("continue"), |_| Statement::Continue),
         map(tag("break"), |_| Statement::Break),
         map(preceded(tag("return"), opt(expression)), Statement::Return),
@@ -66,7 +66,7 @@ pub fn block(i: &str) -> Result<Vec<Statement>> {
         map(preceded(tag("let"), mutation_chain), Statement::Let),
         map(preceded(tag("const"), mutation_chain), Statement::Const),
         map(expression, Statement::Expression),
-    )), alt((eoi, line_ending, tag(";")))))))(i)
+    )), alt((eoi, line_ending, ws(tag(";")), value("", ws(peek(char('}'))))))))))(i)
 }
 
 fn mutation_chain(i: &str) -> Result<Vec<Expression>> {
@@ -74,7 +74,7 @@ fn mutation_chain(i: &str) -> Result<Vec<Expression>> {
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
-    context("yield", ws(map(pair(many0(
+    context("expression", ws(map(pair(many0(
         value(Operator::Yield, tag("yield")),
     ), mutation), makechain)))(i)
 }
@@ -303,13 +303,17 @@ fn closure(i: &str) -> Result<(Vec<(String, Option<Expression>)>, Box<Expression
 }
 
 fn function(i: &str) -> Result<(Option<String>, Vec<(String, Option<Expression>)>, Vec<Statement>)> {
-    let inner = tuple((opt(ident), parameters, delimited(char('{'), ws(block), ws(char('}')))));
+    let inner = tuple((ws(opt(ident)), parameters, codeblock));
     context("function", ws(preceded(tag("function"), ws(inner))))(i)
+}
+
+fn codeblock(i: &str) -> Result<Vec<Statement>> {
+    ws(delimited(char('{'), ws(block), ws(char('}'))))(i)
 }
 
 fn parameters(i: &str) -> Result<Vec<(String, Option<Expression>)>> {
     let inner = separated_list(ws(char(',')), pair(ws(ident), opt(preceded(ws(char('=')), ws(expression)))));
-    delimited(char('('), inner, char(')'))(i)
+    delimited(ws(char('(')), ws(inner), ws(char(')')))(i)
 }
 
 fn splat(i: &str) -> Result<Expression> {
@@ -370,22 +374,32 @@ mod test {
 
     #[test]
     fn test_statement() {
-        assert_eq!(block("continue;"), Ok(("", vec![ Statement::Continue ])));
+        assert_eq!(block("continue}"), Ok(("}", vec![ Statement::Continue ])));
+        assert_eq!(block("continue;continue;"), Ok(("", vec![ Statement::Continue, Statement::Continue ])));
+        assert_eq!(block(" continue ; continue ; "), Ok((" ", vec![ Statement::Continue, Statement::Continue ])));
         assert_eq!(block("continue"), Ok(("", vec![ Statement::Continue ])));
         assert_eq!(block("continue\n1"), Ok(("", vec![ Statement::Continue, Statement::Expression(Expression::Double(1.0)) ])));
         assert_eq!(block("continue; 1"), Ok(("", vec![ Statement::Continue, Statement::Expression(Expression::Double(1.0)) ])));
-        assert_eq!(block("break;"), Ok(("", vec![ Statement::Break])));
+        assert_eq!(block("break;"), Ok(("", vec![ Statement::Break ])));
+        assert_eq!(block(" break ; break ; "), Ok((" ", vec![ Statement::Break, Statement::Break ])));
         assert_eq!(block("break\n"), Ok(("", vec![ Statement::Break])));
         assert_eq!(block("return 1;"), Ok(("", vec![ Statement::Return(Some(Expression::Double(1.0))) ])));
         assert_eq!(block("return 1\n"), Ok(("", vec![ Statement::Return(Some(Expression::Double(1.0))) ])));
         assert_eq!(block("return\n1\n"), Ok(("", vec![ Statement::Return(Some(Expression::Double(1.0))) ])));
         assert_eq!(block("return; 1\n"), Ok(("", vec![ Statement::Return(None), Statement::Expression(Expression::Double(1.0)) ])));
+        assert_eq!(block(" return 1 ; return 1 ; "), Ok((" ", vec![ Statement::Return(Some(Expression::Double(1.0))), Statement::Return(Some(Expression::Double(1.0))) ])));
         assert_eq!(block("return;"), Ok(("", vec![ Statement::Return(None) ])));
+        assert_eq!(block("return"), Ok(("", vec![ Statement::Return(None) ])));
+        assert_eq!(block("return\n"), Ok(("", vec![ Statement::Return(None) ])));
         assert_eq!(block("a = 2;"), Ok(("", vec![ Statement::Expression(Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0)))) ])));
         assert_eq!(block("var a = 2;"), Ok(("", vec![ Statement::Var(vec![
             Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
         ])])));
         assert_eq!(block("let a = 2, b = 3"), Ok(("", vec![ Statement::Let(vec![
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("b"))), Box::new(Expression::Double(3.0))),
+        ])])));
+        assert_eq!(block("let a=2,b=3"), Ok(("", vec![ Statement::Let(vec![
             Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
             Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("b"))), Box::new(Expression::Double(3.0))),
         ])])));
@@ -570,6 +584,9 @@ mod test {
             None, vec![], vec![]
         )))));
         assert_eq!(expression("function f(x, y){ return x; }"), Ok(("", Expression::Function((
+            Some(String::from("f")), vec![(String::from("x"), None), (String::from("y"), None)], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
+        )))));
+        assert_eq!(expression("function f ( x, y) { return x }"), Ok(("", Expression::Function((
             Some(String::from("f")), vec![(String::from("x"), None), (String::from("y"), None)], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
         )))));
     }
