@@ -397,6 +397,7 @@ fn makechain2(e: (Expression, Vec<(Operator, Expression)>)) -> Expression {
 #[cfg(test)]
 mod test {
     use crate::{block, expression, Statement, Expression, Operator};
+    use std::fs::read_to_string;
 
     #[test]
     fn test_statement() {
@@ -432,6 +433,20 @@ mod test {
         assert_eq!(block("const x = [];"), Ok(("", vec![ Statement::Const(vec![
             Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("x"))), Box::new(Expression::List(vec![]))),
         ])])));
+        assert_eq!(block("a = 2"), Ok(("", vec![ Statement::Expression(
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
+        )] )));
+        assert_eq!(block("a = G"), Ok(("", vec![ Statement::Expression(
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("G")))),
+        )] )));
+        assert_eq!(block("abc = G"), Ok(("", vec![ Statement::Expression(
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("abc"))), Box::new(Expression::Ident(String::from("G")))),
+        )] )));
+        assert_eq!(block("const empty = G()"), Ok(("", vec![ Statement::Const(vec![
+            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("empty"))), Box::new(
+                Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("G"))), Box::new(Expression::Args(vec![])) )
+            ))
+        ]) ])));
         assert_eq!(block("z"), Ok(("", vec![ Statement::Expression(Expression::Ident(String::from("z"))) ])));
     }
 
@@ -729,8 +744,8 @@ mod test {
     #[test]
     fn test_complex() {
         fn assert_complete(i: &str) {
-            assert!(expression(i).is_ok());
-            assert_eq!(expression(i).unwrap().0, "");
+            assert!(block(i).is_ok());
+            assert_eq!(block(i).unwrap().0, "");
         }
 
         assert_complete("a = b");
@@ -772,5 +787,22 @@ mod test {
         expression("{a:{a:{a:{a:{a:{a:{a:{a:1.0}}}}}}}}").unwrap();
         let elapsed = start.elapsed();
         assert!(elapsed.as_millis() < 10);
+    }
+
+    #[test]
+    fn text_fixtures() {
+        fn assert_parses(path: &str) {
+            let fixtures = std::env::current_dir().unwrap().join("fixtures");
+            let fullpath = &fixtures.join(path);
+            let source = read_to_string(&fullpath).expect("Can't open file");
+            let ast = block(&source);
+            assert!(ast.is_ok());
+            assert_eq!(ast.unwrap().0.trim(), "", "Expected ''. File: {}", path);
+        }
+        assert_parses("basic.js");
+        assert_parses("require.js");
+        assert_parses("exports.js");
+        assert_parses("crazy-indent.js");
+        assert_parses("itt_prelude.js");
     }
 }
