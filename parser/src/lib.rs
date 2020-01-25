@@ -394,102 +394,358 @@ fn makechain2(e: (Expression, Vec<(Operator, Expression)>)) -> Expression {
 
 #[cfg(test)]
 mod test {
-    use crate::{block, expression, Statement, Expression, Operator};
+    use crate::{block, expression, Expression, Operator, Statement};
     use std::fs::read_to_string;
 
     #[test]
     fn test_statement() {
-        assert_eq!(block("continue}"), Ok(("}", vec![ Statement::Continue ])));
-        assert_eq!(block("continue;continue;"), Ok(("", vec![ Statement::Continue, Statement::Continue ])));
-        assert_eq!(block(" continue ; continue ; "), Ok((" ", vec![ Statement::Continue, Statement::Continue ])));
-        assert_eq!(block("continue"), Ok(("", vec![ Statement::Continue ])));
-        assert_eq!(block("continue\n1"), Ok(("", vec![ Statement::Continue, Statement::Expression(Expression::Double(1.0)) ])));
-        assert_eq!(block("continue; 1"), Ok(("", vec![ Statement::Continue, Statement::Expression(Expression::Double(1.0)) ])));
-        assert_eq!(block("break;"), Ok(("", vec![ Statement::Break ])));
-        assert_eq!(block(" break ; break ; "), Ok((" ", vec![ Statement::Break, Statement::Break ])));
-        assert_eq!(block("break\n"), Ok(("", vec![ Statement::Break])));
-        assert_eq!(block("return 1;"), Ok(("", vec![ Statement::Return(Some(Expression::Double(1.0))) ])));
-        assert_eq!(block("return 1\n"), Ok(("", vec![ Statement::Return(Some(Expression::Double(1.0))) ])));
-        assert_eq!(block("return\n1\n"), Ok(("", vec![ Statement::Return(Some(Expression::Double(1.0))) ])));
-        assert_eq!(block("return; 1\n"), Ok(("", vec![ Statement::Return(None), Statement::Expression(Expression::Double(1.0)) ])));
-        assert_eq!(block(" return 1 ; return 1 ; "), Ok((" ", vec![ Statement::Return(Some(Expression::Double(1.0))), Statement::Return(Some(Expression::Double(1.0))) ])));
-        assert_eq!(block("return;"), Ok(("", vec![ Statement::Return(None) ])));
-        assert_eq!(block("return"), Ok(("", vec![ Statement::Return(None) ])));
-        assert_eq!(block("return\n"), Ok(("", vec![ Statement::Return(None) ])));
-        assert_eq!(block("a = 2;"), Ok(("", vec![ Statement::Expression(Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0)))) ])));
-        assert_eq!(block("var a = 2;"), Ok(("", vec![ Statement::Var(vec![
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
-        ])])));
-        assert_eq!(block("let a = 2, b = 3"), Ok(("", vec![ Statement::Let(vec![
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("b"))), Box::new(Expression::Double(3.0))),
-        ])])));
-        assert_eq!(block("let a=2,b=3"), Ok(("", vec![ Statement::Let(vec![
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("b"))), Box::new(Expression::Double(3.0))),
-        ])])));
-        assert_eq!(block("const x = [];"), Ok(("", vec![ Statement::Const(vec![
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("x"))), Box::new(Expression::List(vec![]))),
-        ])])));
-        assert_eq!(block("a = 2"), Ok(("", vec![ Statement::Expression(
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Double(2.0))),
-        )] )));
-        assert_eq!(block("a = G"), Ok(("", vec![ Statement::Expression(
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("G")))),
-        )] )));
-        assert_eq!(block("abc = G"), Ok(("", vec![ Statement::Expression(
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("abc"))), Box::new(Expression::Ident(String::from("G")))),
-        )] )));
-        assert_eq!(block("const empty = G()"), Ok(("", vec![ Statement::Const(vec![
-            Expression::Binary(Operator::Assign, Box::new(Expression::Ident(String::from("empty"))), Box::new(
-                Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("G"))), Box::new(Expression::Args(vec![])) )
+        assert_eq!(block("continue}"), Ok(("}", vec![Statement::Continue])));
+        assert_eq!(
+            block("continue;continue;"),
+            Ok(("", vec![Statement::Continue, Statement::Continue]))
+        );
+        assert_eq!(
+            block(" continue ; continue ; "),
+            Ok((" ", vec![Statement::Continue, Statement::Continue]))
+        );
+        assert_eq!(block("continue"), Ok(("", vec![Statement::Continue])));
+        assert_eq!(
+            block("continue\n1"),
+            Ok((
+                "",
+                vec![
+                    Statement::Continue,
+                    Statement::Expression(Expression::Double(1.0))
+                ]
             ))
-        ]) ])));
-        assert_eq!(block("z"), Ok(("", vec![ Statement::Expression(Expression::Ident(String::from("z"))) ])));
+        );
+        assert_eq!(
+            block("continue; 1"),
+            Ok((
+                "",
+                vec![
+                    Statement::Continue,
+                    Statement::Expression(Expression::Double(1.0))
+                ]
+            ))
+        );
+        assert_eq!(block("break;"), Ok(("", vec![Statement::Break])));
+        assert_eq!(
+            block(" break ; break ; "),
+            Ok((" ", vec![Statement::Break, Statement::Break]))
+        );
+        assert_eq!(block("break\n"), Ok(("", vec![Statement::Break])));
+        assert_eq!(
+            block("return 1;"),
+            Ok(("", vec![Statement::Return(Some(Expression::Double(1.0)))]))
+        );
+        assert_eq!(
+            block("return 1\n"),
+            Ok(("", vec![Statement::Return(Some(Expression::Double(1.0)))]))
+        );
+        assert_eq!(
+            block("return\n1\n"),
+            Ok(("", vec![Statement::Return(Some(Expression::Double(1.0)))]))
+        );
+        assert_eq!(
+            block("return; 1\n"),
+            Ok((
+                "",
+                vec![
+                    Statement::Return(None),
+                    Statement::Expression(Expression::Double(1.0))
+                ]
+            ))
+        );
+        assert_eq!(
+            block(" return 1 ; return 1 ; "),
+            Ok((
+                " ",
+                vec![
+                    Statement::Return(Some(Expression::Double(1.0))),
+                    Statement::Return(Some(Expression::Double(1.0)))
+                ]
+            ))
+        );
+        assert_eq!(block("return;"), Ok(("", vec![Statement::Return(None)])));
+        assert_eq!(block("return"), Ok(("", vec![Statement::Return(None)])));
+        assert_eq!(block("return\n"), Ok(("", vec![Statement::Return(None)])));
+        assert_eq!(
+            block("a = 2;"),
+            Ok((
+                "",
+                vec![Statement::Expression(Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Double(2.0))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("var a = 2;"),
+            Ok((
+                "",
+                vec![Statement::Var(vec![Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Double(2.0))
+                ),])]
+            ))
+        );
+        assert_eq!(
+            block("let a = 2, b = 3"),
+            Ok((
+                "",
+                vec![Statement::Let(vec![
+                    Expression::Binary(
+                        Operator::Assign,
+                        Box::new(Expression::Ident(String::from("a"))),
+                        Box::new(Expression::Double(2.0))
+                    ),
+                    Expression::Binary(
+                        Operator::Assign,
+                        Box::new(Expression::Ident(String::from("b"))),
+                        Box::new(Expression::Double(3.0))
+                    ),
+                ])]
+            ))
+        );
+        assert_eq!(
+            block("let a=2,b=3"),
+            Ok((
+                "",
+                vec![Statement::Let(vec![
+                    Expression::Binary(
+                        Operator::Assign,
+                        Box::new(Expression::Ident(String::from("a"))),
+                        Box::new(Expression::Double(2.0))
+                    ),
+                    Expression::Binary(
+                        Operator::Assign,
+                        Box::new(Expression::Ident(String::from("b"))),
+                        Box::new(Expression::Double(3.0))
+                    ),
+                ])]
+            ))
+        );
+        assert_eq!(
+            block("const x = [];"),
+            Ok((
+                "",
+                vec![Statement::Const(vec![Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Ident(String::from("x"))),
+                    Box::new(Expression::List(vec![]))
+                ),])]
+            ))
+        );
+        assert_eq!(
+            block("a = 2"),
+            Ok((
+                "",
+                vec![Statement::Expression(Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Double(2.0))
+                ),)]
+            ))
+        );
+        assert_eq!(
+            block("a = G"),
+            Ok((
+                "",
+                vec![Statement::Expression(Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Ident(String::from("G")))
+                ),)]
+            ))
+        );
+        assert_eq!(
+            block("abc = G"),
+            Ok((
+                "",
+                vec![Statement::Expression(Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Ident(String::from("abc"))),
+                    Box::new(Expression::Ident(String::from("G")))
+                ),)]
+            ))
+        );
+        assert_eq!(
+            block("const empty = G()"),
+            Ok((
+                "",
+                vec![Statement::Const(vec![Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Ident(String::from("empty"))),
+                    Box::new(Expression::Binary(
+                        Operator::Application,
+                        Box::new(Expression::Ident(String::from("G"))),
+                        Box::new(Expression::Args(vec![]))
+                    ))
+                )])]
+            ))
+        );
+        assert_eq!(
+            block("z"),
+            Ok((
+                "",
+                vec![Statement::Expression(Expression::Ident(String::from("z")))]
+            ))
+        );
     }
 
     #[test]
     fn test_string() {
-        assert_eq!(expression("\"\""), Ok(("", Expression::Str(String::from("")))));
-        assert_eq!(expression(" \"\" "), Ok((" ", Expression::Str(String::from("")))));
-        assert_eq!(expression(" \"a\" "), Ok((" ", Expression::Str(String::from("a")))));
-        assert_eq!(expression(" \"Example\" "), Ok((" ", Expression::Str(String::from("Example")))));
-        assert_eq!(expression("\"\\     a\""), Ok(("", Expression::Str(String::from("a")))));
-        assert_eq!(expression("\"\\   b  a\""), Ok(("", Expression::Str(String::from("b  a")))));
-        assert_eq!(expression("\"\\n\\n\""), Ok(("", Expression::Str(String::from("\n\n")))));
-        assert_eq!(expression("\"✅\""), Ok(("", Expression::Str(String::from("✅")))));
-        assert_eq!(expression("\"\\n\""), Ok(("", Expression::Str(String::from("\n")))));
-        assert_eq!(expression("\"\\r\""), Ok(("", Expression::Str(String::from("\r")))));
-        assert_eq!(expression("\"\\t\""), Ok(("", Expression::Str(String::from("\t")))));
-        assert_eq!(expression("\"\\b\""), Ok(("", Expression::Str(String::from("\u{08}")))));
-        assert_eq!(expression("\"\\v\""), Ok(("", Expression::Str(String::from("\u{0B}")))));
-        assert_eq!(expression("\"\\f\""), Ok(("", Expression::Str(String::from("\u{0C}")))));
-        assert_eq!(expression("\"\\\\\""), Ok(("", Expression::Str(String::from("\\")))));
-        assert_eq!(expression("\"\\/\""), Ok(("", Expression::Str(String::from("/")))));
-        assert_eq!(expression("\"\\\"\""), Ok(("", Expression::Str(String::from("\"")))));
-        assert_eq!(expression("\"\\\'\""), Ok(("", Expression::Str(String::from("'")))));
+        assert_eq!(
+            expression("\"\""),
+            Ok(("", Expression::Str(String::from(""))))
+        );
+        assert_eq!(
+            expression(" \"\" "),
+            Ok((" ", Expression::Str(String::from(""))))
+        );
+        assert_eq!(
+            expression(" \"a\" "),
+            Ok((" ", Expression::Str(String::from("a"))))
+        );
+        assert_eq!(
+            expression(" \"Example\" "),
+            Ok((" ", Expression::Str(String::from("Example"))))
+        );
+        assert_eq!(
+            expression("\"\\     a\""),
+            Ok(("", Expression::Str(String::from("a"))))
+        );
+        assert_eq!(
+            expression("\"\\   b  a\""),
+            Ok(("", Expression::Str(String::from("b  a"))))
+        );
+        assert_eq!(
+            expression("\"\\n\\n\""),
+            Ok(("", Expression::Str(String::from("\n\n"))))
+        );
+        assert_eq!(
+            expression("\"✅\""),
+            Ok(("", Expression::Str(String::from("✅"))))
+        );
+        assert_eq!(
+            expression("\"\\n\""),
+            Ok(("", Expression::Str(String::from("\n"))))
+        );
+        assert_eq!(
+            expression("\"\\r\""),
+            Ok(("", Expression::Str(String::from("\r"))))
+        );
+        assert_eq!(
+            expression("\"\\t\""),
+            Ok(("", Expression::Str(String::from("\t"))))
+        );
+        assert_eq!(
+            expression("\"\\b\""),
+            Ok(("", Expression::Str(String::from("\u{08}"))))
+        );
+        assert_eq!(
+            expression("\"\\v\""),
+            Ok(("", Expression::Str(String::from("\u{0B}"))))
+        );
+        assert_eq!(
+            expression("\"\\f\""),
+            Ok(("", Expression::Str(String::from("\u{0C}"))))
+        );
+        assert_eq!(
+            expression("\"\\\\\""),
+            Ok(("", Expression::Str(String::from("\\"))))
+        );
+        assert_eq!(
+            expression("\"\\/\""),
+            Ok(("", Expression::Str(String::from("/"))))
+        );
+        assert_eq!(
+            expression("\"\\\"\""),
+            Ok(("", Expression::Str(String::from("\""))))
+        );
+        assert_eq!(
+            expression("\"\\\'\""),
+            Ok(("", Expression::Str(String::from("'"))))
+        );
     }
 
     #[test]
     fn test_single_quoted_string() {
-        assert_eq!(expression("''"), Ok(("", Expression::Str(String::from("")))));
-        assert_eq!(expression(" '' "), Ok((" ", Expression::Str(String::from("")))));
-        assert_eq!(expression(" 'a' "), Ok((" ", Expression::Str(String::from("a")))));
-        assert_eq!(expression(" 'Example' "), Ok((" ", Expression::Str(String::from("Example")))));
-        assert_eq!(expression("'\\     a'"), Ok(("", Expression::Str(String::from("a")))));
-        assert_eq!(expression("'\\   b  a'"), Ok(("", Expression::Str(String::from("b  a")))));
-        assert_eq!(expression("'\\n\\n'"), Ok(("", Expression::Str(String::from("\n\n")))));
-        assert_eq!(expression("\"✅\""), Ok(("", Expression::Str(String::from("✅")))));
-        assert_eq!(expression("'\\n'"), Ok(("", Expression::Str(String::from("\n")))));
-        assert_eq!(expression("'\\r'"), Ok(("", Expression::Str(String::from("\r")))));
-        assert_eq!(expression("'\\t'"), Ok(("", Expression::Str(String::from("\t")))));
-        assert_eq!(expression("'\\b'"), Ok(("", Expression::Str(String::from("\u{08}")))));
-        assert_eq!(expression("'\\v'"), Ok(("", Expression::Str(String::from("\u{0B}")))));
-        assert_eq!(expression("'\\f'"), Ok(("", Expression::Str(String::from("\u{0C}")))));
-        assert_eq!(expression("'\\\\'"), Ok(("", Expression::Str(String::from("\\")))));
-        assert_eq!(expression("'\\/'"), Ok(("", Expression::Str(String::from("/")))));
-        assert_eq!(expression("'\\\"'"), Ok(("", Expression::Str(String::from("\"")))));
-        assert_eq!(expression("'\\''"), Ok(("", Expression::Str(String::from("'")))));
+        assert_eq!(
+            expression("''"),
+            Ok(("", Expression::Str(String::from(""))))
+        );
+        assert_eq!(
+            expression(" '' "),
+            Ok((" ", Expression::Str(String::from(""))))
+        );
+        assert_eq!(
+            expression(" 'a' "),
+            Ok((" ", Expression::Str(String::from("a"))))
+        );
+        assert_eq!(
+            expression(" 'Example' "),
+            Ok((" ", Expression::Str(String::from("Example"))))
+        );
+        assert_eq!(
+            expression("'\\     a'"),
+            Ok(("", Expression::Str(String::from("a"))))
+        );
+        assert_eq!(
+            expression("'\\   b  a'"),
+            Ok(("", Expression::Str(String::from("b  a"))))
+        );
+        assert_eq!(
+            expression("'\\n\\n'"),
+            Ok(("", Expression::Str(String::from("\n\n"))))
+        );
+        assert_eq!(
+            expression("\"✅\""),
+            Ok(("", Expression::Str(String::from("✅"))))
+        );
+        assert_eq!(
+            expression("'\\n'"),
+            Ok(("", Expression::Str(String::from("\n"))))
+        );
+        assert_eq!(
+            expression("'\\r'"),
+            Ok(("", Expression::Str(String::from("\r"))))
+        );
+        assert_eq!(
+            expression("'\\t'"),
+            Ok(("", Expression::Str(String::from("\t"))))
+        );
+        assert_eq!(
+            expression("'\\b'"),
+            Ok(("", Expression::Str(String::from("\u{08}"))))
+        );
+        assert_eq!(
+            expression("'\\v'"),
+            Ok(("", Expression::Str(String::from("\u{0B}"))))
+        );
+        assert_eq!(
+            expression("'\\f'"),
+            Ok(("", Expression::Str(String::from("\u{0C}"))))
+        );
+        assert_eq!(
+            expression("'\\\\'"),
+            Ok(("", Expression::Str(String::from("\\"))))
+        );
+        assert_eq!(
+            expression("'\\/'"),
+            Ok(("", Expression::Str(String::from("/"))))
+        );
+        assert_eq!(
+            expression("'\\\"'"),
+            Ok(("", Expression::Str(String::from("\""))))
+        );
+        assert_eq!(
+            expression("'\\''"),
+            Ok(("", Expression::Str(String::from("'"))))
+        );
     }
 
     #[test]
@@ -502,30 +758,57 @@ mod test {
         assert_eq!(expression("1e2"), Ok(("", Expression::Double(100.0))));
         assert_eq!(expression("1e-2"), Ok(("", Expression::Double(0.01))));
         assert_eq!(expression("0"), Ok(("", Expression::Double(0.0))));
-        assert_eq!(expression("123456789"), Ok(("", Expression::Double(123456789.0))));
+        assert_eq!(
+            expression("123456789"),
+            Ok(("", Expression::Double(123456789.0)))
+        );
         assert_eq!(expression("0."), Ok(("", Expression::Double(0.0))));
         assert_eq!(expression("123."), Ok(("", Expression::Double(123.0))));
         assert_eq!(expression(".012300"), Ok(("", Expression::Double(0.0123))));
         assert_eq!(expression("0.012300"), Ok(("", Expression::Double(0.0123))));
-        assert_eq!(expression("123.045600"), Ok(("", Expression::Double(123.0456))));
+        assert_eq!(
+            expression("123.045600"),
+            Ok(("", Expression::Double(123.0456)))
+        );
         assert_eq!(expression(".123e0"), Ok(("", Expression::Double(0.123))));
         assert_eq!(expression("0.123e0"), Ok(("", Expression::Double(0.123))));
-        assert_eq!(expression("123.456e0"), Ok(("", Expression::Double(123.456))));
+        assert_eq!(
+            expression("123.456e0"),
+            Ok(("", Expression::Double(123.456)))
+        );
         assert_eq!(expression(".123e01"), Ok(("", Expression::Double(1.23))));
         assert_eq!(expression("0.123e01"), Ok(("", Expression::Double(1.23))));
-        assert_eq!(expression("123.456e02"), Ok(("", Expression::Double(12345.6))));
+        assert_eq!(
+            expression("123.456e02"),
+            Ok(("", Expression::Double(12345.6)))
+        );
         assert_eq!(expression(".123e+4"), Ok(("", Expression::Double(1230.0))));
         assert_eq!(expression("0.123e+4"), Ok(("", Expression::Double(1230.0))));
-        assert_eq!(expression("123.456e+4"), Ok(("", Expression::Double(1234560.0))));
-        assert_eq!(expression(".123e-4"), Ok(("", Expression::Double(0.0000123))));
-        assert_eq!(expression("0.123e-4"), Ok(("", Expression::Double(0.0000123))));
-        assert_eq!(expression("123.456e-4"), Ok(("", Expression::Double(0.0123456))));
+        assert_eq!(
+            expression("123.456e+4"),
+            Ok(("", Expression::Double(1234560.0)))
+        );
+        assert_eq!(
+            expression(".123e-4"),
+            Ok(("", Expression::Double(0.0000123)))
+        );
+        assert_eq!(
+            expression("0.123e-4"),
+            Ok(("", Expression::Double(0.0000123)))
+        );
+        assert_eq!(
+            expression("123.456e-4"),
+            Ok(("", Expression::Double(0.0123456)))
+        );
         assert_eq!(expression("0e0"), Ok(("", Expression::Double(0.0))));
         assert_eq!(expression("123e0"), Ok(("", Expression::Double(123.0))));
         assert_eq!(expression("0e01"), Ok(("", Expression::Double(0.0))));
         assert_eq!(expression("123e02"), Ok(("", Expression::Double(12300.0))));
         assert_eq!(expression("0e+4"), Ok(("", Expression::Double(0.0))));
-        assert_eq!(expression("123e+4"), Ok(("", Expression::Double(1230000.0))));
+        assert_eq!(
+            expression("123e+4"),
+            Ok(("", Expression::Double(1230000.0)))
+        );
         assert_eq!(expression("0e-4"), Ok(("", Expression::Double(0.0))));
         assert_eq!(expression("123e-4"), Ok(("", Expression::Double(0.0123))));
     }
@@ -537,206 +820,959 @@ mod test {
         assert_eq!(expression("0o0"), Ok(("", Expression::Octal(0o0))));
         assert_eq!(expression("0o03 "), Ok((" ", Expression::Octal(0o3))));
         assert_eq!(expression("0o012 "), Ok((" ", Expression::Octal(0o12))));
-        assert_eq!(expression("0o07654321 "), Ok((" ", Expression::Octal(0o7654321))));
+        assert_eq!(
+            expression("0o07654321 "),
+            Ok((" ", Expression::Octal(0o7654321)))
+        );
     }
 
     #[test]
     fn test_hexadecimal() {
         assert_eq!(expression("0x3 "), Ok((" ", Expression::Hexadecimal(0x3))));
-        assert_eq!(expression("0x0123789"), Ok(("", Expression::Hexadecimal(0x0123789))));
-        assert_eq!(expression("0xABCDEF"), Ok(("", Expression::Hexadecimal(0xabcdef))));
-        assert_eq!(expression("0xabcdef"), Ok(("", Expression::Hexadecimal(0xabcdef))));
+        assert_eq!(
+            expression("0x0123789"),
+            Ok(("", Expression::Hexadecimal(0x0123789)))
+        );
+        assert_eq!(
+            expression("0xABCDEF"),
+            Ok(("", Expression::Hexadecimal(0xabcdef)))
+        );
+        assert_eq!(
+            expression("0xabcdef"),
+            Ok(("", Expression::Hexadecimal(0xabcdef)))
+        );
     }
 
     #[test]
     fn test_binarynum() {
         assert_eq!(expression("0b0"), Ok(("", Expression::BinaryNum(0b0))));
         assert_eq!(expression("0b1"), Ok(("", Expression::BinaryNum(0b1))));
-        assert_eq!(expression("0b01010"), Ok(("", Expression::BinaryNum(0b01010))));
-        assert_eq!(expression("0b1010111"), Ok(("", Expression::BinaryNum(0b1010111))));
+        assert_eq!(
+            expression("0b01010"),
+            Ok(("", Expression::BinaryNum(0b01010)))
+        );
+        assert_eq!(
+            expression("0b1010111"),
+            Ok(("", Expression::BinaryNum(0b1010111)))
+        );
     }
 
     #[test]
     fn test_identifier() {
-        assert_eq!(expression("hello"), Ok(("", Expression::Ident(String::from("hello")))));
-        assert_eq!(expression("e"), Ok(("", Expression::Ident(String::from("e")))));
+        assert_eq!(
+            expression("hello"),
+            Ok(("", Expression::Ident(String::from("hello"))))
+        );
+        assert_eq!(
+            expression("e"),
+            Ok(("", Expression::Ident(String::from("e"))))
+        );
     }
 
     #[test]
     fn test_list() {
         assert_eq!(expression(" [ ] "), Ok((" ", Expression::List(vec![]))));
-        assert_eq!(expression("[[]]"), Ok(("", Expression::List(vec![Expression::List(vec![])]))));
+        assert_eq!(
+            expression("[[]]"),
+            Ok(("", Expression::List(vec![Expression::List(vec![])])))
+        );
         assert_eq!(expression("[]"), Ok(("", Expression::List(vec![]))));
-        assert_eq!(expression("[ 1 ]"), Ok(("", Expression::List(vec![ Expression::Double(1.0) ]))));
-        assert_eq!(expression("[ 1, 2 ]"), Ok(("", Expression::List(vec![ Expression::Double(1.0), Expression::Double(2.0) ]))));
-        assert_eq!(expression("[ 1, \"2\" ]"), Ok(("", Expression::List(vec![ Expression::Double(1.0), Expression::Str(String::from("2")) ]))));
-        assert_eq!(expression("[ ...a, 1 ]"), Ok(("", Expression::List(vec![ Expression::Splat(Box::new(Expression::Ident(String::from("a")))), Expression::Double(1.0) ]))));
-        assert_eq!(expression("[ ...[], 1 ]"), Ok(("", Expression::List(vec![ Expression::Splat(Box::new(Expression::List(vec![]))), Expression::Double(1.0) ]))));
+        assert_eq!(
+            expression("[ 1 ]"),
+            Ok(("", Expression::List(vec![Expression::Double(1.0)])))
+        );
+        assert_eq!(
+            expression("[ 1, 2 ]"),
+            Ok((
+                "",
+                Expression::List(vec![Expression::Double(1.0), Expression::Double(2.0)])
+            ))
+        );
+        assert_eq!(
+            expression("[ 1, \"2\" ]"),
+            Ok((
+                "",
+                Expression::List(vec![
+                    Expression::Double(1.0),
+                    Expression::Str(String::from("2"))
+                ])
+            ))
+        );
+        assert_eq!(
+            expression("[ ...a, 1 ]"),
+            Ok((
+                "",
+                Expression::List(vec![
+                    Expression::Splat(Box::new(Expression::Ident(String::from("a")))),
+                    Expression::Double(1.0)
+                ])
+            ))
+        );
+        assert_eq!(
+            expression("[ ...[], 1 ]"),
+            Ok((
+                "",
+                Expression::List(vec![
+                    Expression::Splat(Box::new(Expression::List(vec![]))),
+                    Expression::Double(1.0)
+                ])
+            ))
+        );
     }
 
     #[test]
     fn test_object() {
-        assert_eq!(expression("{\"a\": 1}"), Ok(("", Expression::Object(vec![
-            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Double(1.0))),
-        ]))));
-        assert_eq!(expression("{a: 1, b: 2}"), Ok(("", Expression::Object(vec![
-            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Double(1.0))),
-            Expression::KeyValue(Box::new(Expression::Str(String::from("b"))), Box::new(Expression::Double(2.0))),
-        ]))));
-        assert_eq!(expression("{[1]: 1, [\"a\"]: 2}"), Ok(("", Expression::Object(vec![
-            Expression::KeyValue(Box::new(Expression::Double(1.0)), Box::new(Expression::Double(1.0))),
-            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Double(2.0))),
-        ]))));
-        assert_eq!(expression("{a: {}}"), Ok(("", Expression::Object(vec![
-            Expression::KeyValue(Box::new(Expression::Str(String::from("a"))), Box::new(Expression::Object(vec![]))),
-        ]))));
-        assert_eq!(expression("{ ...a }"), Ok(("", Expression::Object(vec![
-            Expression::Splat(Box::new(Expression::Ident(String::from("a")))),
-        ]))));
-        assert_eq!(expression("{ ...[] }"), Ok(("", Expression::Object(vec![
-            Expression::Splat(Box::new(Expression::List(vec![]))),
-        ]))));
+        assert_eq!(
+            expression("{\"a\": 1}"),
+            Ok((
+                "",
+                Expression::Object(vec![Expression::KeyValue(
+                    Box::new(Expression::Str(String::from("a"))),
+                    Box::new(Expression::Double(1.0))
+                ),])
+            ))
+        );
+        assert_eq!(
+            expression("{a: 1, b: 2}"),
+            Ok((
+                "",
+                Expression::Object(vec![
+                    Expression::KeyValue(
+                        Box::new(Expression::Str(String::from("a"))),
+                        Box::new(Expression::Double(1.0))
+                    ),
+                    Expression::KeyValue(
+                        Box::new(Expression::Str(String::from("b"))),
+                        Box::new(Expression::Double(2.0))
+                    ),
+                ])
+            ))
+        );
+        assert_eq!(
+            expression("{[1]: 1, [\"a\"]: 2}"),
+            Ok((
+                "",
+                Expression::Object(vec![
+                    Expression::KeyValue(
+                        Box::new(Expression::Double(1.0)),
+                        Box::new(Expression::Double(1.0))
+                    ),
+                    Expression::KeyValue(
+                        Box::new(Expression::Str(String::from("a"))),
+                        Box::new(Expression::Double(2.0))
+                    ),
+                ])
+            ))
+        );
+        assert_eq!(
+            expression("{a: {}}"),
+            Ok((
+                "",
+                Expression::Object(vec![Expression::KeyValue(
+                    Box::new(Expression::Str(String::from("a"))),
+                    Box::new(Expression::Object(vec![]))
+                ),])
+            ))
+        );
+        assert_eq!(
+            expression("{ ...a }"),
+            Ok((
+                "",
+                Expression::Object(vec![Expression::Splat(Box::new(Expression::Ident(
+                    String::from("a")
+                ))),])
+            ))
+        );
+        assert_eq!(
+            expression("{ ...[] }"),
+            Ok((
+                "",
+                Expression::Object(vec![Expression::Splat(Box::new(Expression::List(vec![]))),])
+            ))
+        );
     }
 
     #[test]
     fn test_parenthesis() {
-        assert_eq!(expression("(1)"), Ok(("", Expression::Paren(Box::new(Expression::Double(1.0))))));
-        assert_eq!(expression("([])"), Ok(("", Expression::Paren(Box::new(Expression::List(vec![]))))));
-        assert_eq!(expression(" ( 1 ) "), Ok((" ", Expression::Paren(Box::new(Expression::Double(1.0))))));
-        assert_eq!(expression(" ( [ ] ) "), Ok((" ", Expression::Paren(Box::new(Expression::List(vec![]))))));
+        assert_eq!(
+            expression("(1)"),
+            Ok(("", Expression::Paren(Box::new(Expression::Double(1.0)))))
+        );
+        assert_eq!(
+            expression("([])"),
+            Ok(("", Expression::Paren(Box::new(Expression::List(vec![])))))
+        );
+        assert_eq!(
+            expression(" ( 1 ) "),
+            Ok((" ", Expression::Paren(Box::new(Expression::Double(1.0)))))
+        );
+        assert_eq!(
+            expression(" ( [ ] ) "),
+            Ok((" ", Expression::Paren(Box::new(Expression::List(vec![])))))
+        );
     }
 
     #[test]
     fn test_closure() {
-        assert_eq!(expression("(a, b) => 1 + 1"), Ok(("", Expression::Closure((
-            vec![
-                Expression::Parameter((String::from("a"), None)),
-                Expression::Parameter((String::from("b"), None))
-            ],
-            Box::new(Expression::Binary(Operator::Add, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(1.0)))))
-        ))));
-        assert_eq!(expression("(a) => ({})"), Ok(("", Expression::Closure((
-            vec![ Expression::Parameter((String::from("a"), None)) ],
-            Box::new(Expression::Paren(Box::new(Expression::Object(vec![]))))
-        )))));
+        assert_eq!(
+            expression("(a, b) => 1 + 1"),
+            Ok((
+                "",
+                Expression::Closure((
+                    vec![
+                        Expression::Parameter((String::from("a"), None)),
+                        Expression::Parameter((String::from("b"), None))
+                    ],
+                    Box::new(Expression::Binary(
+                        Operator::Add,
+                        Box::new(Expression::Double(1.0)),
+                        Box::new(Expression::Double(1.0))
+                    ))
+                ))
+            ))
+        );
+        assert_eq!(
+            expression("(a) => ({})"),
+            Ok((
+                "",
+                Expression::Closure((
+                    vec![Expression::Parameter((String::from("a"), None))],
+                    Box::new(Expression::Paren(Box::new(Expression::Object(vec![]))))
+                ))
+            ))
+        );
     }
 
     #[test]
     fn test_function() {
-        assert_eq!(expression("function(){}"), Ok(("", Expression::Function((
-            None, vec![], vec![]
-        )))));
-        assert_eq!(expression("function f(x, y){ return x; }"), Ok(("", Expression::Function((
-            Some(String::from("f")), vec![ Expression::Parameter((String::from("x"), None)),  Expression::Parameter((String::from("y"), None)) ], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
-        )))));
-        assert_eq!(expression("function f ( x, y) { return x }"), Ok(("", Expression::Function((
-            Some(String::from("f")), vec![ Expression::Parameter((String::from("x"), None)), Expression::Parameter((String::from("y"), None)) ], vec![Statement::Return(Some(Expression::Ident(String::from("x"))))]
-        )))));
+        assert_eq!(
+            expression("function(){}"),
+            Ok(("", Expression::Function((None, vec![], vec![]))))
+        );
+        assert_eq!(
+            expression("function f(x, y){ return x; }"),
+            Ok((
+                "",
+                Expression::Function((
+                    Some(String::from("f")),
+                    vec![
+                        Expression::Parameter((String::from("x"), None)),
+                        Expression::Parameter((String::from("y"), None))
+                    ],
+                    vec![Statement::Return(Some(Expression::Ident(String::from(
+                        "x"
+                    ))))]
+                ))
+            ))
+        );
+        assert_eq!(
+            expression("function f ( x, y) { return x }"),
+            Ok((
+                "",
+                Expression::Function((
+                    Some(String::from("f")),
+                    vec![
+                        Expression::Parameter((String::from("x"), None)),
+                        Expression::Parameter((String::from("y"), None))
+                    ],
+                    vec![Statement::Return(Some(Expression::Ident(String::from(
+                        "x"
+                    ))))]
+                ))
+            ))
+        );
     }
 
     #[test]
     fn test_generator() {
-        assert_eq!(expression("function*() {}"), Ok(("",
-            Expression::Generator((None, vec![], vec![])),
-        )));
+        assert_eq!(
+            expression("function*() {}"),
+            Ok(("", Expression::Generator((None, vec![], vec![])),))
+        );
     }
 
     #[test]
     fn test_mutation() {
-        assert_eq!(expression(" 1 = 2 "), Ok((" ", Expression::Binary(Operator::Assign, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 += 2 "), Ok((" ", Expression::Binary(Operator::AssignAdd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 -= 2 "), Ok((" ", Expression::Binary(Operator::AssignSub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 %= 2 "), Ok((" ", Expression::Binary(Operator::AssignMod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 *= 2 "), Ok((" ", Expression::Binary(Operator::AssignMul, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 /= 2 "), Ok((" ", Expression::Binary(Operator::AssignDiv, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 <<= 2 "), Ok((" ", Expression::Binary(Operator::AssignLeft, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 >>>= 2 "), Ok((" ", Expression::Binary(Operator::AssignURight, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 >>= 2 "), Ok((" ", Expression::Binary(Operator::AssignRight, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 &= 2 "), Ok((" ", Expression::Binary(Operator::AssignAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 ^= 2 "), Ok((" ", Expression::Binary(Operator::AssignXor, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 |= 2 "), Ok((" ", Expression::Binary(Operator::AssignOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 = 2 = 3 "), Ok((" ", Expression::Binary(Operator::Assign, Box::new(Expression::Binary(Operator::Assign, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0)))), Box::new(Expression::Double(3.0))))));
+        assert_eq!(
+            expression(" 1 = 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 += 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignAdd,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 -= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignSub,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 %= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignMod,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 *= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignMul,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 /= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignDiv,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 <<= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignLeft,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 >>>= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignURight,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 >>= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignRight,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 &= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignAnd,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 ^= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignXor,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 |= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::AssignOr,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 = 2 = 3 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Assign,
+                    Box::new(Expression::Binary(
+                        Operator::Assign,
+                        Box::new(Expression::Double(1.0)),
+                        Box::new(Expression::Double(2.0))
+                    )),
+                    Box::new(Expression::Double(3.0))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_ternary() {
-        assert_eq!(expression("1 ? 2 : 3"), Ok(("", Expression::Ternary(Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0)), Box::new(Expression::Double(3.0))))));
+        assert_eq!(
+            expression("1 ? 2 : 3"),
+            Ok((
+                "",
+                Expression::Ternary(
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0)),
+                    Box::new(Expression::Double(3.0))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_comparison() {
-        assert_eq!(expression(" 1 == 2 "), Ok((" ", Expression::Binary(Operator::Equal, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 != 2 "), Ok((" ", Expression::Binary(Operator::NotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 > 2 "), Ok((" ", Expression::Binary(Operator::GreaterThan, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 < 2 "), Ok((" ", Expression::Binary(Operator::LessThan, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 >= 2 "), Ok((" ", Expression::Binary(Operator::GreaterEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 <= 2 "), Ok((" ", Expression::Binary(Operator::LessEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 === 2 "), Ok((" ", Expression::Binary(Operator::StrictEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 !== 2 "), Ok((" ", Expression::Binary(Operator::StrictNotEqual, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 instanceof 2 "), Ok((" ", Expression::Binary(Operator::InstanceOf, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 in 2 "), Ok((" ", Expression::Binary(Operator::In, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 == 2 == 3 "), Ok((" ", Expression::Binary(Operator::Equal, Box::new(Expression::Binary(Operator::Equal, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0)))), Box::new(Expression::Double(3.0))))));
+        assert_eq!(
+            expression(" 1 == 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Equal,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 != 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::NotEqual,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 > 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::GreaterThan,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 < 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::LessThan,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 >= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::GreaterEqual,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 <= 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::LessEqual,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 === 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::StrictEqual,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 !== 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::StrictNotEqual,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 instanceof 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::InstanceOf,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 in 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::In,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 == 2 == 3 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Equal,
+                    Box::new(Expression::Binary(
+                        Operator::Equal,
+                        Box::new(Expression::Double(1.0)),
+                        Box::new(Expression::Double(2.0))
+                    )),
+                    Box::new(Expression::Double(3.0))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_logic() {
-        assert_eq!(expression(" 1 || 2 "), Ok((" ", Expression::Binary(Operator::LogicalAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 && 2 "), Ok((" ", Expression::Binary(Operator::LogicalOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 ?? 2 "), Ok((" ", Expression::Binary(Operator::Coalesce, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+        assert_eq!(
+            expression(" 1 || 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::LogicalAnd,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 && 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::LogicalOr,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 ?? 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Coalesce,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_bitwise() {
-        assert_eq!(expression(" 1 | 2 "), Ok((" ", Expression::Binary(Operator::BitwiseOr, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 ^ 2 "), Ok((" ", Expression::Binary(Operator::BitwiseXor, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 & 2 "), Ok((" ", Expression::Binary(Operator::BitwiseAnd, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+        assert_eq!(
+            expression(" 1 | 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::BitwiseOr,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 ^ 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::BitwiseXor,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 & 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::BitwiseAnd,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
 
-        assert_eq!(expression(" 1 >> 2 "), Ok((" ", Expression::Binary(Operator::RightShift, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 >>> 2 "), Ok((" ", Expression::Binary(Operator::URightShift, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 << 2 "), Ok((" ", Expression::Binary(Operator::LeftShift, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+        assert_eq!(
+            expression(" 1 >> 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::RightShift,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 >>> 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::URightShift,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 << 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::LeftShift,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_arithmetic() {
-        assert_eq!(expression(" 1 + 2 "), Ok((" ", Expression::Binary(Operator::Add, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 - 2 "), Ok((" ", Expression::Binary(Operator::Sub, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 * 2 "), Ok((" ", Expression::Binary(Operator::Mult, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 / 2 "), Ok((" ", Expression::Binary(Operator::Div, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 % 2 "), Ok((" ", Expression::Binary(Operator::Mod, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" 1 ** 2 "), Ok((" ", Expression::Binary(Operator::Power, Box::new(Expression::Double(1.0)), Box::new(Expression::Double(2.0))))));
+        assert_eq!(
+            expression(" 1 + 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Add,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 - 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Sub,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 * 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Mult,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 / 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Div,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 % 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Mod,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" 1 ** 2 "),
+            Ok((
+                " ",
+                Expression::Binary(
+                    Operator::Power,
+                    Box::new(Expression::Double(1.0)),
+                    Box::new(Expression::Double(2.0))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_prefix() {
-        assert_eq!(expression(" ++ 2 "), Ok((" ", Expression::Unary(Operator::Incr, Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" -- 2 "), Ok((" ", Expression::Unary(Operator::Decr, Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" + 2 "), Ok((" ", Expression::Unary(Operator::Add, Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" - 2 "), Ok((" ", Expression::Unary(Operator::Sub, Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" ! 2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))));
-        assert_eq!(expression(" !!2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))))));
-        assert_eq!(expression(" ! ! 2 "), Ok((" ", Expression::Unary(Operator::Not, Box::new(Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0))))))));
+        assert_eq!(
+            expression(" ++ 2 "),
+            Ok((
+                " ",
+                Expression::Unary(Operator::Incr, Box::new(Expression::Double(2.0)))
+            ))
+        );
+        assert_eq!(
+            expression(" -- 2 "),
+            Ok((
+                " ",
+                Expression::Unary(Operator::Decr, Box::new(Expression::Double(2.0)))
+            ))
+        );
+        assert_eq!(
+            expression(" + 2 "),
+            Ok((
+                " ",
+                Expression::Unary(Operator::Add, Box::new(Expression::Double(2.0)))
+            ))
+        );
+        assert_eq!(
+            expression(" - 2 "),
+            Ok((
+                " ",
+                Expression::Unary(Operator::Sub, Box::new(Expression::Double(2.0)))
+            ))
+        );
+        assert_eq!(
+            expression(" ! 2 "),
+            Ok((
+                " ",
+                Expression::Unary(Operator::Not, Box::new(Expression::Double(2.0)))
+            ))
+        );
+        assert_eq!(
+            expression(" !!2 "),
+            Ok((
+                " ",
+                Expression::Unary(
+                    Operator::Not,
+                    Box::new(Expression::Unary(
+                        Operator::Not,
+                        Box::new(Expression::Double(2.0))
+                    ))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" ! ! 2 "),
+            Ok((
+                " ",
+                Expression::Unary(
+                    Operator::Not,
+                    Box::new(Expression::Unary(
+                        Operator::Not,
+                        Box::new(Expression::Double(2.0))
+                    ))
+                )
+            ))
+        );
 
-        assert_eq!(expression("typeof a"), Ok(("", Expression::Unary(Operator::TypeOf, Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression("void a"), Ok(("", Expression::Unary(Operator::Void, Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression("delete a"), Ok(("", Expression::Unary(Operator::Delete, Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression("await a"), Ok(("", Expression::Unary(Operator::Await, Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression("yield a"), Ok(("", Expression::Unary(Operator::Yield, Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression("new a"), Ok(("", Expression::Unary(Operator::New, Box::new(Expression::Ident(String::from("a")))))));
+        assert_eq!(
+            expression("typeof a"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::TypeOf,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression("void a"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::Void,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression("delete a"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::Delete,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression("await a"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::Await,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression("yield a"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::Yield,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression("new a"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::New,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_postfix() {
-        assert_eq!(expression(" a++"), Ok(("", Expression::Unary(Operator::Incr, Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression(" a--"), Ok(("", Expression::Unary(Operator::Decr, Box::new(Expression::Ident(String::from("a")))))));
+        assert_eq!(
+            expression(" a++"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::Incr,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" a--"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::Decr,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
     }
 
     #[test]
     fn test_action() {
-        assert_eq!(expression(" a?.a"), Ok(("", Expression::Binary(Operator::Optional, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression(" a[a]"), Ok(("", Expression::Binary(Operator::Array, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression(" a(a)"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Args(vec![(Expression::Ident(String::from("a")))]))))));
-        assert_eq!(expression(" a.a"), Ok(("", Expression::Binary(Operator::Dot, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Ident(String::from("a")))))));
-        assert_eq!(expression(" a()"), Ok(("", Expression::Binary(Operator::Application, Box::new(Expression::Ident(String::from("a"))), Box::new(Expression::Args(vec![]))))));
+        assert_eq!(
+            expression(" a?.a"),
+            Ok((
+                "",
+                Expression::Binary(
+                    Operator::Optional,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" a[a]"),
+            Ok((
+                "",
+                Expression::Binary(
+                    Operator::Array,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" a(a)"),
+            Ok((
+                "",
+                Expression::Binary(
+                    Operator::Application,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Args(vec![
+                        (Expression::Ident(String::from("a")))
+                    ]))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" a.a"),
+            Ok((
+                "",
+                Expression::Binary(
+                    Operator::Dot,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" a()"),
+            Ok((
+                "",
+                Expression::Binary(
+                    Operator::Application,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Args(vec![]))
+                )
+            ))
+        );
     }
 
     #[test]
