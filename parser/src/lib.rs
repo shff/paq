@@ -90,7 +90,7 @@ fn declaration(i: &str) -> Result<(Operator, Vec<Expression>)> {
 }
 
 fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>, Option<Box<Statement>>)> {
-    let else_block = preceded(ws(tag("else")), boxed(statement));
+    let else_block = ws(preceded(tag("else"), boxed(statement)));
     let inner = tuple((paren, boxed(statement), opt(else_block)));
     context("if_block", ws(preceded(tag("if"), inner)))(i)
 }
@@ -101,10 +101,10 @@ fn while_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
-    context("expression", ws(map(pair(many0(alt((
+    context("expression", map(pair(many0(ws(alt((
         value(Operator::YieldStar, tag("yield*")),
         value(Operator::Yield, tag("yield")),
-    ))), mutation), makechain)))(i)
+    )))), mutation), makechain))(i)
 }
 
 fn mutation(i: &str) -> Result<Expression> {
@@ -127,7 +127,7 @@ fn mutation(i: &str) -> Result<Expression> {
 
 fn ternary(i: &str) -> Result<Expression> {
     let conds = preceded(ws(tag("?")), separated_pair(
-        ws(equality), ws(tag(":")), ws(equality)));
+        equality, ws(tag(":")), equality));
     ws(map(pair(equality, many0(conds)), maketernary))(i)
 }
 
@@ -217,13 +217,13 @@ fn power(i: &str) -> Result<Expression> {
 }
 
 fn negation(i: &str) -> Result<Expression> {
-    ws(map(pair(many0(ws(
+    map(pair(many0(ws(
         value(Operator::Not, tag("!"))
-    )), prefix), makechain))(i)
+    )), prefix), makechain)(i)
 }
 
 fn prefix(i: &str) -> Result<Expression> {
-    ws(map(pair(many0(alt((
+    map(pair(many0(ws(alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
         value(Operator::Add, tag("+")),
@@ -232,25 +232,25 @@ fn prefix(i: &str) -> Result<Expression> {
         value(Operator::Void, tag("void")),
         value(Operator::Delete, tag("delete")),
         value(Operator::Await , tag("await ")),
-    ))), postfix), makechain))(i)
+    )))), postfix), makechain)(i)
 }
 
 fn postfix(i: &str) -> Result<Expression> {
-    ws(map(pair(creation, many0(ws(alt((
+    map(pair(creation, many0(ws(alt((
         value(Operator::Incr, tag("++")),
         value(Operator::Decr, tag("--")),
-    ))))), makechainb))(i)
+    ))))), makechainb)(i)
 }
 
 fn creation(i: &str) -> Result<Expression> {
-    ws(map(pair(many0(
+    map(pair(ws(many0(
         value(Operator::New, tag("new")),
-    ), action), makechain))(i)
+    )), action), makechain)(i)
 }
 
 fn action(i: &str) -> Result<Expression> {
-    map(pair(ws(primitive), cut(many0(ws(alt((
-        pair(value(Operator::Array, char('[')), terminated(expression, char(']'))),
+    map(pair(primitive, cut(many0(ws(alt((
+        pair(value(Operator::Array, char('[')), terminated(expression, ws(char(']')))),
         pair(value(Operator::Optional, tag("?.")), map(ident, Expression::Ident)),
         pair(value(Operator::Dot, char('.')), map(ident, Expression::Ident)),
         pair(value(Operator::Application, char('(')), terminated(map(arguments, Expression::Args), ws(char(')'))))
@@ -312,7 +312,7 @@ fn ident(i: &str) -> Result<String> {
 
 fn object(i: &str) -> Result<Vec<Expression>> {
     let inner = separated_list(ws(char(',')), alt((splat, key_value)));
-    context("object", delimited(char('{'), ws(cut(inner)), ws(char('}'))))(i)
+    context("object", delimited(char('{'), cut(inner), ws(char('}'))))(i)
 }
 
 fn key_value(i: &str) -> Result<Expression> {
@@ -325,11 +325,11 @@ fn key_value(i: &str) -> Result<Expression> {
 }
 
 fn paren(i: &str) -> Result<Box<Expression>> {
-    context("paren", delimited(ws(char('(')), boxed(expression), ws(char(')'))))(i)
+    context("paren", ws(delimited(char('('), boxed(expression), ws(char(')')))))(i)
 }
 
 fn list(i: &str) -> Result<Vec<Expression>> {
-    context("list", delimited(char('['), ws(cut(arguments)), ws(char(']'))))(i)
+    context("list", ws(delimited(char('['), arguments, ws(char(']')))))(i)
 }
 
 fn closure(i: &str) -> Result<(Vec<Expression>, Box<Expression>)> {
@@ -338,31 +338,31 @@ fn closure(i: &str) -> Result<(Vec<Expression>, Box<Expression>)> {
 
 fn function(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
     let inner = tuple((ws(opt(ident)), parameters, codeblock));
-    context("function", ws(preceded(tag("function"), ws(inner))))(i)
+    context("function", ws(preceded(tag("function"), inner)))(i)
 }
 
 fn generator(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
     let inner = tuple((ws(opt(ident)), parameters, codeblock));
-    context("generator", ws(preceded(tag("function*"), ws(inner))))(i)
+    context("generator", ws(preceded(tag("function*"), inner)))(i)
 }
 
 fn codeblock(i: &str) -> Result<Vec<Statement>> {
-    ws(delimited(char('{'), ws(block), ws(char('}'))))(i)
+    ws(delimited(char('{'), block, ws(char('}'))))(i)
 }
 
 fn parameters(i: &str) -> Result<Vec<Expression>> {
-    let param = map(pair(ws(ident), opt(preceded(ws(char('=')),
+    let param = map(pair(ident, opt(preceded(ws(char('=')),
         boxed(ws(expression))))), Expression::Parameter);
     let inner = separated_list(ws(char(',')), alt((splat, param)));
-    delimited(ws(char('(')), ws(inner), ws(char(')')))(i)
+    ws(delimited(char('('), inner, ws(char(')'))))(i)
 }
 
 fn arguments(i: &str) -> Result<Vec<Expression>> {
-    separated_list(ws(char(',')), alt((splat, expression)))(i)
+    ws(separated_list(char(','), alt((splat, expression))))(i)
 }
 
 fn splat(i: &str) -> Result<Expression> {
-    map(boxed(preceded(tag("..."), expression)), Expression::Splat)(i)
+    ws(map(boxed(preceded(tag("..."), expression)), Expression::Splat))(i)
 }
 
 fn escaped_char(i: &str) -> Result<&str> {
@@ -1879,7 +1879,31 @@ mod test {
             ))
         );
         assert_eq!(
+            expression(" a [ a ]"),
+            Ok((
+                "",
+                Expression::Binary(
+                    Operator::Array,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
             expression(" a(a)"),
+            Ok((
+                "",
+                Expression::Binary(
+                    Operator::Application,
+                    Box::new(Expression::Ident(String::from("a"))),
+                    Box::new(Expression::Args(vec![
+                        (Expression::Ident(String::from("a")))
+                    ]))
+                )
+            ))
+        );
+        assert_eq!(
+            expression(" a ( a )"),
             Ok((
                 "",
                 Expression::Binary(
