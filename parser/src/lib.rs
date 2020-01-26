@@ -59,7 +59,7 @@ pub enum Operator {
     Add, Sub, Mult, Div, Mod, Power, URightShift, RightShift, LeftShift,
     Not, Incr, Decr,
     Array, Application, Dot, Optional,
-    InstanceOf, In, TypeOf, Void, Delete, Await, Yield, New,
+    InstanceOf, In, TypeOf, Void, Delete, Await, Yield, YieldStar, New,
     Var, Let, Const,
 }
 
@@ -101,9 +101,10 @@ fn while_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
-    context("expression", ws(map(pair(many0(
+    context("expression", ws(map(pair(many0(alt((
+        value(Operator::YieldStar, tag("yield*")),
         value(Operator::Yield, tag("yield")),
-    ), mutation), makechain)))(i)
+    ))), mutation), makechain)))(i)
 }
 
 fn mutation(i: &str) -> Result<Expression> {
@@ -1803,6 +1804,16 @@ mod test {
                 "",
                 Expression::Unary(
                     Operator::Yield,
+                    Box::new(Expression::Ident(String::from("a")))
+                )
+            ))
+        );
+        assert_eq!(
+            expression("yield* a"),
+            Ok((
+                "",
+                Expression::Unary(
+                    Operator::YieldStar,
                     Box::new(Expression::Ident(String::from("a")))
                 )
             ))
