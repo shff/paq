@@ -17,7 +17,7 @@ type Result<'a, T> = IResult<&'a str, T, VerboseError<&'a str>>;
 pub enum Statement {
     Expression(Expression),
     Block(Vec<Statement>),
-    If((Box<Expression>, Box<Statement>)),
+    If((Box<Expression>, Box<Statement>, Option<Box<Statement>>)),
     While((Box<Expression>, Box<Statement>)),
     Declaration((Operator, Vec<Expression>)),
     Return(Option<Expression>),
@@ -89,14 +89,15 @@ fn declaration(i: &str) -> Result<(Operator, Vec<Expression>)> {
     )), separated_list(ws(char(',')), mutation)))(i)
 }
 
-fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
-    let inner = pair(paren, ws(boxed(statement)));
-    context("if_block", ws(preceded(tag("if"), ws(inner))))(i)
+fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>, Option<Box<Statement>>)> {
+    let else_block = preceded(ws(tag("else")), boxed(statement));
+    let inner = tuple((paren, boxed(statement), opt(else_block)));
+    context("if_block", ws(preceded(tag("if"), inner)))(i)
 }
 
 fn while_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
-    let inner = pair(paren, ws(boxed(statement)));
-    context("while_block", ws(preceded(tag("while"), ws(inner))))(i)
+    let inner = pair(paren, boxed(statement));
+    context("while_block", ws(preceded(tag("while"), inner)))(i)
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -323,7 +324,7 @@ fn key_value(i: &str) -> Result<Expression> {
 }
 
 fn paren(i: &str) -> Result<Box<Expression>> {
-    context("paren", delimited(char('('), boxed(expression), ws(char(')'))))(i)
+    context("paren", delimited(ws(char('(')), boxed(expression), ws(char(')'))))(i)
 }
 
 fn list(i: &str) -> Result<Vec<Expression>> {
@@ -664,7 +665,8 @@ mod test {
                 "",
                 vec![Statement::If((
                     Box::new(Expression::Ident(String::from("true"))),
-                    Box::new(Statement::Block(vec![Statement::Return(None)]))
+                    Box::new(Statement::Block(vec![Statement::Return(None)])),
+                    None
                 ))]
             ))
         );
@@ -674,7 +676,30 @@ mod test {
                 "",
                 vec![Statement::If((
                     Box::new(Expression::Ident(String::from("true"))),
-                    Box::new(Statement::Return(None))
+                    Box::new(Statement::Return(None)),
+                    None
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("if(true)return;else break;"),
+            Ok((
+                "",
+                vec![Statement::If((
+                    Box::new(Expression::Ident(String::from("true"))),
+                    Box::new(Statement::Return(None)),
+                    Some(Box::new(Statement::Break))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("if ( true )\n {\n return; \n}\n else \n { break; }"),
+            Ok((
+                "",
+                vec![Statement::If((
+                    Box::new(Expression::Ident(String::from("true"))),
+                    Box::new(Statement::Block(vec![ Statement::Return(None) ])),
+                    Some(Box::new(Statement::Block(vec![ Statement::Break ])))
                 ))]
             ))
         );
@@ -1917,6 +1942,10 @@ mod test {
         assert_complete("((a) => a + 1)(1)");
         assert_complete("if (1 + 1 == 2) { return true; }");
         assert_complete("if ( true ) \n { \n return ; \n } \n ");
+        assert_complete("if (true) break; else continue;");
+        assert_complete("if (true) for (0;0;0) break;");
+        assert_complete("if (true) for (0;0;0) break;\nelse continue;");
+        assert_complete("if (true) 2; else 1;");
     }
 
     #[test]
