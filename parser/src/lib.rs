@@ -19,6 +19,7 @@ pub enum Statement {
     Block(Vec<Statement>),
     If((Box<Expression>, Box<Statement>, Option<Box<Statement>>)),
     While((Box<Expression>, Box<Statement>)),
+    For(((Option<Box<Statement>>, Option<Expression>, Option<Expression>), Box<Statement>)),
     Declaration((Operator, Vec<Expression>)),
     Return(Option<Expression>),
     Throw(Option<Expression>),
@@ -68,17 +69,31 @@ pub fn block(i: &str) -> Result<Vec<Statement>> {
 }
 
 fn statement(i: &str) -> Result<Statement> {
-    ws(terminated(alt((
+    ws(alt((
+        map(codeblock, Statement::Block),
+        map(if_block, Statement::If),
+        map(while_block, Statement::While),
+        map(for_block, Statement::For),
+        single_line_statements,
+    )))(i)
+}
+
+fn single_line_statements(i: &str) -> Result<Statement> {
+    let eos = alt((ws(eoi), ws(tag(";")), line_ending, value("", ws(peek(char('}'))))));
+    terminated(alt((
         map(tag("continue"), |_| Statement::Continue),
         map(tag("break"), |_| Statement::Break),
         map(preceded(tag("return"), opt(expression)), Statement::Return),
         map(preceded(tag("throw"), opt(expression)), Statement::Throw),
+        assignment,
+    )), eos)(i)
+}
+
+fn assignment(i: &str) -> Result<Statement> {
+    alt((
         map(declaration, Statement::Declaration),
-        map(if_block, Statement::If),
-        map(while_block, Statement::While),
-        map(codeblock, Statement::Block),
         map(expression, Statement::Expression),
-    )), alt((ws(eoi), ws(tag(";")), line_ending, value("", ws(peek(char('}'))))))))(i)
+    ))(i)
 }
 
 fn declaration(i: &str) -> Result<(Operator, Vec<Expression>)> {
@@ -98,6 +113,13 @@ fn if_block(i: &str) -> Result<(Box<Expression>, Box<Statement>, Option<Box<Stat
 fn while_block(i: &str) -> Result<(Box<Expression>, Box<Statement>)> {
     let inner = pair(paren, boxed(statement));
     context("while_block", ws(preceded(tag("while"), inner)))(i)
+}
+
+fn for_block(i: &str) -> Result<((Option<Box<Statement>>, Option<Expression>, Option<Expression>), Box<Statement>)> {
+    let trio = tuple((opt(boxed(assignment)), preceded(ws(char(';')), opt(expression)),
+        preceded(ws(char(';')), opt(expression))));
+    let inner = pair(delimited(ws(char('(')), trio, ws(char(')'))), boxed(statement));
+    context("for_block", ws(preceded(tag("for"), inner)))(i)
 }
 
 pub fn expression(i: &str) -> Result<Expression> {
@@ -715,11 +737,49 @@ mod test {
             ))
         );
         assert_eq!(
-            block("while(true)return;"),
+            block(" while ( true ) return ; "),
             Ok((
-                "",
+                " ",
                 vec![Statement::While((
                     Box::new(Expression::Ident(String::from("true"))),
+                    Box::new(Statement::Return(None))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("for(0;0;0){return;}"),
+            Ok((
+                "",
+                vec![Statement::For((
+                    (
+                        Some(Box::new(Statement::Expression(Expression::Double(0.0)))),
+                        Some(Expression::Double(0.0)),
+                        Some(Expression::Double(0.0))
+                    ),
+                    Box::new(Statement::Block(vec![Statement::Return(None)]))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("for ( 0 ; 0 ; 0 ) return ; "),
+            Ok((
+                " ",
+                vec![Statement::For((
+                    (
+                        Some(Box::new(Statement::Expression(Expression::Double(0.0)))),
+                        Some(Expression::Double(0.0)),
+                        Some(Expression::Double(0.0))
+                    ),
+                    Box::new(Statement::Return(None))
+                ))]
+            ))
+        );
+        assert_eq!(
+            block("for ( ; ; ) return ; "),
+            Ok((
+                " ",
+                vec![Statement::For((
+                    (None, None, None),
                     Box::new(Statement::Return(None))
                 ))]
             ))
@@ -1976,10 +2036,11 @@ mod test {
         assert_complete("(a) => ({a: 1})");
         assert_complete("((a) => a + 1)(1)");
         assert_complete("if (1 + 1 == 2) { return true; }");
-        assert_complete("if ( true ) \n { \n return ; \n } \n ");
+        assert_complete("if ( true ) \n { \n return ; \n }");
         assert_complete("if (true) break; else continue;");
         assert_complete("if (true) for (0;0;0) break;");
         assert_complete("if (true) for (0;0;0) break;\nelse continue;");
+        assert_complete("if (true) for (0;0;0) break; else continue;");
         assert_complete("if (true) 2; else 1;");
     }
 
