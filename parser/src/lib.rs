@@ -1,14 +1,14 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until, take_while};
-use nom::bytes::streaming::{is_not};
-use nom::character::complete::{alphanumeric1, char, hex_digit1, oct_digit1, line_ending};
-use nom::character::streaming::{multispace1};
+use nom::bytes::streaming::is_not;
+use nom::character::complete::{alphanumeric1, char, hex_digit1, line_ending, oct_digit1};
+use nom::character::streaming::multispace1;
 use nom::combinator::{cut, map, map_res, opt, peek, value, verify};
 use nom::error::{context, VerboseError};
+use nom::error::{make_error, ErrorKind};
 use nom::multi::{many0, separated_list};
 use nom::number::complete::double;
-use nom::sequence::{pair, preceded, separated_pair, delimited, terminated, tuple};
-use nom::error::{make_error, ErrorKind};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::IResult;
 
 type Result<'a, T> = IResult<&'a str, T, VerboseError<&'a str>>;
@@ -460,9 +460,9 @@ mod test {
             block("  // hello\n asdf"),
             Ok((
                 "",
-                vec![
-                    Statement::Expression(Expression::Ident(String::from("asdf")))
-                ]
+                vec![Statement::Expression(Expression::Ident(String::from(
+                    "asdf"
+                )))]
             ))
         );
     }
@@ -726,8 +726,8 @@ mod test {
                 "",
                 vec![Statement::If((
                     Box::new(Expression::Ident(String::from("true"))),
-                    Box::new(Statement::Block(vec![ Statement::Return(None) ])),
-                    Some(Box::new(Statement::Block(vec![ Statement::Break ])))
+                    Box::new(Statement::Block(vec![Statement::Return(None)])),
+                    Some(Box::new(Statement::Block(vec![Statement::Break])))
                 ))]
             ))
         );
