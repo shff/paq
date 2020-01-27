@@ -265,8 +265,8 @@ fn primitive(i: &str) -> Result<Expression> {
         map(hexadecimal, Expression::Hexadecimal),
         map(binary, Expression::BinaryNum),
         map(number, Expression::Double),
-        map(function, Expression::Function),
         map(generator, Expression::Generator),
+        map(function, Expression::Function),
         map(ident, Expression::Ident),
         map(object, Expression::Object),
         map(closure, Expression::Closure),
@@ -338,12 +338,12 @@ fn closure(i: &str) -> Result<(Vec<Expression>, Box<Expression>)> {
 
 fn function(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
     let inner = tuple((ws(opt(ident)), parameters, codeblock));
-    context("function", ws(preceded(tag("function"), inner)))(i)
+    context("function", ws(preceded(tag("function"), cut(inner))))(i)
 }
 
 fn generator(i: &str) -> Result<(Option<String>, Vec<Expression>, Vec<Statement>)> {
     let inner = tuple((ws(opt(ident)), parameters, codeblock));
-    context("generator", ws(preceded(tag("function*"), inner)))(i)
+    context("generator", ws(preceded(tag("function*"), cut(inner))))(i)
 }
 
 fn codeblock(i: &str) -> Result<Vec<Statement>> {
