@@ -340,12 +340,15 @@ fn object(i: &str) -> Result<Vec<Expression>> {
 }
 
 fn key_value(i: &str) -> Result<Expression> {
-    map(separated_pair(ws(boxed(alt((
-        map(string, Expression::Str),
-        map(string2, Expression::Str),
-        map(ident, Expression::Str),
-        delimited(char('['), expression, char(']')),
-    )))), cut(ws(char(':'))), boxed(expression)), Expression::KeyValue)(i)
+    alt((
+        map(separated_pair(ws(boxed(alt((
+            map(string, Expression::Str),
+            map(string2, Expression::Str),
+            map(ident, Expression::Str),
+            delimited(char('['), expression, char(']')),
+        )))), ws(char(':')), cut(boxed(expression))), Expression::KeyValue),
+        map(ident, Expression::Ident),
+    ))(i)
 }
 
 fn paren(i: &str) -> Result<Box<Expression>> {
@@ -1180,6 +1183,16 @@ mod test {
             Ok((
                 "",
                 Expression::Object(vec![Expression::Splat(Box::new(Expression::List(vec![])))])
+            ))
+        );
+        assert_eq!(
+            expression("{ a, b }"),
+            Ok((
+                "",
+                Expression::Object(vec![
+                    Expression::Ident(String::from("a")),
+                    Expression::Ident(String::from("b"))
+                ])
             ))
         );
     }
