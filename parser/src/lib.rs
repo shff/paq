@@ -5,13 +5,15 @@ use nom::character::complete::{alphanumeric1, char, hex_digit1, oct_digit1, line
 use nom::character::streaming::{multispace1};
 use nom::combinator::{cut, map, map_res, opt, peek, value, verify};
 use nom::error::{context, VerboseError};
-use nom::multi::{many0, many1, separated_list};
+use nom::multi::{many0, separated_list};
 use nom::number::complete::double;
 use nom::sequence::{pair, preceded, separated_pair, delimited, terminated, tuple};
 use nom::error::{make_error, ErrorKind};
 use nom::IResult;
 
 type Result<'a, T> = IResult<&'a str, T, VerboseError<&'a str>>;
+
+const RESERVED: &[&str] = &["const", "for"];
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
@@ -329,7 +331,7 @@ fn number(i: &str) -> Result<f64> {
 }
 
 fn ident(i: &str) -> Result<String> {
-    context("ident", ws(map(many1(alphanumeric1), |s| s.join(""))))(i)
+    context("ident", ws(map(verify(alphanumeric1, |s| !RESERVED.contains(s)), String::from)))(i)
 }
 
 fn object(i: &str) -> Result<Vec<Expression>> {

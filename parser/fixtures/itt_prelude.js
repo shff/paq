@@ -77,7 +77,7 @@ const split = G(function*(s, sep, limit) {
         first = true
         empty = null
       }
-      // if (!m) return
+      if (!m) return
       for (let i = 1, mlen = m.length; i < mlen; ++i) {
         yield m[i]
         if (++n >= limit) return
@@ -87,10 +87,10 @@ const split = G(function*(s, sep, limit) {
     let i = 0
     const slen = sep.length
     for (;;) {
-      if (n >= limit) return;
+      if (n >= limit) return
       const j = s.indexOf(sep, i)
       yield s.slice(i, j === -1 ? len : j)
-      if (j === -1) return;
+      if (j === -1) return
       i = j + slen;
       ++n
     }
