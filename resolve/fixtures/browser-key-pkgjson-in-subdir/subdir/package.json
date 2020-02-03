@@ -1,0 +1,4 @@
+{
+  "main": "default.js",
+  "browser": "./browser.js"
+}

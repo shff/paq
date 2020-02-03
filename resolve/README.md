@@ -6,7 +6,7 @@ It is based on the [Node.js resolution algorithm](https://nodejs.org/api/modules
 
 ## Usage
 
-Just call `resolve`. The first parameter is the module (eg: a package name or a path) and the second one is the reference path.
+Just call `resolve`. The first parameter is the module (eg: a package name or a path), the second one is the reference path and the third indicates if it should use the "browser" field.
 
 The reference path should be the directory of the file that is requesting the module.
 
@@ -16,12 +16,14 @@ If the first parameter is an empty string it will check `package.json` and try t
 
 If it is a string that references a module, it will look inside your `node_module` directories, and will do it recursively until it finds your package or reaches the root, in conformance with the original resolution algorithm.
 
+The last parameter is a boolean which, if set to true, will use the "browser" field in package.json to perform module substitution.
+
 ```rust
 use js_resolve;
 
-js_resolve::resolve("express", PathBuf::from("/var/apps/server/"));
-js_resolve::resolve("./index.js", PathBuf::from("/var/apps/server/"));
-js_resolve::resolve("/app/index.js", PathBuf::from("/var/apps/server/"));
+js_resolve::resolve("express", PathBuf::from("/var/apps/server/"), true);
+js_resolve::resolve("./index.js", PathBuf::from("/var/apps/server/"), true);
+js_resolve::resolve("/app/index.js", PathBuf::from("/var/apps/server/"), true);
 ```
 
 ## LICENSE

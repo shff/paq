@@ -13,7 +13,7 @@ pub fn bundle(entry: &PathBuf) -> Result<String, Box<dyn std::error::Error + Sen
         let re = regex::Regex::new(r#"require\s*\(\s*['"](.+?)['"]\s*\)"#).unwrap();
         let source = read_to_string(&path).expect("Can't open file");
         let deps = re.captures_iter(&source).map(|dep| {
-            (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path.parent().unwrap()).unwrap())
+            (dep[1].to_string(), js_resolve::resolve(dep[1].to_string(), &path.parent().unwrap(), true).unwrap())
         }).collect::<HashMap::<String, PathBuf>>();
         let modules = deps.values().cloned().collect();
 
