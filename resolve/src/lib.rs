@@ -20,6 +20,12 @@ pub fn resolve(name: String, context: &Path, is_browser: bool) -> Option<PathBuf
 }
 
 fn load(path: &Path, is_browser: bool) -> Option<PathBuf> {
+    if is_browser {
+        if let Some(new_path) = get_substitution(path) {
+            return load(&new_path, is_browser);
+        }
+    }
+
     if path.is_file() {
         return Some(path.to_path_buf());
     }
@@ -28,7 +34,7 @@ fn load(path: &Path, is_browser: bool) -> Option<PathBuf> {
     for extension in extensions {
         let new_path = path.with_extension(extension);
         if new_path.is_file() {
-            return Some(new_path);
+            return load(&new_path, is_browser);
         }
     }
 
@@ -61,6 +67,25 @@ fn normalize(p: &Path) -> PathBuf {
         Component::ParentDir => path.parent().unwrap().to_owned(),
         Component::Normal(part) => path.join(part),
     })
+}
+
+fn get_substitution(path: &Path) -> Option<PathBuf> {
+    for ancestor in path.ancestors() {
+        let pkg_path = ancestor.join("package.json");
+        if let Ok(data) = read_to_string(pkg_path) {
+            if let Ok(info) = json::parse(&data) {
+                if let Ok(name) = path.strip_prefix(&ancestor) {
+                    if let Some(name) = name.to_str() {
+                        if let Some(new_path) = info["browser"][name].as_str() {
+                            return Some(ancestor.join(new_path));
+                        }
+                    }
+                }
+            }
+            return None;
+        }
+    }
+    None
 }
 
 #[test]
@@ -159,6 +184,12 @@ fn test_resolve() {
     assert_resolves("./default/main", "browser-key-multiple-subdir", "default/main.js", false);
     assert_resolves("./browser/main", "browser-key-multiple-subdir", "browser/main.js", true);
     assert_resolves("./browser/main", "browser-key-multiple-subdir", "browser/main.js", false);
+
+    assert_resolves("./main.js", "browser-sub-simple", "main.js", false);
+    assert_resolves("./main.js", "browser-sub-simple", "browser.js", true);
+
+    assert_resolves(".", "browser-sub-index", "index.js", false);
+    assert_resolves(".", "browser-sub-index", "browser.js", true);
 }
 
 #[test]
