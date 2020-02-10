@@ -210,6 +210,26 @@ where
     move |i| a(i).and_then(|(i, x)| b(i).and_then(|(i, _)| c(i).map(|(i, z)| (i, (x, z)))))
 }
 
+/// Tries to match either one of the parsers and returns the sucessful one.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = either(tag("a"), tag("b"));
+///
+/// assert_eq!(parser("a"), Ok(("", "a")));
+/// assert_eq!(parser("b"), Ok(("", "b")));
+/// assert_eq!(parser("c"), Err(("c", ParserError::Tag)));
+/// ```
+pub fn either<'a, A, B, R>(a: A, b: B) -> impl Fn(&'a str) -> ParseResult<R>
+where
+    A: Fn(&'a str) -> ParseResult<R>,
+    B: Fn(&'a str) -> ParseResult<R>,
+{
+    move |i| a(i).or_else(|_| b(i))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
