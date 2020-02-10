@@ -148,6 +148,26 @@ where
     move |i| a(i).and_then(|(i, _)| b(i).map(|(i, r2)| (i, r2)))
 }
 
+/// We already have a right combinator. Guess what's next? The left. Balanced,
+/// as all things should be
+///
+/// # Example
+/// ```rust
+/// use comb::*;
+///
+/// let parser = left(tag("me"), tag("you"));
+///
+/// assert_eq!(parser("meyou"), Ok(("", "me")));
+/// assert_eq!(parser("youme"), Err(("youme", ParserError::Tag)));
+/// ```
+pub fn left<'a, A, B, X, Y>(a: A, b: B) -> impl Fn(&'a str) -> ParseResult<X>
+where
+    A: Fn(&'a str) -> ParseResult<X>,
+    B: Fn(&'a str) -> ParseResult<Y>,
+{
+    move |i| a(i).and_then(|(i, r1)| b(i).map(|(i, _)| (i, r1)))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
