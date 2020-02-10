@@ -24,6 +24,28 @@ pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
     }
 }
 
+/// Converts a matched parser to a fixed value.
+///
+/// It doesn't produce errors by itself, but errors by the inner parser are
+/// forwarded to the output.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = value(tag("Hello, world!"), "Hallo welt");
+///
+/// assert_eq!(parser("Hello, world!"), Ok(("", "Hallo welt")));
+/// assert_eq!(parser("Bonjour le monde"), Err(("Bonjour le monde", ParserError::Tag)));
+/// ```
+pub fn value<'a, P, R, V>(p: P, v: V) -> impl Fn(&'a str) -> ParseResult<V>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+    V: Copy,
+{
+    move |i| p(i).map(|(i, _)| (i, v))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
