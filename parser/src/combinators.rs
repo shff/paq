@@ -189,6 +189,27 @@ where
     move |i| a(i).and_then(|(i, _)| b(i).and_then(|(i, r2)| c(i).map(|(i, _)| (i, r2))))
 }
 
+/// Takes the result of the outermost parsers and rejects the middle. Useful for
+/// parsing separated pairs.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = outer(tag("a"), tag(","), tag("b"));
+///
+/// assert_eq!(parser("a,b"), Ok(("", ("a", "b"))));
+/// assert_eq!(parser("a+b"), Err(("+b", ParserError::Tag)));
+/// ```
+pub fn outer<'a, A, B, C, X, Y, Z>(a: A, b: B, c: C) -> impl Fn(&'a str) -> ParseResult<(X, Z)>
+where
+    A: Fn(&'a str) -> ParseResult<X>,
+    B: Fn(&'a str) -> ParseResult<Y>,
+    C: Fn(&'a str) -> ParseResult<Z>,
+{
+    move |i| a(i).and_then(|(i, x)| b(i).and_then(|(i, _)| c(i).map(|(i, z)| (i, (x, z)))))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
