@@ -313,6 +313,27 @@ where
     move |i| p(i).map(|(_, o)| (i, o))
 }
 
+/// This one extract the raw characters that were matched by the inner parsers.
+///
+/// It is particularly useful when you want to meticulously parse some content,
+/// but wants it's raw content instead.
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// let parser = recognize(pair(tag("badger"), tag("badger")));
+///
+/// assert_eq!(parser("badgerbadger"), Ok(("", "badgerbadger")));
+/// assert_eq!(parser("mushroom"), Err(("mushroom", ParserError::Tag)));
+/// ```
+pub fn recognize<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<&'a str>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+{
+    move |i| p(i).map(|(i2, _)| (i2, &i[..(i2.as_ptr() as usize - i.as_ptr() as usize)]))
+}
+
 /// Probably the most useful combinator of all. It matches multiple instances
 /// the same sequence. Very useful for everything, from numbers and strings, up
 /// to complex sequences.
