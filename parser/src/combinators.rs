@@ -294,6 +294,25 @@ pub fn take_until<'a>(p: &'a str) -> impl Fn(&'a str) -> ParseResult<&str> {
     move |i| i.find(p).map_or(Ok((i, "")), |x| Ok((&i[x..], &i[..x])))
 }
 
+/// A curious parser: it returns successful response if its inner parsers are
+/// able to find something, but it doesn't eat the characters.
+///
+/// # Example
+/// ```
+/// use js_parser::combinators::*;
+///
+/// let parser = peek(tag("The future"));
+///
+/// assert_eq!(parser("The future"), Ok(("The future", "The future")));
+/// assert_eq!(parser("Not the future"), Err(("Not the future", ParserError::Tag)));
+/// ```
+pub fn peek<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<R>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+{
+    move |i| p(i).map(|(_, o)| (i, o))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
