@@ -334,6 +334,28 @@ where
     move |i| p(i).map(|(i2, _)| (i2, &i[..(i2.as_ptr() as usize - i.as_ptr() as usize)]))
 }
 
+/// Ensures that the return of an inner parser matches the stated conditions.
+///
+/// Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = check(take_until("-"), |a| a.len() == 3);
+///
+/// assert_eq!(parser("yes-"), Ok(("-", "yes")));
+/// assert_eq!(parser("no-"), Err(("no-", ParserError::Check)));
+/// ```
+pub fn check<'a, P, R, F>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<R>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+    F: Fn(&R) -> bool,
+{
+    move |i| match p(i) {
+        Ok((i, r)) if f(&r) => Ok((i, r)),
+        _ => Err((i, ParserError::Check)),
+    }
+}
+
 /// Probably the most useful combinator of all. It matches multiple instances
 /// the same sequence. Very useful for everything, from numbers and strings, up
 /// to complex sequences.
@@ -422,6 +444,7 @@ pub fn whitespace<'a>(i: &str) -> ParseResult<&str> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
+    Check,
     Eof,
     Tag,
     TakeWhile,
