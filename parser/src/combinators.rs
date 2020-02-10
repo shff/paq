@@ -274,6 +274,26 @@ where
     }
 }
 
+/// Matches and joins all matched characters until the combination of characters
+/// in the first argument is reached. Don't worry, it can be just one character
+/// if you want.
+///
+/// This is very forgiving about errors. If the end of the string comes before
+/// the breaking combination, it will return everything it found.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = take_until(" combo breaker");
+///
+/// assert_eq!(parser("123 combo breaker"), Ok((" combo breaker", "123")));
+/// assert_eq!(parser("456"), Ok(("456", "")));
+/// ```
+pub fn take_until<'a>(p: &'a str) -> impl Fn(&'a str) -> ParseResult<&str> {
+    move |i| i.find(p).map_or(Ok((i, "")), |x| Ok((&i[x..], &i[..x])))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
