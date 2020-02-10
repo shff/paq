@@ -88,6 +88,26 @@ where
     move |i| p(i).and_then(|(i, r)| Ok((i, Some(r)))).or(Ok((i, None)))
 }
 
+/// Matches a pair of tokens. Both have to matched, otherwise the wole thing
+/// fails. The error returned by the first unmatched parser is returned.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = pair(tag("hello "), tag("world"));
+///
+/// assert_eq!(parser("hello world"), Ok(("", ("hello ", "world"))));
+/// assert_eq!(parser("oh noes"), Err(("oh noes", ParserError::Tag)));
+/// ```
+pub fn pair<'a, A, B, X, Y>(a: A, b: B) -> impl Fn(&'a str) -> ParseResult<(X, Y)>
+where
+    A: Fn(&'a str) -> ParseResult<X>,
+    B: Fn(&'a str) -> ParseResult<Y>,
+{
+    move |i| a(i).and_then(|(i, r1)| b(i).map(|(i, r2)| (i, (r1, r2))))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
