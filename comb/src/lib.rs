@@ -69,6 +69,25 @@ where
     move |i| p(i).map(|(i, r)| (i, f(r)))
 }
 
+/// Makes the inner parser optional by swallowing errors and turning them into a
+/// `None` value. Actual matched values are boxed by `Some`.
+///
+/// # Example
+/// ```rust
+/// use comb::*;
+///
+/// let parser = opt(tag("1"));
+///
+/// assert_eq!(parser("1"), Ok(("", Some("1"))));
+/// assert_eq!(parser("2"), Ok(("2", None)));
+/// ```
+pub fn opt<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<Option<R>>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+{
+    move |i| p(i).and_then(|(i, r)| Ok((i, Some(r)))).or(Ok((i, None)))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
