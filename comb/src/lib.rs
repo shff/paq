@@ -382,8 +382,26 @@ where
     map(i, Box::new)
 }
 
+/// This is not a combinator, but rather a parser itself that detects if
+/// we have reached the end of the input.
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// assert_eq!(eoi(""), Ok(("", "")));
+/// assert_eq!(eoi("not the end"), Err(("not the end", ParserError::Eof)));
+/// ```
+pub fn eoi(i: &str) -> ParseResult<&str> {
+    match i.is_empty() {
+        true => Ok((i, "")),
+        false => Err((i, ParserError::Eof)),
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
+    Eof,
     Tag,
     TakeWhile,
     MapRes,
