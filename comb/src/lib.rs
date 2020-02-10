@@ -69,6 +69,26 @@ where
     move |i| p(i).map(|(i, r)| (i, f(r)))
 }
 
+/// Same as the map combinator, but errors in the lambda function used to
+/// transform cause the parser to reject the token.
+///
+/// # Example
+/// ```rust
+/// use comb::*;
+///
+/// let parser = map_res(take_while(|c| c.is_alphanumeric()), |s| s.parse::<i32>());
+///
+/// assert_eq!(parser("123"), Ok(("", 123)));
+/// assert_eq!(parser("abc"), Err(("", ParserError::MapRes)));
+/// ```
+pub fn map_res<'a, P, F, A, B, E>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<B>
+where
+    P: Fn(&'a str) -> ParseResult<A>,
+    F: Fn(A) -> Result<B, E>,
+{
+    move |i| p(i).and_then(|(i, r)| f(r).map(|r| (i, r)).or(Err((i, ParserError::MapRes))))
+}
+
 /// Makes the inner parser optional by swallowing errors and turning them into a
 /// `None` value. Actual matched values are boxed by `Some`.
 ///
@@ -258,4 +278,5 @@ where
 pub enum ParserError {
     Tag,
     TakeWhile,
+    MapRes,
 }
