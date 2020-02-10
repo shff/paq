@@ -46,6 +46,29 @@ where
     move |i| p(i).map(|(i, _)| (i, v))
 }
 
+/// Transforms the (successful) output of a matched parser.
+///
+/// Since parsers dwell mostly in strings, you need something to turn them into
+/// other kinds of values. As with the `value` combinator, errors by the inner
+/// parser are forwarded to the output.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = map(tag("1"), |s| s.parse::<i32>().unwrap());
+///
+/// assert_eq!(parser("1"), Ok(("", 1)));
+/// assert_eq!(parser("2"), Err(("2", ParserError::Tag)));
+/// ```
+pub fn map<'a, P, F, A, B>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<B>
+where
+    P: Fn(&'a str) -> ParseResult<A>,
+    F: Fn(A) -> B,
+{
+    move |i| p(i).map(|(i, r)| (i, f(r)))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
