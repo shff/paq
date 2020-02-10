@@ -18,6 +18,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "js-parser"
+version = "0.1.0"
+
+[[package]]
 name = "js-resolve"
 version = "0.1.2"
 dependencies = [
