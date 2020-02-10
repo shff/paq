@@ -386,6 +386,31 @@ where
     }
 }
 
+/// Matches a chain of repetitions linked (got it?) by a certain token or
+/// combination of tokens.
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// let parser = chain(tag(","), tag("1"));
+///
+/// assert_eq!(parser("1,1,1"), Ok(("", vec!["1", "1", "1"])));
+/// assert_eq!(parser("1,1,1,"), Ok(("", vec!["1", "1", "1"])));
+/// assert_eq!(parser("1"), Ok(("", vec!["1"])));
+/// assert_eq!(parser("2"), Ok(("2", vec![])));
+/// ```
+pub fn chain<'a, S, P, R1, R2>(sep: S, p: P) -> impl Fn(&'a str) -> ParseResult<Vec<R2>>
+where
+    S: Fn(&'a str) -> ParseResult<R1>,
+    P: Fn(&'a str) -> ParseResult<R2>,
+    R1: Clone,
+    R2: Clone + Copy,
+{
+    let join = |(a, b)| [vec![a], b].concat();
+    move |i| map(pair(&p, left(many(right(&sep, &p)), opt(&sep))), join)(i).or(Ok((i, vec![])))
+}
+
 /// Wraps the result of the inner parser in a plain-old Rust Box.
 ///
 /// # Example
