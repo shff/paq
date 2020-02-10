@@ -168,6 +168,27 @@ where
     move |i| a(i).and_then(|(i, r1)| b(i).map(|(i, _)| (i, r1)))
 }
 
+/// Same as left and right, but now it rejects both tokens that bookend the one
+/// in the middle.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = middle(tag("("), tag("secret"), tag(")"));
+///
+/// assert_eq!(parser("(secret)"), Ok(("", "secret")));
+/// assert_eq!(parser("secret"), Err(("secret", ParserError::Tag)));
+/// ```
+pub fn middle<'a, A, B, C, X, Y, Z>(a: A, b: B, c: C) -> impl Fn(&'a str) -> ParseResult<Y>
+where
+    A: Fn(&'a str) -> ParseResult<X>,
+    B: Fn(&'a str) -> ParseResult<Y>,
+    C: Fn(&'a str) -> ParseResult<Z>,
+{
+    move |i| a(i).and_then(|(i, _)| b(i).and_then(|(i, r2)| c(i).map(|(i, _)| (i, r2))))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
