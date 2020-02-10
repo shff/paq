@@ -230,7 +230,32 @@ where
     move |i| a(i).or_else(|_| b(i))
 }
 
+/// This one swallows characters as long as a condition is matched.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = take_while(|c| c.is_numeric());
+///
+/// assert_eq!(parser("123"), Ok(("", "123")));
+/// assert_eq!(parser("456"), Ok(("", "456")));
+/// assert_eq!(parser("abc"), Err(("abc", ParserError::TakeWhile)));
+/// ```
+pub fn take_while<'a, P>(p: P) -> impl Fn(&'a str) -> ParseResult<&str>
+where
+    P: Copy + Fn(char) -> bool,
+{
+    move |i| match i.find(|c| !p(c)) {
+        Some(0) => Err((i, ParserError::TakeWhile)),
+        Some(x) => Ok((&i[x..], &i[..x])),
+        None if i.len() > 0 => Ok((&i[i.len()..], i)),
+        None => Err((i, ParserError::TakeWhile)),
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
+    TakeWhile,
 }
