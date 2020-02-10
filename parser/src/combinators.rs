@@ -108,6 +108,26 @@ where
     move |i| a(i).and_then(|(i, r1)| b(i).map(|(i, r2)| (i, (r1, r2))))
 }
 
+/// What's better than a pair? You got it: a trio.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = trio(tag("ein "), tag("zwei "), tag("drei"));
+///
+/// assert_eq!(parser("ein zwei drei"), Ok(("", ("ein ", "zwei ", "drei"))));
+/// assert_eq!(parser("one two three"), Err(("one two three", ParserError::Tag)));
+/// ```
+pub fn trio<'a, A, B, C, X, Y, Z>(a: A, b: B, c: C) -> impl Fn(&'a str) -> ParseResult<(X, Y, Z)>
+where
+    A: Fn(&'a str) -> ParseResult<X>,
+    B: Fn(&'a str) -> ParseResult<Y>,
+    C: Fn(&'a str) -> ParseResult<Z>,
+{
+    move |i| a(i).and_then(|(i, x)| b(i).and_then(|(i, y)| c(i).map(|(i, z)| (i, (x, y, z)))))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
