@@ -364,6 +364,24 @@ where
     }
 }
 
+/// Wraps the result of the inner parser in a plain-old Rust Box.
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// let parser = boxed(tag("thing"));
+///
+/// assert_eq!(parser("thing"), Ok(("", Box::new("thing"))));
+/// assert_eq!(parser("not thing"), Err(("not thing", ParserError::Tag)));
+/// ```
+pub fn boxed<'a, P, R>(i: P) -> impl Fn(&'a str) -> ParseResult<Box<R>>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+{
+    map(i, Box::new)
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
