@@ -399,6 +399,27 @@ pub fn eoi(i: &str) -> ParseResult<&str> {
     }
 }
 
+/// A parser that only cares about whitespace! Spaces, tabs, line breaks.
+/// All the invisible stuff will be eaten by this monster.
+///
+/// # Example
+/// ```
+/// use js_parser::combinators::*;
+///
+/// let parser1 = right(whitespace, tag("hello"));
+/// let parser2 = left(tag("hello"), whitespace);
+///
+/// assert_eq!(parser1("    hello"), Ok(("", "hello")));
+/// assert_eq!(parser2("hello    "), Ok(("", "hello")));
+/// assert_eq!(whitespace(" \t\r\n "), Ok(("", " \t\r\n ")));
+/// ```
+pub fn whitespace<'a>(i: &str) -> ParseResult<&str> {
+    match i.find(|c: char| !c.is_whitespace()) {
+        Some(x) => Ok((&i[x..], &i[..x])),
+        _ => Ok(("", i)),
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Eof,
