@@ -1,5 +1,5 @@
 [workspace]
-members = ["bundler", "resolve", "queue"]
+members = ["bundler", "resolve", "queue", "comb"]
 
 [profile.release]
 lto = true

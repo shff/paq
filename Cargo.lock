@@ -9,6 +9,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "comb"
+version = "0.1.0"
+
+[[package]]
 name = "js-bundler"
 version = "0.1.0"
 dependencies = [
