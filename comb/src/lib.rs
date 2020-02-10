@@ -429,6 +429,30 @@ where
     map(i, Box::new)
 }
 
+/// Parses a 64-bit floating point number.
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// assert_eq!(double("1.0"), Ok(("", 1.0)));
+/// assert_eq!(double("2"), Ok(("", 2.0)));
+/// assert_eq!(double("2e2"), Ok(("", 200.0)));
+/// assert_eq!(double("2e-2"), Ok(("", 0.02)));
+/// assert_eq!(double("-2"), Ok(("", -2.0)));
+/// assert_eq!(double("+2"), Ok(("", 2.0)));
+/// assert_eq!(double("+.2"), Ok(("", 0.2)));
+/// assert_eq!(double("-.2"), Ok(("", -0.2)));
+/// ```
+pub fn double<'a>(i: &'a str) -> ParseResult<f64> {
+    let digit = |i| take_while(|c| c.is_numeric())(i);
+    let sign = |i| opt(either(tag("+"), tag("-")))(i);
+    let num = value(pair(digit, opt(pair(tag("."), opt(digit)))), 0);
+    let frac = value(pair(tag("."), digit), 0);
+    let exp = opt(trio(either(tag("e"), tag("E")), sign, digit));
+    map_res(recognize(trio(sign, either(num, frac), exp)), |s| s.parse())(i)
+}
+
 /// This is not a combinator, but rather a parser itself that detects if
 /// we have reached the end of the input.
 ///
