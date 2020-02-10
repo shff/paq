@@ -128,6 +128,26 @@ where
     move |i| a(i).and_then(|(i, x)| b(i).and_then(|(i, y)| c(i).map(|(i, z)| (i, (x, y, z)))))
 }
 
+/// Just like the pair combinator, but it throws away the result of the parser
+/// in the right and returns a single value.
+///
+/// # Example
+/// ```rust
+/// use comb::*;
+///
+/// let parser = right(tag("not me "), tag("me"));
+///
+/// assert_eq!(parser("not me me"), Ok(("", "me")));
+/// assert_eq!(parser("not me you"), Err(("you", ParserError::Tag)));
+/// ```
+pub fn right<'a, A, B, X, Y>(a: A, b: B) -> impl Fn(&'a str) -> ParseResult<Y>
+where
+    A: Fn(&'a str) -> ParseResult<X>,
+    B: Fn(&'a str) -> ParseResult<Y>,
+{
+    move |i| a(i).and_then(|(i, _)| b(i).map(|(i, r2)| (i, r2)))
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
