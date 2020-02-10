@@ -313,6 +313,36 @@ where
     move |i| p(i).map(|(_, o)| (i, o))
 }
 
+/// Probably the most useful combinator of all. It matches multiple instances
+/// the same sequence. Very useful for everything, from numbers and strings, up
+/// to complex sequences.
+///
+/// If it doesn't find any instance of, the sequence it just returns an empty
+/// array.
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// let parser = many(tag("badger"));
+///
+/// assert_eq!(parser("badgerbadgerbadger"), Ok(("", vec!["badger", "badger", "badger"])));
+/// assert_eq!(parser("not badger"), Ok(("not badger", vec![])));
+/// ```
+pub fn many<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<Vec<R>>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+{
+    move |mut i| {
+        let mut r = Vec::new();
+        while let Ok((next_input, next_item)) = p(i) {
+            i = next_input;
+            r.push(next_item);
+        }
+        Ok((i, r))
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Tag,
