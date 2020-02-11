@@ -250,6 +250,33 @@ where
     move |i| a(i).or_else(|_| b(i))
 }
 
+/// Exactly like either, but in this case you can have as many choices as you
+/// need (as long as they have the same type).
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// let parser = choice([ tag("1"), tag("2"), tag("3") ]);
+///
+/// assert_eq!(parser("1"), Ok(("", "1")));
+/// assert_eq!(parser("2"), Ok(("", "2")));
+/// assert_eq!(parser("3"), Ok(("", "3")));
+/// assert_eq!(parser("4"), Err(("4", ParserError::Choice)));
+/// ```
+pub fn choice<'a, S, P, R>(ps: S) -> impl Fn(&'a str) -> ParseResult<R>
+where
+    S: AsRef<[P]>,
+    P: Fn(&'a str) -> ParseResult<R>,
+{
+    move |i| {
+        AsRef::as_ref(&ps)
+            .iter()
+            .find_map(|p| p(i).ok())
+            .ok_or((i, ParserError::Choice))
+    }
+}
+
 /// This one swallows characters as long as a condition is matched.
 ///
 /// # Example
@@ -494,6 +521,7 @@ pub fn whitespace<'a>(i: &str) -> ParseResult<&str> {
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Check,
+    Choice,
     Eof,
     Tag,
     TakeWhile,
