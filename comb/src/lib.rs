@@ -518,6 +518,24 @@ pub fn whitespace<'a>(i: &str) -> ParseResult<&str> {
     }
 }
 
+/// A convenient one-letter helper to trim whitespace from the left of your
+/// tokens.
+///
+/// # Example
+/// ```
+/// use comb::*;
+///
+/// let parser = w(tag("tag"));
+///
+/// assert_eq!(parser("    tag"), Ok(("", "tag")));
+/// ```
+pub fn w<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<R>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+{
+    right(whitespace, p)
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     Check,
