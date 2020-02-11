@@ -438,6 +438,26 @@ where
     move |i| map(pair(&p, left(many(right(&sep, &p)), opt(&sep))), join)(i).or(Ok((i, vec![])))
 }
 
+/// Similar to the chain operator, but it stores the result of the infix
+/// operators.
+///
+/// # Example
+/// ```rust
+/// use js_parser::combinators::*;
+///
+/// let parser = infix(double, tag("+"));
+///
+/// assert_eq!(parser("1+1"), Ok(("", (1.0, vec![("+", 1.0)]))));
+/// assert_eq!(parser("1+1+2"), Ok(("", (1.0, vec![("+", 1.0), ("+", 2.0)]))));
+/// ```
+pub fn infix<'a, P, O, R, S>(p: P, o: O) -> impl Fn(&'a str) -> ParseResult<(R, Vec<(S, R)>)>
+where
+    P: Fn(&'a str) -> ParseResult<R>,
+    O: Fn(&'a str) -> ParseResult<S>,
+{
+    move |i| pair(&p, many(pair(&o, &p)))(i)
+}
+
 /// Wraps the result of the inner parser in a plain-old Rust Box.
 ///
 /// # Example
