@@ -1,2 +1,7 @@
 [workspace]
 members = ["bundler", "resolve", "queue"]
+
+[profile.release]
+lto = true
+panic = 'abort'
+codegen-units = 1
