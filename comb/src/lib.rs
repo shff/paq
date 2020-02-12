@@ -455,7 +455,26 @@ where
     P: Fn(&'a str) -> ParseResult<R>,
     O: Fn(&'a str) -> ParseResult<S>,
 {
-    move |i| pair(&p, many(pair(&o, &p)))(i)
+    move |i| pair(&p, many(pair(w(&o), &p)))(i)
+}
+
+/// Similar to the infix operator, but allows multiple prefixes that can later
+/// be chained together.
+///
+/// # Example
+/// ```rust
+/// use comb::*;
+///
+/// let parser = prefix(tag("!"), double);
+///
+/// assert_eq!(parser("!!!1"), Ok(("", (vec!["!", "!", "!"], 1.0))));
+/// ```
+pub fn prefix<'a, P, Q, X, Y>(p: P, q: Q) -> impl Fn(&'a str) -> ParseResult<(Vec<X>, Y)>
+where
+    P: Fn(&'a str) -> ParseResult<X>,
+    Q: Fn(&'a str) -> ParseResult<Y>,
+{
+    move |i| pair(many(w(&p)), &q)(i)
 }
 
 /// Wraps the result of the inner parser in a plain-old Rust Box.
