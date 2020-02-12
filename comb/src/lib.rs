@@ -432,7 +432,7 @@ where
     S: Fn(&'a str) -> ParseResult<R1>,
     P: Fn(&'a str) -> ParseResult<R2>,
     R1: Clone,
-    R2: Clone + Copy,
+    R2: Clone,
 {
     let join = |(a, b)| [vec![a], b].concat();
     move |i| map(pair(&p, left(many(right(&sep, &p)), opt(&sep))), join)(i).or(Ok((i, vec![])))
