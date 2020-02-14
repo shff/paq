@@ -1,7 +1,17 @@
-[workspace]
-members = ["bundler", "resolve", "queue", "comb"]
+[package]
+name = "paq"
+version = "0.1.0"
+authors = ["Silvio Henrique Ferreira <shferreira@me.com>"]
+edition = "2018"
 
-[profile.release]
-lto = true
-panic = 'abort'
-codegen-units = 1
+description = "A javascript module bundler"
+documentation = "https://docs.rs/js-bundler"
+repository = "https://github.com/shff/paq"
+license = "MIT"
+
+keywords = ["js", "javascript", "bundler"]
+exclude = [ "fixtures/*" ]
+
+[dependencies]
+regex = "1"
+json = "0.12"
