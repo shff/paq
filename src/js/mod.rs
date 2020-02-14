@@ -1,4 +1,5 @@
 pub mod combinators;
+pub mod parser;
 
 use std::collections::HashMap;
 use std::fs::read_to_string;
