@@ -4,14 +4,14 @@ use std::sync::mpsc;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-pub fn run<A, B, F: FnMut(A) -> Result<(B, Vec<A>), Box<dyn std::error::Error + Send>>>(
+pub fn run<A, B, F>(
     first_job: A,
     mut perform: F,
 ) -> Result<HashMap<A, B>, Box<dyn std::error::Error + Send>>
 where
     A: 'static + Clone + Eq + Hash + Send + Sync,
     B: 'static + Clone + Send,
-    F: 'static + Send + Copy,
+    F: 'static + Send + Copy + FnMut(A) -> Result<(B, Vec<A>), Box<dyn std::error::Error + Send>>,
 {
     let mut pending = HashSet::<A>::new();
     let queue = Arc::new(RwLock::new(VecDeque::new()));
@@ -19,7 +19,7 @@ where
     pending.insert(first_job.clone());
     queue.write().unwrap().push_back(first_job);
 
-    let _ = (0..4).map(|_| {
+    for _ in 0..4 {
         let tx2 = tx.clone();
         let pending2 = pending.clone();
         let queue2 = queue.clone();
@@ -27,10 +27,10 @@ where
             match queue2.write().unwrap().pop_front() {
                 Some(job) => tx2.send((job.clone(), perform(job))).unwrap(),
                 None if pending2.is_empty() => return,
-                None => thread::yield_now()
+                None => thread::yield_now(),
             }
-        })
-    }).collect::<Vec<_>>();
+        });
+    }
 
     let mut results = HashMap::<A, B>::default();
     while let Ok((job, result)) = rx.recv() {
