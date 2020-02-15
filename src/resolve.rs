@@ -58,7 +58,10 @@ pub fn normalize(p: &Path) -> PathBuf {
         Component::Prefix(ref prefix) => PathBuf::from(prefix.as_os_str().to_owned()),
         Component::RootDir => path.join("/"),
         Component::CurDir => path,
-        Component::ParentDir => path.parent().unwrap().to_owned(),
         Component::Normal(part) => path.join(part),
+        Component::ParentDir => match path.parent() {
+            Some(path) => path.to_owned(),
+            None => path,
+        },
     })
 }

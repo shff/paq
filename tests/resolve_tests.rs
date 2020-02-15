@@ -109,4 +109,8 @@ fn test_normalize() {
         normalize(&Path::new("/Users/shf/Projects").join(Path::new("paq"))),
         PathBuf::from("/Users/shf/Projects/paq")
     );
+    assert_eq!(
+        normalize(&Path::new("/../..").join(Path::new("/../.."))),
+        PathBuf::from("/")
+    );
 }
