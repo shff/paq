@@ -12,6 +12,11 @@ license = "MIT"
 keywords = ["js", "javascript", "bundler"]
 exclude = [ "fixtures/*" ]
 
+[profile.release]
+lto = true
+panic = 'abort'
+codegen-units = 1
+
 [dependencies]
 regex = "1"
 json = "0.12"
