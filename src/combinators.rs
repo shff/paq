@@ -237,8 +237,18 @@ where
     R1: Clone,
     R2: Clone,
 {
-    let join = |(a, b)| [vec![a], b].concat();
-    move |i| map(pair(&p, left(many(right(&sep, &p)), opt(&sep))), join)(i).or(Ok((i, vec![])))
+    move |i| p(i).and_then(|(i, a)| {
+        let mut res = vec![ a ];
+        let mut i = i.clone();
+        while let Ok((next_input, next_item)) = right(&sep, &p)(i) {
+            i = next_input;
+            res.push(next_item);
+        }
+        if let Ok((new_i, _)) = opt(&sep)(i) {
+            i = new_i;
+        }
+        Ok((i, res))
+    }).or(Ok((i, vec![])))
 }
 
 /// Similar to the chain operator, but it stores the result of the infix
