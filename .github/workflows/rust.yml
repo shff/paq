@@ -8,20 +8,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: nightly
     - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
+      run: cargo build --verbose
     - name: Test
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-    - name: Bench
-      uses: actions-rs/cargo@v1
-      with:
-        command: bench
+      run: cargo test --verbose
