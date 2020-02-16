@@ -1,4 +1,4 @@
-use paq::combinators::*;
+use paq::pcomb::*;
 
 #[test]
 fn test_tag() {

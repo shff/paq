@@ -189,14 +189,6 @@ where
 /// Ensures that the return of an inner parser matches the stated conditions.
 ///
 /// Example
-/// ```rust
-/// use paq::combinators::*;
-///
-/// let parser = check(take_until("-"), |a| a.len() == 3);
-///
-/// assert_eq!(parser("yes-"), Ok(("-", "yes")));
-/// assert_eq!(parser("no-"), Err(("no-", ParserError::Check)));
-/// ```
 pub fn check<'a, P, R, F>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<R>
 where
     P: Fn(&'a str) -> ParseResult<R>,

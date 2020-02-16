@@ -1,6 +1,6 @@
 pub mod queue;
 pub mod resolve;
-pub mod combinators;
+pub mod pcomb;
 
 use std::collections::HashMap;
 use std::fs::read_to_string;
@@ -28,7 +28,17 @@ pub fn bundle(entry: &PathBuf) -> Result<String, Box<dyn std::error::Error + Sen
 
 fn write(modules: &HashMap<PathBuf, Module>, entry: &Path) -> String {
     let get_id = |file: &Path| modules.keys().position(|v| v == file).unwrap();
-    let prelude = include_str!("prelude.js");
+    let prelude = "
+(function() {
+  var __req = self => dep => {
+    let fn = self.deps[dep];
+    if (!fn.module) {
+      fn.module = { exports: {}, require: __req(fn) };
+      fn(fn.module, fn.module.exports, fn.module.require);
+    }
+    return fn.module.exports;
+  };
+;";
     let mods = modules.iter().map(|(file, module)| {
         let deps = module.deps.iter().map(|(dep, path)|
             format!("\"{}\": a{}", dep, get_id(path))
