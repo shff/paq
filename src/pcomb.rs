@@ -187,8 +187,6 @@ where
 }
 
 /// Ensures that the return of an inner parser matches the stated conditions.
-///
-/// Example
 pub fn check<'a, P, R, F>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<R>
 where
     P: Fn(&'a str) -> ParseResult<R>,
