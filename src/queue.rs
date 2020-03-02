@@ -1,17 +1,13 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
-use std::sync::mpsc;
-use std::sync::{Arc, RwLock};
-use std::thread;
+use std::sync::{mpsc, Arc, RwLock};
+use std::thread::{spawn, yield_now};
 
-pub fn run<A, B, F>(
-    first_job: A,
-    mut perform: F,
-) -> Result<HashMap<A, B>, Box<dyn std::error::Error + Send>>
+pub fn run<A, B, F>(first_job: A, mut perform: F) -> Result<HashMap<A, B>, Error>
 where
     A: 'static + Clone + Eq + Hash + Send + Sync,
     B: 'static + Clone + Send,
-    F: 'static + Send + Copy + FnMut(A) -> Result<(B, Vec<A>), Box<dyn std::error::Error + Send>>,
+    F: 'static + Send + Copy + FnMut(A) -> Result<(B, Vec<A>), Error>,
 {
     let mut pending = HashSet::<A>::new();
     let queue = Arc::new(RwLock::new(VecDeque::new()));
@@ -23,11 +19,11 @@ where
         let tx2 = tx.clone();
         let pending2 = pending.clone();
         let queue2 = queue.clone();
-        thread::spawn(move || loop {
+        spawn(move || loop {
             match queue2.write().unwrap().pop_front() {
                 Some(job) => tx2.send((job.clone(), perform(job))).unwrap(),
                 None if pending2.is_empty() => return,
-                None => thread::yield_now(),
+                None => yield_now(),
             }
         });
     }
@@ -49,3 +45,6 @@ where
     }
     Ok(results)
 }
+
+#[derive(Debug)]
+pub struct Error;
