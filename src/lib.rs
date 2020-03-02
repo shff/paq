@@ -1,6 +1,6 @@
 pub mod queue;
 pub mod resolve;
-pub mod pcomb;
+pub mod js;
 
 use std::collections::HashMap;
 use std::fs::read_to_string;

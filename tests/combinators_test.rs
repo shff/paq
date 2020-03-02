@@ -1,11 +1,11 @@
-use paq::pcomb::*;
+use paq::js::combinators::*;
 
 #[test]
 fn test_tag() {
     let parser = tag("function");
 
     assert_eq!(parser("function hello"), Ok((" hello", "function")));
-    assert_eq!(parser("Something else"), Err(("Something else", ParserError::Tag)));
+    assert_eq!(parser("class Main"), Err(("class Main", ParserError::Tag)));
     assert_eq!(parser(""), Err(("", ParserError::Tag)));
 }
 
@@ -14,7 +14,7 @@ fn test_value() {
     let parser = value(tag("Hello, world!"), "Hallo welt");
 
     assert_eq!(parser("Hello, world!"), Ok(("", "Hallo welt")));
-    assert_eq!(parser("Bonjour le monde"), Err(("Bonjour le monde", ParserError::Tag)));
+    assert_eq!(parser("Bonjour"), Err(("Bonjour", ParserError::Tag)));
 }
 
 #[test]
@@ -26,8 +26,8 @@ fn test_map() {
 }
 
 #[test]
-fn test_map_res() {
-    let parser = map_res(take_while(|c| c.is_alphanumeric()), |s| s.parse::<i32>());
+fn test_mapr() {
+    let parser = mapr(take_while(|c| c.is_alphanumeric()), |s| s.parse::<i32>());
 
     assert_eq!(parser("123"), Ok(("", 123)));
     assert_eq!(parser("abc"), Err(("", ParserError::MapRes)));
@@ -54,7 +54,7 @@ fn test_trio() {
     let parser = trio(tag("ein "), tag("zwei "), tag("drei"));
 
     assert_eq!(parser("ein zwei drei"), Ok(("", ("ein ", "zwei ", "drei"))));
-    assert_eq!(parser("one two three"), Err(("one two three", ParserError::Tag)));
+    assert_eq!(parser("one two"), Err(("one two", ParserError::Tag)));
 }
 
 #[test]
@@ -90,22 +90,13 @@ fn test_outer() {
 }
 
 #[test]
-fn test_either() {
-    let parser = either(tag("a"), tag("b"));
-
-    assert_eq!(parser("a"), Ok(("", "a")));
-    assert_eq!(parser("b"), Ok(("", "b")));
-    assert_eq!(parser("c"), Err(("c", ParserError::Tag)));
-}
-
-#[test]
 fn test_choice() {
-    let parser = choice([ tag("1"), tag("2"), tag("3") ]);
+    let parser = choice((tag("1"), tag("2"), tag("3")));
 
     assert_eq!(parser("1"), Ok(("", "1")));
     assert_eq!(parser("2"), Ok(("", "2")));
     assert_eq!(parser("3"), Ok(("", "3")));
-    assert_eq!(parser("4"), Err(("4", ParserError::Choice)));
+    assert_eq!(parser("4"), Err(("4", ParserError::Tag)));
 }
 
 #[test]
@@ -130,12 +121,12 @@ fn test_peek() {
     let parser = peek(tag("The future"));
 
     assert_eq!(parser("The future"), Ok(("The future", "The future")));
-    assert_eq!(parser("Not the future"), Err(("Not the future", ParserError::Tag)));
+    assert_eq!(parser("No future"), Err(("No future", ParserError::Tag)));
 }
 
 #[test]
-fn test_recognize() {
-    let parser = recognize(pair(tag("badger"), tag("badger")));
+fn test_capture() {
+    let parser = capture(pair(tag("badger"), tag("badger")));
 
     assert_eq!(parser("badgerbadger"), Ok(("", "badgerbadger")));
     assert_eq!(parser("mushroom"), Err(("mushroom", ParserError::Tag)));
@@ -153,7 +144,7 @@ fn test_check() {
 fn test_many() {
     let parser = many(tag("badger"));
 
-    assert_eq!(parser("badgerbadgerbadger"), Ok(("", vec!["badger", "badger", "badger"])));
+    assert_eq!(parser("badgerbadger"), Ok(("", vec!["badger", "badger"])));
     assert_eq!(parser("not badger"), Ok(("not badger", vec![])));
 }
 
@@ -172,7 +163,10 @@ fn test_infix() {
     let parser = infix(double, tag("+"));
 
     assert_eq!(parser("1+1"), Ok(("", (1.0, vec![("+", 1.0)]))));
-    assert_eq!(parser("1+1+2"), Ok(("", (1.0, vec![("+", 1.0), ("+", 2.0)]))));
+    assert_eq!(
+        parser("1+1+2"),
+        Ok(("", (1.0, vec![("+", 1.0), ("+", 2.0)])))
+    );
 }
 
 #[test]
@@ -188,6 +182,35 @@ fn test_boxed() {
 
     assert_eq!(parser("thing"), Ok(("", Box::new("thing"))));
     assert_eq!(parser("not thing"), Err(("not thing", ParserError::Tag)));
+}
+
+#[test]
+fn test_string() {
+    let parser = string('"');
+
+    assert_eq!(parser("\"a\""), Ok(("", String::from("a"))));
+    assert_eq!(parser("\"abcd\""), Ok(("", String::from("abcd"))));
+    assert_eq!(parser("\"abc\"   "), Ok(("   ", String::from("abc"))));
+    assert_eq!(parser("abcd"), Err(("abcd", ParserError::Tag)));
+}
+
+#[test]
+fn test_number() {
+    let binary = number(2);
+    let octal = number(8);
+    let hex = number(16);
+
+    assert_eq!(binary("01010"), Ok(("", 0b01010)));
+    assert_eq!(binary("1010111"), Ok(("", 0b1010111)));
+    assert_eq!(octal("123"), Ok(("", 0o123)));
+    assert_eq!(octal("111"), Ok(("", 0o111)));
+    assert_eq!(octal("0"), Ok(("", 0o0)));
+    assert_eq!(octal("03 "), Ok((" ", 0o3)));
+    assert_eq!(octal("012 "), Ok((" ", 0o12)));
+    assert_eq!(octal("07654321 "), Ok((" ", 0o07654321)));
+    assert_eq!(hex("0123789"), Ok(("", 0x0123789)));
+    assert_eq!(hex("ABCDEF"), Ok(("", 0xABCDEF)));
+    assert_eq!(hex("abcdef"), Ok(("", 0xabcdef)));
 }
 
 #[test]

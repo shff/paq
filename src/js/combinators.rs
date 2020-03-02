@@ -1,6 +1,6 @@
 pub type ParseResult<'a, T> = Result<(&'a str, T), (&'a str, ParserError)>;
 
-/// Recognizes a fixed string pattern.
+/// captures a fixed string pattern.
 ///
 /// If the input data matches the first argument, it will return a successful
 /// value containing the argument itself.
@@ -8,7 +8,17 @@ pub type ParseResult<'a, T> = Result<(&'a str, T), (&'a str, ParserError)>;
 /// Otherwise it returns `Err((_, ParserError::Tag))`
 pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
     move |i| match i.starts_with(tag) {
-        true => Ok((&i[tag.len()..], tag)),
+        true => Ok((&i[tag.len()..], &i[..tag.len()])),
+        false => Err((i, ParserError::Tag)),
+    }
+}
+
+/// Captures a single-character.
+///
+/// Works similarly to the tag combinator.
+pub fn chr(c: char) -> impl Fn(&str) -> ParseResult<&str> {
+    move |i| match i.starts_with(c) {
+        true => Ok((&i[1..], &i[..1])),
         false => Err((i, ParserError::Tag)),
     }
 }
@@ -40,7 +50,7 @@ where
 
 /// Same as the map combinator, but errors in the lambda function used to
 /// transform cause the parser to reject the token.
-pub fn map_res<'a, P, F, A, B, E>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<B>
+pub fn mapr<'a, P, F, A, B, E>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<B>
 where
     P: Fn(&'a str) -> ParseResult<A>,
     F: Fn(A) -> Result<B, E>,
@@ -120,27 +130,11 @@ where
 }
 
 /// Tries to match either one of the parsers and returns the sucessful one.
-pub fn either<'a, A, B, R>(a: A, b: B) -> impl Fn(&'a str) -> ParseResult<R>
+pub fn choice<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<R>
 where
-    A: Fn(&'a str) -> ParseResult<R>,
-    B: Fn(&'a str) -> ParseResult<R>,
+    P: Choice<'a, R>,
 {
-    move |i| a(i).or_else(|_| b(i))
-}
-
-/// Exactly like either, but in this case you can have as many choices as you
-/// need (as long as they have the same type).
-pub fn choice<'a, S, P, R>(ps: S) -> impl Fn(&'a str) -> ParseResult<R>
-where
-    S: AsRef<[P]>,
-    P: Fn(&'a str) -> ParseResult<R>,
-{
-    move |i| {
-        AsRef::as_ref(&ps)
-            .iter()
-            .find_map(|p| p(i).ok())
-            .ok_or((i, ParserError::Choice))
-    }
+    move |i| p.choice(i)
 }
 
 /// This one swallows characters as long as a condition is matched.
@@ -149,10 +143,9 @@ where
     P: Copy + Fn(char) -> bool,
 {
     move |i| match i.find(|c| !p(c)) {
-        Some(0) => Err((i, ParserError::TakeWhile)),
-        Some(x) => Ok((&i[x..], &i[..x])),
+        Some(x) if x > 0 => Ok((&i[x..], &i[..x])),
         None if i.len() > 0 => Ok((&i[i.len()..], i)),
-        None => Err((i, ParserError::TakeWhile)),
+        _ => Err((i, ParserError::TakeWhile)),
     }
 }
 
@@ -179,7 +172,7 @@ where
 ///
 /// It is particularly useful when you want to meticulously parse some content,
 /// but wants it's raw content instead.
-pub fn recognize<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<&'a str>
+pub fn capture<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<&'a str>
 where
     P: Fn(&'a str) -> ParseResult<R>,
 {
@@ -227,18 +220,21 @@ where
     R1: Clone,
     R2: Clone,
 {
-    move |i| p(i).and_then(|(i, a)| {
-        let mut res = vec![ a ];
-        let mut i = i.clone();
-        while let Ok((next_input, next_item)) = right(&sep, &p)(i) {
-            i = next_input;
-            res.push(next_item);
-        }
-        if let Ok((new_i, _)) = opt(&sep)(i) {
-            i = new_i;
-        }
-        Ok((i, res))
-    }).or(Ok((i, vec![])))
+    move |i| {
+        p(i).and_then(|(i, a)| {
+            let mut res = vec![a];
+            let mut i = i.clone();
+            while let Ok((next_input, next_item)) = right(&sep, &p)(i) {
+                i = next_input;
+                res.push(next_item);
+            }
+            if let Ok((new_i, _)) = opt(&sep)(i) {
+                i = new_i;
+            }
+            Ok((i, res))
+        })
+        .or(Ok((i, vec![])))
+    }
 }
 
 /// Similar to the chain operator, but it stores the result of the infix
@@ -269,14 +265,42 @@ where
     map(i, Box::new)
 }
 
+/// Matches a C-style escaped string. Pass the delimiter as the first parameter.
+pub fn string<'a>(q: char) -> impl Fn(&'a str) -> ParseResult<String> {
+    move |i| {
+        let escaped = right(tag("\\"), choice((
+            value(tag("n"), "\n"),
+            value(tag("r"), "\r"),
+            value(tag("t"), "\t"),
+            value(tag("v"), "\u{0B}"),
+            value(tag("b"), "\u{08}"),
+            value(tag("f"), "\u{0C}"),
+            value(tag("\\"), "\\"),
+            value(tag("/"), "/"),
+            value(tag("\""), "\""),
+            value(tag("\'"), "\'"),
+            value(whitespace, ""),
+        )));
+        let chars = take_while(|c| c != q && c != '\\');
+        let inner = map(many(choice((chars, escaped))), |s| s.join(""));
+        middle(chr(q), inner, chr(q))(i)
+    }
+}
+
+/// Matches a base-n number. Use the parameter to specify the base of the
+/// number.
+pub fn number<'a>(b: u32) -> impl Fn(&'a str) -> ParseResult<u64> {
+    move |i| mapr(take_while(|c| c.is_digit(b)), |s| u64::from_str_radix(s, b))(i)
+}
+
 /// Parses a 64-bit floating point number.
 pub fn double<'a>(i: &'a str) -> ParseResult<f64> {
     let digit = |i| take_while(|c| c.is_numeric())(i);
-    let sign = |i| opt(either(tag("+"), tag("-")))(i);
+    let sign = |i| opt(choice((tag("+"), tag("-"))))(i);
     let num = value(pair(digit, opt(pair(tag("."), opt(digit)))), 0);
     let frac = value(pair(tag("."), digit), 0);
-    let exp = opt(trio(either(tag("e"), tag("E")), sign, digit));
-    map_res(recognize(trio(sign, either(num, frac), exp)), |s| s.parse())(i)
+    let exp = opt(trio(choice((tag("e"), tag("E"))), sign, digit));
+    mapr(capture(trio(sign, choice((num, frac)), exp)), |s| s.parse())(i)
 }
 
 /// This is not a combinator, but rather a parser itself that detects if
@@ -315,3 +339,29 @@ pub enum ParserError {
     TakeWhile,
     MapRes,
 }
+
+pub trait Choice<'a, O> {
+    fn choice(&self, i: &'a str) -> ParseResult<'a, O>;
+}
+macro_rules! choice(
+    ($($id:ident)+ , $($num:tt)+) => (
+        impl<'a, O, $($id: Fn(&'a str) -> ParseResult<'a, O>),+>
+            Choice<'a, O> for ( $($id),+ ) {
+            fn choice(&self, i: &'a str) -> ParseResult<'a, O> {
+                Err(("", ""))$(.or_else(|_| self.$num(i)))*
+            }
+        }
+    );
+);
+choice!(A B, 0 1);
+choice!(A B C, 0 1 2);
+choice!(A B C D, 0 1 2 3);
+choice!(A B C D E, 0 1 2 3 4);
+choice!(A B C D E F, 0 1 2 3 4 5);
+choice!(A B C D E F G, 0 1 2 3 4 5 6);
+choice!(A B C D E F G H, 0 1 2 3 4 5 6 7);
+choice!(A B C D E F G H I, 0 1 2 3 4 5 6 7 8);
+choice!(A B C D E F G H I J, 0 1 2 3 4 5 6 7 8 9);
+choice!(A B C D E F G H I J K, 0 1 2 3 4 5 6 7 8 9 10);
+choice!(A B C D E F G H I J K L, 0 1 2 3 4 5 6 7 8 9 10 11);
+choice!(A B C D E F G H I J K L M, 0 1 2 3 4 5 6 7 8 9 10 11 12);
