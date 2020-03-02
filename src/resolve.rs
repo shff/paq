@@ -1,25 +1,25 @@
 use std::fs::read_to_string;
 use std::path::{Component, Path, PathBuf};
 
-pub fn resolve(name: String, context: &Path, is_browser: bool) -> Option<PathBuf> {
+pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
     let path = Path::new(&name);
     if path.starts_with("./") || path.starts_with("../") {
         let new_path = normalize(&context.join(path));
 
-        load(&new_path, is_browser)
+        load(&new_path)
     } else if path.is_absolute() {
-        load(path, is_browser)
+        load(path)
     } else if name.is_empty() {
-        load(context, is_browser)
+        load(context)
     } else {
         let parent = context.parent()?;
         let new_path = context.join("node_modules").join(&path);
 
-        load(&new_path, is_browser).or(resolve(name, parent, is_browser))
+        load(&new_path).or(resolve(name, parent))
     }
 }
 
-fn load(path: &Path, is_browser: bool) -> Option<PathBuf> {
+fn load(path: &Path) -> Option<PathBuf> {
     if path.is_file() {
         return Some(path.to_path_buf());
     }
@@ -35,20 +35,15 @@ fn load(path: &Path, is_browser: bool) -> Option<PathBuf> {
     let pkg_path = path.join("package.json");
     if let Ok(data) = read_to_string(&pkg_path) {
         if let Ok(pkg_info) = json::parse(&data) {
-            if let Some(browser) = pkg_info["browser"].as_str() {
-                if is_browser && browser != "." && browser != ".." {
-                    return load(&path.join(browser), is_browser);
-                }
-            }
             if let Some(main) = pkg_info["main"].as_str() {
                 if main != "." && main != ".." {
-                    return load(&path.join(main), is_browser);
+                    return load(&path.join(main));
                 }
             }
         }
     }
     if path.is_dir() {
-        return load(&path.join("index"), is_browser);
+        return load(&path.join("index"));
     }
     None
 }
