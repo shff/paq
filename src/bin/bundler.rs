@@ -15,8 +15,8 @@ fn main() {
         }
     }
 
-    match rakastu::bundle(entry) {
+    match rakastu::bundle(&entry) {
         Ok(data) => println!("{}", data),
-        Err(err) => eprintln!("{}", err),
+        Err(err) => eprintln!("{:?}", err),
     };
 }

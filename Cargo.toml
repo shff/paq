@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 json = "0.12"
+regex = "1"
 
 [profile.release]
 panic = 'abort'
