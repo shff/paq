@@ -5,9 +5,18 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Coverage
+      run: |
+        curl https://api.github.com/repos/xd009642/tarpaulin/releases |\
+          jq -r '.[0].assets[] | select(.content_type=="application/gzip").browser_download_url' |\
+          xargs curl -L |\
+          tar zxv -C .
+        export PATH=$PATH:$(pwd)
+        cargo tarpaulin --coveralls ${{ secrets.COVERALLS_TOKEN }}
     - name: Format
       run: cargo fmt -- --check
     - name: Lint
@@ -16,5 +25,6 @@ jobs:
       run: cargo build --verbose
     - name: Test
       run: cargo test --verbose
+    - run: find .
     - name: Bench
       run: cargo bench
