@@ -13,8 +13,6 @@ jobs:
       with:
         toolchain: nightly
         override: true
-    - name: Install grcov
-      run: cargo install grcov
     - name: Format
       run: cargo fmt -- --check
     - name: Lint
@@ -28,8 +26,14 @@ jobs:
         'RUSTFLAGS': '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads'
     - name: Bench
       run: cargo bench
-    - name: Generate coverage
-      run: grcov . -t lcov > coverage.info
+    - name: Coverage
+      id: coverage
+      uses: actions-rs/grcov@v0.1
+    - name: Coveralls upload
+      uses: coverallsapp/github-action@v1.0.1
+      with:
+        path-to-lcov: ${{ steps.coverage.outputs.report }}
+        github-token: ${{ secrets.github_token }}
     - name: Coveralls upload
       uses: coverallsapp/github-action@master
       with:
