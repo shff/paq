@@ -7,7 +7,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+    - name: Coverage
+      run: |
+        curl https://api.github.com/repos/xd009642/tarpaulin/releases/latest |\
+          jq -r '.assets[0].browser_download_url' |\
+          xargs curl -L |\
+          tar zxv -C .
+        export PATH=$PATH:$(pwd)
+        cargo tarpaulin --coveralls ${{ secrets.COVERALLS_TOKEN }}
     - name: Format
       run: cargo fmt -- --check
     - name: Lint
