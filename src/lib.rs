@@ -1,3 +1,6 @@
+#![allow(clippy::cognitive_complexity)]
+
+pub mod lexer;
 pub mod queue;
 pub mod resolve;
 
