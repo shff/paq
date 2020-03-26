@@ -22,11 +22,11 @@ fn test_bundler() {
         assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), value);
     }
     assert_bundle("basic", "console.log('hello')");
-    // assert_bundle("with-dep", "/* math.js */");
-    // assert_bundle("double-quotes", "/* math.js */");
-    // assert_bundle("crazy-indent", "/* math.js */");
-    // assert_bundle("with-modules", "PETER RULES");
-    // assert_bundle("with-modules-2", "PartitionIter");
+    assert_bundle("with-dep", "/* math.js */");
+    assert_bundle("double-quotes", "/* math.js */");
+    assert_bundle("crazy-indent", "/* math.js */");
+    assert_bundle("with-modules", "PETER RULES");
+    assert_bundle("with-modules-2", "PartitionIter");
     assert_node("basic", "hello");
     // assert_node("with-dep", "2");
     // assert_node("double-quotes", "");
