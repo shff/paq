@@ -8,7 +8,7 @@ fn test_resolve() {
             .unwrap()
             .join("tests/fixtures/resolve");
         assert_eq!(
-            resolve(name.to_string(), &fixtures.join(path)).unwrap(),
+            resolve(name.to_string(), &fixtures.join(path).join("index.js")).unwrap(),
             normalize(&fixtures.join(path).join(expected.to_string())),
         );
     }

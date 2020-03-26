@@ -3,18 +3,18 @@ use std::io::{Error, ErrorKind};
 use std::path::{Component, Path, PathBuf};
 
 pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
+    let parent = context.parent().unwrap();
     let path = Path::new(&name);
     if path.starts_with("./") || path.starts_with("../") {
-        let new_path = normalize(&context.join(path));
+        let new_path = normalize(&parent.join(path));
 
         load(&new_path)
     } else if path.is_absolute() {
         load(path)
     } else if name.is_empty() {
-        load(context)
+        load(parent)
     } else {
-        let parent = context.parent().unwrap();
-        let new_path = context.join("node_modules").join(&path);
+        let new_path = parent.join("node_modules").join(&path);
 
         load(&new_path).or_else(|_| resolve(name, parent))
     }
