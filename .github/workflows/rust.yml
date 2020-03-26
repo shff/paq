@@ -13,8 +13,7 @@ jobs:
         curl https://api.github.com/repos/xd009642/tarpaulin/releases/latest |\
           jq -r '.assets[0].browser_download_url' |\
           xargs curl -L |\
-          tar zxv -C .
-        export PATH=$PATH:$(pwd)
+          tar zxv -C /usr/share/rust/.cargo/bin
         cargo tarpaulin --coveralls ${{ secrets.COVERALLS_TOKEN }}
     - name: Format
       run: cargo fmt -- --check
