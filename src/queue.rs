@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
-use std::sync::{mpsc, Arc, PoisonError, RwLock};
+use std::sync::{mpsc, Arc, RwLock};
 use std::thread::{spawn, yield_now};
+
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
 pub fn run<A, B, F>(first_job: A, mut perform: F) -> Result<HashMap<A, B>, Error>
 where
@@ -13,7 +15,7 @@ where
     let queue = Arc::new(RwLock::new(VecDeque::new()));
     let (tx, rx) = mpsc::channel();
     pending.insert(first_job.clone());
-    queue.write()?.push_back(first_job);
+    queue.write().unwrap().push_back(first_job);
 
     for _ in 0..4 {
         let tx2 = tx.clone();
@@ -36,7 +38,7 @@ where
         for job in new_jobs {
             if !results.contains_key(&job) {
                 pending.insert(job.clone());
-                queue.write()?.push_back(job);
+                queue.write().unwrap().push_back(job);
             }
         }
         if pending.is_empty() {
@@ -44,15 +46,4 @@ where
         }
     }
     Ok(results)
-}
-
-#[derive(Debug)]
-pub enum Error {
-    InnerError,
-    QueueError,
-}
-impl<T> From<PoisonError<T>> for Error {
-    fn from(_: PoisonError<T>) -> Self {
-        Self::QueueError
-    }
 }

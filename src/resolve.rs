@@ -1,7 +1,8 @@
 use std::fs::read_to_string;
+use std::io::{Error, ErrorKind};
 use std::path::{Component, Path, PathBuf};
 
-pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
+pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
     let path = Path::new(&name);
     if path.starts_with("./") || path.starts_with("../") {
         let new_path = normalize(&context.join(path));
@@ -12,23 +13,23 @@ pub fn resolve(name: String, context: &Path) -> Option<PathBuf> {
     } else if name.is_empty() {
         load(context)
     } else {
-        let parent = context.parent()?;
+        let parent = context.parent().unwrap();
         let new_path = context.join("node_modules").join(&path);
 
-        load(&new_path).or_else(|| resolve(name, parent))
+        load(&new_path).or_else(|_| resolve(name, parent))
     }
 }
 
-fn load(path: &Path) -> Option<PathBuf> {
+fn load(path: &Path) -> Result<PathBuf, Error> {
     if path.is_file() {
-        return Some(path.to_path_buf());
+        return Ok(path.to_path_buf());
     }
 
     let extensions = vec!["js", "mjs", "json"];
     for extension in extensions {
         let new_path = path.with_extension(extension);
         if new_path.is_file() {
-            return Some(new_path);
+            return Ok(new_path);
         }
     }
 
@@ -45,7 +46,7 @@ fn load(path: &Path) -> Option<PathBuf> {
     if path.is_dir() {
         return load(&path.join("index"));
     }
-    None
+    Err(Error::new(ErrorKind::NotFound, "Not found"))
 }
 
 pub fn normalize(p: &Path) -> PathBuf {

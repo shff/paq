@@ -1,11 +1,11 @@
-use paq::queue::{run, Error};
+use paq::queue::run;
 
 #[test]
 fn test_queue() {
     let result = run(1, |num| match num {
         1 => Ok(("one", vec![2])),
         2 => Ok(("two", vec![])),
-        _ => Err(Error::InnerError),
+        _ => Err(Box::new(std::fmt::Error)),
     })
     .unwrap();
     assert_eq!(result.get(&1), Some(&"one"));
@@ -37,7 +37,7 @@ fn test_queue() {
 
     let result = run(1, |num| match num {
         1 => Ok(("one", vec![2])),
-        _ => Err(Error::InnerError),
+        _ => Err(Box::new(std::fmt::Error)),
     });
     assert_eq!(result.is_err(), true);
 }

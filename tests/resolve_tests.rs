@@ -8,8 +8,8 @@ fn test_resolve() {
             .unwrap()
             .join("tests/fixtures/resolve");
         assert_eq!(
-            resolve(name.to_string(), &fixtures.join(path)),
-            Some(normalize(&fixtures.join(path).join(expected.to_string())))
+            resolve(name.to_string(), &fixtures.join(path)).unwrap(),
+            normalize(&fixtures.join(path).join(expected.to_string())),
         );
     }
 
