@@ -6,8 +6,6 @@ edition = "2018"
 
 [dependencies]
 json = "0.12"
-memchr = "1.0.1"
-unicode-xid = "0.1.0"
 
 [profile.release]
 panic = 'abort'
