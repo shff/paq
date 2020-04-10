@@ -1,3 +1,5 @@
+#![allow(clippy::cognitive_complexity)]
+
 use std::collections::HashSet;
 
 pub fn get_deps(source: &str) -> HashSet<String> {
