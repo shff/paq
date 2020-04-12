@@ -6,14 +6,14 @@ fn test_bundler() {
         let fixtures = std::env::current_dir()
             .unwrap()
             .join("tests/fixtures/bundler");
-        let result = bundle(fixtures.join(path).join("index.js")).expect("Error");
+        let result = bundle(&fixtures.join(path).join("index.js")).expect("Error");
         assert!(result.contains(substring))
     }
     fn assert_node(path: &str, value: &str) {
         let fixtures = std::env::current_dir()
             .unwrap()
             .join("tests/fixtures/bundler");
-        let result = bundle(fixtures.join(path).join("index.js")).expect("Error");
+        let result = bundle(&fixtures.join(path).join("index.js")).expect("Error");
         let output = std::process::Command::new("node")
             .arg("-e")
             .arg(&result)

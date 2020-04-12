@@ -7,7 +7,7 @@ use std::fmt::Write;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 
-pub fn bundle(entry: PathBuf) -> Result<String, queue::Error> {
+pub fn bundle(entry: &PathBuf) -> Result<String, queue::Error> {
     let modules = queue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
 
@@ -20,7 +20,7 @@ pub fn bundle(entry: PathBuf) -> Result<String, queue::Error> {
         Ok((Module { source, deps }, paths))
     })?;
 
-    Ok(write(&modules, &entry)?)
+    Ok(write(&modules, entry)?)
 }
 
 #[derive(Debug, Clone)]
