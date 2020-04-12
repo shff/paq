@@ -27,6 +27,12 @@ pub fn get_deps(source: &str) -> HashSet<String> {
 
 // Following code taken from esparse crate
 
+const OPS: &[&str] = &[
+    "{", "(", ")", "[", "]", ";", ",", "~", "?", ":", "}", "<<=", "<<", "<=", "<", ">>>=", ">>>",
+    ">>=", ">>", ">=", ">", "=>", "===", "==", "=", "!==", "!=", "!", "++", "+=", "+", "--", "-=",
+    "-", "**=", "**", "*=", "*", "%=", "%", "&&", "&=", "&", "||", "|=", "|", "^=", "^",
+];
+
 #[derive(Debug)]
 pub struct Lexer<'s> {
     stream: Stream<'s>,
@@ -148,167 +154,13 @@ impl<'s> Lexer<'s> {
             None => return Ok(Tt::Eof),
         };
 
+        for op in OPS {
+            if start.starts_with(op) {
+                return Ok(Tt::Operator(op));
+            }
+        }
+
         match here {
-            '{' => Ok(Tt::Operator("{")),
-            '(' => Ok(Tt::Operator("(")),
-            ')' => Ok(Tt::Operator(")")),
-            '[' => Ok(Tt::Operator("[")),
-            ']' => Ok(Tt::Operator("]")),
-            ';' => Ok(Tt::Operator(";")),
-            ',' => Ok(Tt::Operator(",")),
-            '~' => Ok(Tt::Operator("~")),
-            '?' => Ok(Tt::Operator("?")),
-            ':' => Ok(Tt::Operator(":")),
-            '}' => Ok(Tt::Operator("}")),
-            '<' => match self.stream.here {
-                Some('<') => {
-                    self.stream.advance();
-                    match self.stream.here {
-                        Some('=') => {
-                            self.stream.advance();
-                            Ok(Tt::Operator("<<="))
-                        }
-                        _ => Ok(Tt::Operator("<<")),
-                    }
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("<="))
-                }
-                _ => Ok(Tt::Operator("<")),
-            },
-            '>' => match self.stream.here {
-                Some('>') => {
-                    self.stream.advance();
-                    match self.stream.here {
-                        Some('>') => {
-                            self.stream.advance();
-                            match self.stream.here {
-                                Some('=') => {
-                                    self.stream.advance();
-                                    Ok(Tt::Operator(">>>="))
-                                }
-                                _ => Ok(Tt::Operator(">>>")),
-                            }
-                        }
-                        Some('=') => {
-                            self.stream.advance();
-                            Ok(Tt::Operator(">>="))
-                        }
-                        _ => Ok(Tt::Operator(">>")),
-                    }
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator(">="))
-                }
-                _ => Ok(Tt::Operator(">")),
-            },
-            '=' => match self.stream.here {
-                Some('>') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("=>"))
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    match self.stream.here {
-                        Some('=') => {
-                            self.stream.advance();
-                            Ok(Tt::Operator("==="))
-                        }
-                        _ => Ok(Tt::Operator("==")),
-                    }
-                }
-                _ => Ok(Tt::Operator("=")),
-            },
-            '!' => match self.stream.here {
-                Some('=') => {
-                    self.stream.advance();
-                    match self.stream.here {
-                        Some('=') => {
-                            self.stream.advance();
-                            Ok(Tt::Operator("!=="))
-                        }
-                        _ => Ok(Tt::Operator("!=")),
-                    }
-                }
-                _ => Ok(Tt::Operator("!")),
-            },
-            '+' => match self.stream.here {
-                Some('+') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("++"))
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("+="))
-                }
-                _ => Ok(Tt::Operator("+")),
-            },
-            '-' => match self.stream.here {
-                Some('-') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("--"))
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("-="))
-                }
-                _ => Ok(Tt::Operator("-")),
-            },
-            '*' => match self.stream.here {
-                Some('*') => {
-                    self.stream.advance();
-                    match self.stream.here {
-                        Some('=') => {
-                            self.stream.advance();
-                            Ok(Tt::Operator("**="))
-                        }
-                        _ => Ok(Tt::Operator("**")),
-                    }
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("*="))
-                }
-                _ => Ok(Tt::Operator("*")),
-            },
-            '%' => match self.stream.here {
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("%="))
-                }
-                _ => Ok(Tt::Operator("%")),
-            },
-            '&' => match self.stream.here {
-                Some('&') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("&&"))
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("&="))
-                }
-                _ => Ok(Tt::Operator("&")),
-            },
-            '|' => match self.stream.here {
-                Some('|') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("||"))
-                }
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("|="))
-                }
-                _ => Ok(Tt::Operator("|")),
-            },
-            '^' => match self.stream.here {
-                Some('=') => {
-                    self.stream.advance();
-                    Ok(Tt::Operator("^="))
-                }
-                _ => Ok(Tt::Operator("^")),
-            },
             '`' => {
                 let result;
                 loop {
