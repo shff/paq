@@ -15,7 +15,7 @@ fn main() {
         }
     }
 
-    match paq::bundle(entry) {
+    match paq::bundle(&entry) {
         Ok(data) => println!("{}", data),
         Err(err) => eprintln!("{}", err),
     };

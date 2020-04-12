@@ -8,10 +8,10 @@ pub fn get_deps(source: &str) -> HashSet<String> {
     loop {
         match lex.advance() {
             Ok(Tt::Id("require")) => {
-                if lex.advance() == Ok(Tt::Lparen) {
+                if lex.advance() == Ok(Tt::Operator("(")) {
                     match lex.advance() {
                         Ok(Tt::StrLitSgl(s)) | Ok(Tt::StrLitDbl(s)) => {
-                            if lex.advance() == Ok(Tt::Rparen) {
+                            if lex.advance() == Ok(Tt::Operator(")")) {
                                 deps.insert(String::from(&s[1..s.len() - 1]));
                             }
                         }
@@ -19,8 +19,7 @@ pub fn get_deps(source: &str) -> HashSet<String> {
                     }
                 }
             }
-            Ok(Tt::Eof) => return deps,
-            Err(_) => return deps,
+            Ok(Tt::Eof) | Err(_) => return deps,
             _ => {}
         }
     }
@@ -70,17 +69,10 @@ pub enum Tt<'s> {
     TemplateEnd(&'s str),
     Keyword(&'s str),
     Operator(&'s str),
-    Lbrace,
-    Rbrace,
-    Lparen,
-    Rparen,
-    Lbracket,
-    Rbracket,
     Eof,
 }
 
 impl<'s> Lexer<'s> {
-    #[inline]
     pub fn new(input: &'s str) -> Self {
         let chars = input.chars();
         let mut stream = Stream {
@@ -105,7 +97,6 @@ impl<'s> Lexer<'s> {
         std::mem::replace(&mut self.here, tok)
     }
 
-    #[inline(always)]
     fn read_tok(&mut self) -> Result<Tt<'s>, Error> {
         while let Some(c) = self.stream.here {
             match c {
@@ -143,7 +134,7 @@ impl<'s> Lexer<'s> {
                     Some('/') => {
                         self.stream.advance();
                         self.stream.advance();
-                        self.stream.skip_while(|c| c.is_whitespace());
+                        self.stream.skip_while(char::is_whitespace);
                     }
                     _ => break,
                 },
@@ -158,13 +149,17 @@ impl<'s> Lexer<'s> {
         };
 
         match here {
-            '{' => Ok(Tt::Lbrace),
-            '(' => Ok(Tt::Lparen),
-            ')' => Ok(Tt::Rparen),
-            '[' => Ok(Tt::Lbracket),
-            ']' => Ok(Tt::Rbracket),
+            '{' => Ok(Tt::Operator("{")),
+            '(' => Ok(Tt::Operator("(")),
+            ')' => Ok(Tt::Operator(")")),
+            '[' => Ok(Tt::Operator("[")),
+            ']' => Ok(Tt::Operator("]")),
             ';' => Ok(Tt::Operator(";")),
             ',' => Ok(Tt::Operator(",")),
+            '~' => Ok(Tt::Operator("~")),
+            '?' => Ok(Tt::Operator("?")),
+            ':' => Ok(Tt::Operator(":")),
+            '}' => Ok(Tt::Operator("}")),
             '<' => match self.stream.here {
                 Some('<') => {
                     self.stream.advance();
@@ -314,17 +309,13 @@ impl<'s> Lexer<'s> {
                 }
                 _ => Ok(Tt::Operator("^")),
             },
-            '~' => Ok(Tt::Operator("~")),
-            '?' => Ok(Tt::Operator("?")),
-            ':' => Ok(Tt::Operator(":")),
-            '}' => Ok(Tt::Rbrace),
             '`' => {
                 let result;
                 loop {
                     match self.stream.advance() {
                         Some('\\') => {
-                            if let Some('\u{000D}') = self.stream.advance() {
-                                self.stream.eat('\u{000A}');
+                            if let Some('\r') = self.stream.advance() {
+                                self.stream.eat('\n');
                             }
                         }
                         Some('`') => {
@@ -341,13 +332,14 @@ impl<'s> Lexer<'s> {
                 loop {
                     match self.stream.advance() {
                         Some('\\') => {
-                            if let Some('\u{000D}') = self.stream.advance() {
-                                self.stream.eat('\u{000A}');
+                            if let Some('\r') = self.stream.advance() {
+                                self.stream.eat('\n');
                             }
                         }
                         Some('"') => break,
-                        Some('\u{000A}') | Some('\u{000D}') | Some('\u{2028}')
-                        | Some('\u{2029}') | None => return Err(Error::UnterminatedStringLiteral),
+                        Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}') | None => {
+                            return Err(Error::UnterminatedStringLiteral)
+                        }
                         Some(_) => {}
                     }
                 }
@@ -357,21 +349,22 @@ impl<'s> Lexer<'s> {
                 loop {
                     match self.stream.advance() {
                         Some('\\') => {
-                            if let Some('\u{000D}') = self.stream.advance() {
-                                self.stream.eat('\u{000A}');
+                            if let Some('\r') = self.stream.advance() {
+                                self.stream.eat('\n');
                             }
                         }
                         Some('\'') => break,
-                        Some('\u{000A}') | Some('\u{000D}') | Some('\u{2028}')
-                        | Some('\u{2029}') | None => return Err(Error::UnterminatedStringLiteral),
+                        Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}') | None => {
+                            return Err(Error::UnterminatedStringLiteral)
+                        }
                         Some(_) => {}
                     }
                 }
                 Ok(Tt::StrLitSgl(self.stream.str_from(start)))
             }
             '/' => match self.here {
-                Ok(Tt::Rparen)
-                | Ok(Tt::Rbracket)
+                Ok(Tt::Operator(")"))
+                | Ok(Tt::Operator("}"))
                 | Ok(Tt::TemplateEnd(_))
                 | Ok(Tt::TemplateNoSub(_))
                 | Ok(Tt::StrLitSgl(_))
@@ -394,30 +387,28 @@ impl<'s> Lexer<'s> {
                     loop {
                         match self.stream.advance() {
                             Some('\\') => {
-                                if let Some('\u{000D}') = self.stream.advance() {
-                                    self.stream.eat('\u{000A}');
+                                if let Some('\r') = self.stream.advance() {
+                                    self.stream.eat('\n');
                                 }
                             }
                             Some('/') => break,
                             Some('[') => loop {
                                 match self.stream.advance() {
                                     Some('\\') => {
-                                        if let Some('\u{000D}') = self.stream.advance() {
-                                            self.stream.eat('\u{000A}');
+                                        if let Some('\r') = self.stream.advance() {
+                                            self.stream.eat('\n');
                                         }
                                     }
                                     Some(']') => break,
-                                    Some('\u{000A}') | Some('\u{000D}') | Some('\u{2028}')
+                                    Some('\n') | Some('\r') | Some('\u{2028}')
                                     | Some('\u{2029}') | None => {
                                         return Err(Error::UnterminatedRegExpLiteral)
                                     }
                                     Some(_) => {}
                                 }
                             },
-                            Some('\u{000A}') | Some('\u{000D}') | Some('\u{2028}')
-                            | Some('\u{2029}') | None => {
-                                return Err(Error::UnterminatedRegExpLiteral)
-                            }
+                            Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')
+                            | None => return Err(Error::UnterminatedRegExpLiteral),
                             Some(_) => {}
                         }
                     }
@@ -440,7 +431,7 @@ impl<'s> Lexer<'s> {
                         self.stream.advance();
                         Ok(Tt::Operator("..."))
                     }
-                    Some(_) | None => Ok(Tt::Operator(".")),
+                    _ => Ok(Tt::Operator(".")),
                 },
                 Some('0'..='9') => {
                     self.stream.advance();
@@ -465,45 +456,35 @@ impl<'s> Lexer<'s> {
             '0' => match self.stream.here {
                 Some('b') | Some('B') => {
                     self.stream.advance();
-                    {
-                        self.stream.skip_while(|c| c.is_digit(2));
-                        Ok(Tt::NumLitBin(self.stream.str_from(start)))
-                    }
+                    self.stream.skip_while(|c| c.is_digit(2));
+                    Ok(Tt::NumLitBin(self.stream.str_from(start)))
                 }
                 Some('o') | Some('O') => {
                     self.stream.advance();
-                    {
-                        self.stream.skip_while(|c| c.is_digit(8));
-                        Ok(Tt::NumLitOct(self.stream.str_from(start)))
-                    }
+                    self.stream.skip_while(|c| c.is_digit(8));
+                    Ok(Tt::NumLitOct(self.stream.str_from(start)))
                 }
                 Some('x') | Some('X') => {
                     self.stream.advance();
-                    {
-                        self.stream.skip_while(|c| c.is_digit(16));
-                        Ok(Tt::NumLitHex(self.stream.str_from(start)))
-                    }
+                    self.stream.skip_while(|c| c.is_digit(16));
+                    Ok(Tt::NumLitHex(self.stream.str_from(start)))
                 }
                 Some('.') => {
                     self.stream.advance();
-                    {
-                        self.stream.skip_while(|c| c.is_digit(10));
-                        match self.stream.here {
-                            Some('e') | Some('E') => {
-                                self.stream.advance();
-                                match self.stream.here {
-                                    Some('-') | Some('+') | Some('0'..='9') => {
-                                        self.stream.advance();
-                                        {
-                                            self.stream.skip_while(|c| c.is_digit(10));
-                                            Ok(Tt::NumLitDec(self.stream.str_from(start)))
-                                        }
-                                    }
-                                    _ => Err(Error::ExpectedExponent),
+                    self.stream.skip_while(|c| c.is_digit(10));
+                    match self.stream.here {
+                        Some('e') | Some('E') => {
+                            self.stream.advance();
+                            match self.stream.here {
+                                Some('-') | Some('+') | Some('0'..='9') => {
+                                    self.stream.advance();
+                                    self.stream.skip_while(|c| c.is_digit(10));
+                                    Ok(Tt::NumLitDec(self.stream.str_from(start)))
                                 }
+                                _ => Err(Error::ExpectedExponent),
                             }
-                            _ => Ok(Tt::NumLitDec(self.stream.str_from(start))),
                         }
+                        _ => Ok(Tt::NumLitDec(self.stream.str_from(start))),
                     }
                 }
                 Some('e') | Some('E') => {
@@ -511,10 +492,8 @@ impl<'s> Lexer<'s> {
                     match self.stream.here {
                         Some('-') | Some('+') | Some('0'..='9') => {
                             self.stream.advance();
-                            {
-                                self.stream.skip_while(|c| c.is_digit(10));
-                                Ok(Tt::NumLitDec(self.stream.str_from(start)))
-                            }
+                            self.stream.skip_while(|c| c.is_digit(10));
+                            Ok(Tt::NumLitDec(self.stream.str_from(start)))
                         }
                         _ => Err(Error::ExpectedExponent),
                     }
@@ -526,33 +505,27 @@ impl<'s> Lexer<'s> {
                 match self.stream.here {
                     Some('.') => {
                         self.stream.advance();
-                        {
-                            self.stream.skip_while(|c| c.is_digit(10));
-                            match self.stream.here {
-                                Some('e') | Some('E') => {
-                                    self.stream.advance();
-                                    match self.stream.here {
-                                        Some('-') | Some('+') | Some('0'..='9') => {
-                                            self.stream.advance();
-                                            {
-                                                self.stream.skip_while(|c| c.is_digit(10));
-                                            }
-                                        }
-                                        _ => return Err(Error::ExpectedExponent),
+                        self.stream.skip_while(|c| c.is_digit(10));
+                        match self.stream.here {
+                            Some('e') | Some('E') => {
+                                self.stream.advance();
+                                match self.stream.here {
+                                    Some('-') | Some('+') | Some('0'..='9') => {
+                                        self.stream.advance();
+                                        self.stream.skip_while(|c| c.is_digit(10));
                                     }
+                                    _ => return Err(Error::ExpectedExponent),
                                 }
-                                _ => {}
-                            };
-                        }
+                            }
+                            _ => {}
+                        };
                     }
                     Some('e') | Some('E') => {
                         self.stream.advance();
                         match self.stream.here {
                             Some('-') | Some('+') | Some('0'..='9') => {
                                 self.stream.advance();
-                                {
-                                    self.stream.skip_while(|c| c.is_digit(10));
-                                }
+                                self.stream.skip_while(|c| c.is_digit(10));
                             }
                             _ => return Err(Error::ExpectedExponent),
                         }
@@ -561,45 +534,35 @@ impl<'s> Lexer<'s> {
                 };
                 Ok(Tt::NumLitDec(self.stream.str_from(start)))
             }
-            _ => {
-                if match here {
-                    'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '_' => true,
-                    _ => false,
-                } || here.is_alphanumeric()
-                {
-                    self.stream.skip_while(|c| match c {
-                        'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '_' | '\u{200C}' | '\u{200D}' => {
-                            true
-                        }
-                        _ => c.is_alphanumeric(),
-                    });
-                    let id = self.stream.str_from(start);
-                    match id {
-                        "null" | "true" | "false" | "await" | "break" | "case" | "catch"
-                        | "class" | "const" | "continue" | "debugger" | "default" | "delete"
-                        | "do" | "else" | "export" | "extends" | "finally" | "for" | "function"
-                        | "if" | "import" | "in" | "instanceof" | "new" | "return" | "super"
-                        | "switch" | "this" | "throw" | "try" | "typeof" | "var" | "void"
-                        | "while" | "with" | "yield" => Ok(Tt::Keyword(id)),
-                        _ => Ok(Tt::Id(id)),
+            e if e.is_alphanumeric() || e == '$' || e == '_' => {
+                self.stream.skip_while(|c| match c {
+                    'a'..='z' | 'A'..='Z' | '0'..='9' | '$' | '_' | '\u{200C}' | '\u{200D}' => true,
+                    _ => c.is_alphanumeric(),
+                });
+                let id = self.stream.str_from(start);
+                match id {
+                    "null" | "true" | "false" | "await" | "break" | "case" | "catch" | "class"
+                    | "const" | "continue" | "debugger" | "default" | "delete" | "do" | "else"
+                    | "export" | "extends" | "finally" | "for" | "function" | "if" | "import"
+                    | "in" | "instanceof" | "new" | "return" | "super" | "switch" | "this"
+                    | "throw" | "try" | "typeof" | "var" | "void" | "while" | "with" | "yield" => {
+                        Ok(Tt::Keyword(id))
                     }
-                } else {
-                    Err(Error::Unexpected(here))
+                    _ => Ok(Tt::Id(id)),
                 }
             }
+            _ => Err(Error::Unexpected(here)),
         }
     }
 }
 
 impl<'s> Stream<'s> {
-    #[inline]
     fn str_from(&self, start: &'s str) -> &'s str {
         let a = self.curr.as_ptr() as usize;
         let b = start.as_ptr() as usize;
         &start[..(a - b)]
     }
 
-    #[inline]
     fn eat(&mut self, c: char) -> bool {
         match self.here {
             Some(cc) if c == cc => {
@@ -610,7 +573,6 @@ impl<'s> Stream<'s> {
         }
     }
 
-    #[inline]
     fn skip_while<F>(&mut self, mut f: F)
     where
         F: FnMut(char) -> bool,
@@ -624,7 +586,6 @@ impl<'s> Stream<'s> {
         }
     }
 
-    #[inline]
     fn advance(&mut self) -> Option<char> {
         self.curr = self.ncurr;
         self.ncurr = self.chars.as_str();
