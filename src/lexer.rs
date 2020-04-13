@@ -9,13 +9,10 @@ pub fn get_deps(source: &str) -> HashSet<String> {
         match lex.advance() {
             Ok(Tt::Id("require")) => {
                 if lex.advance() == Ok(Tt::Operator("(")) {
-                    match lex.advance() {
-                        Ok(Tt::StrLitSgl(s)) | Ok(Tt::StrLitDbl(s)) => {
-                            if lex.advance() == Ok(Tt::Operator(")")) {
-                                deps.insert(String::from(&s[1..s.len() - 1]));
-                            }
+                    if let Ok(Tt::String(s)) = lex.advance() {
+                        if lex.advance() == Ok(Tt::Operator(")")) {
+                            deps.insert(String::from(&s[1..s.len() - 1]));
                         }
-                        _ => {}
                     }
                 }
             }
@@ -51,7 +48,6 @@ pub struct Stream<'s> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Error {
     ExpectedExponent,
-    UnterminatedTemplateLiteral,
     UnterminatedStringLiteral,
     UnterminatedRegExpLiteral,
     UnterminatedMultilineComment,
@@ -62,17 +58,12 @@ pub enum Error {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tt<'s> {
     Id(&'s str),
-    StrLitSgl(&'s str),
-    StrLitDbl(&'s str),
+    String(&'s str),
     RegExpLit(&'s str, &'s str),
     NumLitBin(&'s str),
     NumLitOct(&'s str),
     NumLitDec(&'s str),
     NumLitHex(&'s str),
-    TemplateNoSub(&'s str),
-    TemplateStart(&'s str),
-    TemplateMiddle(&'s str),
-    TemplateEnd(&'s str),
     Keyword(&'s str),
     Operator(&'s str),
     Eof,
@@ -161,8 +152,7 @@ impl<'s> Lexer<'s> {
         }
 
         match here {
-            '`' => {
-                let result;
+            '"' | '\'' => {
                 loop {
                     match self.stream.advance() {
                         Some('\\') => {
@@ -170,57 +160,22 @@ impl<'s> Lexer<'s> {
                                 self.stream.eat('\n');
                             }
                         }
-                        Some('`') => {
-                            result = Ok(Tt::TemplateNoSub(self.stream.str_from(start)));
-                            break;
+                        Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')
+                            if here != '`' =>
+                        {
+                            return Err(Error::UnterminatedStringLiteral);
                         }
-                        Some(_) => {}
-                        None => return Err(Error::UnterminatedTemplateLiteral),
-                    }
-                }
-                result
-            }
-            '"' => {
-                loop {
-                    match self.stream.advance() {
-                        Some('\\') => {
-                            if let Some('\r') = self.stream.advance() {
-                                self.stream.eat('\n');
-                            }
-                        }
-                        Some('"') => break,
-                        Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}') | None => {
-                            return Err(Error::UnterminatedStringLiteral)
-                        }
+                        None => return Err(Error::UnterminatedStringLiteral),
+                        Some(e) if e == here => break,
                         Some(_) => {}
                     }
                 }
-                Ok(Tt::StrLitDbl(self.stream.str_from(start)))
-            }
-            '\'' => {
-                loop {
-                    match self.stream.advance() {
-                        Some('\\') => {
-                            if let Some('\r') = self.stream.advance() {
-                                self.stream.eat('\n');
-                            }
-                        }
-                        Some('\'') => break,
-                        Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}') | None => {
-                            return Err(Error::UnterminatedStringLiteral)
-                        }
-                        Some(_) => {}
-                    }
-                }
-                Ok(Tt::StrLitSgl(self.stream.str_from(start)))
+                Ok(Tt::String(self.stream.str_from(start)))
             }
             '/' => match self.here {
                 Ok(Tt::Operator(")"))
                 | Ok(Tt::Operator("}"))
-                | Ok(Tt::TemplateEnd(_))
-                | Ok(Tt::TemplateNoSub(_))
-                | Ok(Tt::StrLitSgl(_))
-                | Ok(Tt::StrLitDbl(_))
+                | Ok(Tt::String(_))
                 | Ok(Tt::RegExpLit(_, _))
                 | Ok(Tt::NumLitBin(_))
                 | Ok(Tt::NumLitOct(_))
