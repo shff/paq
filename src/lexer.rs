@@ -140,7 +140,7 @@ impl<'s> Lexer<'s> {
                     Some('/') => {
                         self.stream.advance();
                         self.stream.advance();
-                        self.stream.skip_while(char::is_whitespace);
+                        self.stream.skip_while(|c| c != '\n' && c != '\r');
                     }
                     _ => break,
                 },

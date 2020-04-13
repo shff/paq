@@ -22,4 +22,5 @@ fn test_parser_deps() {
     assert_dep("deps-multiple", "math");
     assert_dep("deps-multiple", "./index.js");
     assert_dep("deps-multiple", "fs");
+    assert_dep("deps-comments", "fs");
 }
