@@ -46,11 +46,14 @@ fn load(path: &Path) -> Result<PathBuf, Error> {
     if path.is_dir() {
         return load(&path.join("index"));
     }
-    Err(Error::new(ErrorKind::NotFound, "Not found"))
+    Err(Error::new(
+        ErrorKind::NotFound,
+        format!("Can't find {}", path.display()),
+    ))
 }
 
 pub fn normalize(p: &Path) -> PathBuf {
-    p.components().fold(PathBuf::from("/"), |path, c| match c {
+    p.components().fold(PathBuf::from(""), |path, c| match c {
         Component::Prefix(ref prefix) => PathBuf::from(prefix.as_os_str().to_owned()),
         Component::RootDir => path.join("/"),
         Component::CurDir => path,
