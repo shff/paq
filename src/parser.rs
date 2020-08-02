@@ -1,4 +1,372 @@
+const RESERVED: &[&str] = &["const", "for"];
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Statement<'a> {
+    Expression(Expression<'a>),
+    Block(Vec<Statement<'a>>),
+    If(
+        (
+            Box<Expression<'a>>,
+            Box<Statement<'a>>,
+            Option<Box<Statement<'a>>>,
+        ),
+    ),
+    While((Box<Expression<'a>>, Box<Statement<'a>>)),
+    For(
+        (
+            (
+                Option<Box<Statement<'a>>>,
+                Option<Expression<'a>>,
+                Option<Expression<'a>>,
+            ),
+            Box<Statement<'a>>,
+        ),
+    ),
+    Declaration((&'a str, Vec<Expression<'a>>)),
+    Return(Option<Expression<'a>>),
+    Throw(Option<Expression<'a>>),
+    Continue,
+    Break,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expression<'a> {
+    Str(String),
+    Ident(String),
+    Double(f64),
+    Octal(u64),
+    Hexadecimal(u64),
+    BinaryNum(u64),
+    List(Vec<Expression<'a>>),
+    Object(Vec<Expression<'a>>),
+    Paren(Box<Expression<'a>>),
+    Closure((Vec<Expression<'a>>, Box<Expression<'a>>)),
+    Function(
+        (
+            Option<Box<Expression<'a>>>,
+            Vec<Expression<'a>>,
+            Box<Statement<'a>>,
+        ),
+    ),
+    Generator(
+        (
+            Option<Box<Expression<'a>>>,
+            Vec<Expression<'a>>,
+            Box<Statement<'a>>,
+        ),
+    ),
+    Unary(&'a str, Box<Expression<'a>>),
+    Binary(&'a str, Box<Expression<'a>>, Box<Expression<'a>>),
+    Ternary(
+        Box<Expression<'a>>,
+        Box<Expression<'a>>,
+        Box<Expression<'a>>,
+    ),
+
+    Args(Vec<Expression<'a>>),
+    Splat(Box<Expression<'a>>),
+    KeyValue((Box<Expression<'a>>, Box<Expression<'a>>)),
+    Param((Box<Expression<'a>>, Option<Box<Expression<'a>>>)),
+}
+
+pub fn block<'a>(i: &'a str) -> ParseResult<'a, Vec<Statement<'a>>> {
+    many(statement)(i)
+}
+
+fn statement<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    ws(choice((braces, condition, while_loop, for_loop, gotos)))(i)
+}
+
+fn gotos<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    let end = choice((
+        ws(eoi),
+        ws(tag(";")),
+        take_while(|c| c == '\n' || c == '\r'),
+        value(ws(peek(tag("}"))), ""),
+    ));
+    left(
+        choice((
+            map(tag("continue"), |_| Statement::Continue::<'a>),
+            map(tag("break"), |_| Statement::Break::<'a>),
+            map(
+                right(tag("return"), opt(expression)),
+                Statement::Return::<'a>,
+            ),
+            map(right(tag("throw"), opt(expression)), Statement::Throw::<'a>),
+            assignment,
+        )),
+        end,
+    )(i)
+}
+
+fn assignment<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    choice((declaration, standalone))(i)
+}
+
+fn declaration<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    let ops = &["var", "let", "const"];
+    let declaration = ws(pair(one_of(ops), chain(ws(tag(",")), mutation)));
+    map(declaration, Statement::Declaration::<'a>)(i)
+}
+
+fn condition<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    let else_block = ws(right(tag("else"), boxed(statement)));
+    let inner = trio(paren, boxed(statement), opt(else_block));
+    map(ws(right(tag("if"), inner)), Statement::If)(i)
+}
+
+fn while_loop<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    let inner = pair(paren, boxed(statement));
+    map(ws(right(tag("while"), inner)), Statement::While)(i)
+}
+
+fn for_loop<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    let assign = opt(boxed(assignment));
+    let expr1 = right(ws(tag(";")), opt(expression));
+    let expr2 = right(ws(tag(";")), opt(expression));
+    let trio = trio(assign, expr1, expr2);
+    let inner = pair(middle(ws(tag("(")), trio, ws(tag(")"))), boxed(statement));
+    map(ws(right(tag("for"), inner)), Statement::For)(i)
+}
+
+pub fn standalone<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    ws(map(expression, Statement::Expression::<'a>))(i)
+}
+
+pub fn expression<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(prefix(one_of(&["yield*", "yield"]), mutation), makechain)(i)
+}
+
+fn mutation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let ops = &[
+        "=", "+=", "-=", "**=", "*=", "/=", "%=", "<<=", ">>>=", ">>=", "&=", "^=", "|=",
+    ];
+    map(infix(ternary, one_of(ops)), makechain2)(i)
+}
+
+fn ternary<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let conds = right(ws(tag("?")), outer(equality, ws(tag(":")), equality));
+    ws(map(pair(equality, many(conds)), maketernary))(i)
+}
+
+fn equality<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let ops = &["===", "==", "!==", "!="];
+    map(infix(comparison, one_of(ops)), makechain2)(i)
+}
+
+fn comparison<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let ops = &[">=", "<=", ">", "<", "instanceof", "in"];
+    map(infix(bitwise, one_of(ops)), makechain2)(i)
+}
+
+fn bitwise<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let ops = &[">>>", ">>", "<<"];
+    map(infix(logic_or, one_of(ops)), makechain2)(i)
+}
+
+fn logic_or<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(logic_and, tag("&&")), makechain2)(i)
+}
+
+fn logic_and<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(coalesce, tag("||")), makechain2)(i)
+}
+
+fn coalesce<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(bitwise_or, tag("??")), makechain2)(i)
+}
+
+fn bitwise_or<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(bitwise_xor, tag("|")), makechain2)(i)
+}
+
+fn bitwise_xor<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(bitwise_and, tag("^")), makechain2)(i)
+}
+
+fn bitwise_and<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(addition, tag("&")), makechain2)(i)
+}
+
+fn addition<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(multiplication, one_of(&["+", "-"])), makechain2)(i)
+}
+
+fn multiplication<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(power, one_of(&["*", "/", "%"])), makechain2)(i)
+}
+
+fn power<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(infix(negation, tag("**")), makechain2)(i)
+}
+
+fn negation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(prefix(tag("!"), prefixes), makechain)(i)
+}
+
+fn prefixes<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let ops = &["++", "--", "+", "-", "typeof", "void", "delete", "await"];
+    map(prefix(one_of(ops), postfix), makechain)(i)
+}
+
+fn postfix<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let ops = &["++", "--"];
+    map(pair(creation, many(ws(one_of(ops)))), makechainb)(i)
+}
+
+fn creation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    map(prefix(tag("new"), action), makechain)(i)
+}
+
+fn action<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let array = pair(tag("["), left(expression, ws(tag("]"))));
+    let elvis = pair(tag("?."), ident);
+    let dot = pair(tag("."), ident);
+    let args = map(args, Expression::Args::<'a>);
+    let call = pair(tag("("), left(args, ws(tag(")"))));
+    let action = pair(primitive, many(ws(choice((array, elvis, dot, call)))));
+    map(action, makechain2)(i)
+}
+
+fn primitive<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    ws(choice((
+        map(string('"'), Expression::Str::<'a>),
+        map(string('\''), Expression::Str::<'a>),
+        map(right(tag("0o"), number(8)), Expression::Octal::<'a>),
+        map(right(tag("0x"), number(16)), Expression::Hexadecimal::<'a>),
+        map(right(tag("0b"), number(2)), Expression::BinaryNum::<'a>),
+        map(double, Expression::Double::<'a>),
+        generator,
+        function,
+        ident,
+        object,
+        map(closure, Expression::Closure::<'a>),
+        map(paren, Expression::Paren::<'a>),
+        map(list, Expression::List::<'a>),
+    )))(i)
+}
+
+fn ident<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let words = take_while(|c| c.is_alphanumeric());
+    let ident = check(words, |s| !RESERVED.contains(s));
+    ws(map(map(ident, String::from), Expression::Ident::<'a>))(i)
+}
+
+fn object<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let object = middle(tag("{"), chain(ws(tag(",")), key_value), ws(tag("}")));
+    ws(map(object, Expression::Object::<'a>))(i)
+}
+
+fn paren<'a>(i: &'a str) -> ParseResult<Box<Expression<'a>>> {
+    ws(middle(tag("("), boxed(expression), ws(tag(")"))))(i)
+}
+
+fn list<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
+    ws(middle(tag("["), args, ws(tag("]"))))(i)
+}
+
+fn closure<'a>(i: &'a str) -> ParseResult<(Vec<Expression<'a>>, Box<Expression<'a>>)> {
+    ws(outer(params, ws(tag("=>")), boxed(expression)))(i)
+}
+
+fn function<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let inner = trio(ws(opt(boxed(ident))), params, boxed(braces));
+    let func = ws(right(tag("function"), inner));
+    map(func, Expression::Function::<'a>)(i)
+}
+
+fn generator<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let inner = trio(ws(opt(boxed(ident))), params, boxed(braces));
+    let func = ws(right(tag("function*"), inner));
+    map(func, Expression::Generator::<'a>)(i)
+}
+
+fn braces<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+    map(ws(middle(tag("{"), block, ws(tag("}")))), Statement::Block)(i)
+}
+
+fn params<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
+    let value = opt(right(ws(tag("=")), boxed(ws(expression))));
+    let param = pair(boxed(ident), value);
+    let exp = map(param, Expression::Param::<'a>);
+    let inner = chain(ws(tag(",")), choice((splat, exp)));
+    ws(middle(tag("("), inner, ws(tag(")"))))(i)
+}
+
+fn args<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
+    ws(chain(tag(","), choice((splat, expression))))(i)
+}
+
+fn splat<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let exp = boxed(right(tag("..."), expression));
+    ws(map(exp, Expression::Splat::<'a>))(i)
+}
+
+fn comments<'a>(i: &'a str) -> ParseResult<Vec<&'a str>> {
+    let single = right(tag("/"), left(take_until("\n"), tag("\n")));
+    let multi = right(tag("*"), left(take_until("*/"), tag("*/")));
+    many(right(tag("/"), choice((single, multi))))(i)
+}
+
+fn ws<'a, T>(item: impl Fn(&'a str) -> ParseResult<T>) -> impl Fn(&'a str) -> ParseResult<T> {
+    right(whitespace, right(comments, item))
+}
+
+fn key_value<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    choice((
+        map(
+            outer(
+                ws(boxed(choice((
+                    map(string('"'), Expression::Str::<'a>),
+                    map(string('\''), Expression::Str::<'a>),
+                    ident,
+                    middle(tag("["), expression, tag("]")),
+                )))),
+                ws(tag(":")),
+                boxed(expression),
+            ),
+            Expression::KeyValue::<'a>,
+        ),
+        ident,
+        splat,
+    ))(i)
+}
+
+// Utilities
+
 pub type ParseResult<'a, T> = Result<(&'a str, T), (&'a str, ParserError)>;
+
+#[derive(Debug, PartialEq)]
+pub enum ParserError {
+    Check,
+    Choice,
+    Eof,
+    Tag,
+    TakeWhile,
+    MapRes,
+}
+
+fn maketernary<'a>(e: (Expression<'a>, Vec<(Expression<'a>, Expression<'a>)>)) -> Expression<'a> {
+    e.1.iter().fold(e.0, |a, (b, c)| {
+        Expression::Ternary::<'a>(Box::new(a), Box::new(b.clone()), Box::new(c.clone()))
+    })
+}
+
+fn makechain<'a>(e: (Vec<&'a str>, Expression<'a>)) -> Expression<'a> {
+    e.0.iter()
+        .fold(e.1, |acc, op| Expression::Unary::<'a>(*op, Box::new(acc)))
+}
+
+fn makechainb<'a>(e: (Expression<'a>, Vec<&'a str>)) -> Expression<'a> {
+    e.1.iter()
+        .fold(e.0, |acc, op| Expression::Unary::<'a>(*op, Box::new(acc)))
+}
+
+fn makechain2<'a>(e: (Expression<'a>, Vec<(&'a str, Expression<'a>)>)) -> Expression<'a> {
+    e.1.iter().fold(e.0, |a, (op, b)| {
+        Expression::Binary::<'a>(*op, Box::new(a), Box::new(b.clone()))
+    })
+}
 
 pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
     move |i| match i.starts_with(tag) {
@@ -42,7 +410,7 @@ pub fn opt<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<Option<R>>
 where
     P: Fn(&'a str) -> ParseResult<R>,
 {
-    move |i| p(i).and_then(|(i, r)| Ok((i, Some(r)))).or(Ok((i, None)))
+    move |i| p(i).map(|(i, r)| (i, Some(r))).or(Ok((i, None)))
 }
 
 pub fn pair<'a, A, B, X, Y>(a: A, b: B) -> impl Fn(&'a str) -> ParseResult<(X, Y)>
@@ -120,12 +488,12 @@ where
 {
     move |i| match i.find(|c| !p(c)) {
         Some(x) if x > 0 => Ok((&i[x..], &i[..x])),
-        None if i.len() > 0 => Ok((&i[i.len()..], i)),
+        None if !i.is_empty() => Ok((&i[i.len()..], i)),
         _ => Err((i, ParserError::TakeWhile)),
     }
 }
 
-pub fn take_until<'a>(p: &'a str) -> impl Fn(&'a str) -> ParseResult<&str> {
+pub fn take_until(p: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
     move |i| i.find(p).map_or(Ok((i, "")), |x| Ok((&i[x..], &i[..x])))
 }
 
@@ -176,9 +544,9 @@ where
     R2: Clone,
 {
     move |i| {
-        p(i).and_then(|(i, a)| {
+        p(i).map(|(i, a)| {
             let mut res = vec![a];
-            let mut i = i.clone();
+            let mut i = &(*i);
             while let Ok((next_input, next_item)) = right(&sep, &p)(i) {
                 i = next_input;
                 res.push(next_item);
@@ -186,9 +554,9 @@ where
             if let Ok((new_i, _)) = opt(&sep)(i) {
                 i = new_i;
             }
-            Ok((i, res))
+            (i, res)
         })
-        .or(Ok((i, vec![])))
+        .or_else(|_| Ok((i, vec![])))
     }
 }
 
@@ -243,7 +611,7 @@ pub fn number<'a>(b: u32) -> impl Fn(&'a str) -> ParseResult<u64> {
     move |i| mapr(take_while(|c| c.is_digit(b)), |s| u64::from_str_radix(s, b))(i)
 }
 
-pub fn double<'a>(i: &'a str) -> ParseResult<f64> {
+pub fn double(i: &str) -> ParseResult<f64> {
     let digit = |i| take_while(|c| c.is_numeric())(i);
     let sign = |i| opt(one_of(&["+", "-"]))(i);
     let num = value(pair(digit, opt(pair(tag("."), opt(digit)))), 0);
@@ -259,7 +627,7 @@ pub fn eoi(i: &str) -> ParseResult<&str> {
     }
 }
 
-pub fn whitespace<'a>(i: &str) -> ParseResult<&str> {
+pub fn whitespace(i: &str) -> ParseResult<&str> {
     match i.find(|c: char| !c.is_whitespace()) {
         Some(x) => Ok((&i[x..], &i[..x])),
         _ => Ok(("", i)),
@@ -271,16 +639,6 @@ where
     P: Fn(&'a str) -> ParseResult<R>,
 {
     right(whitespace, p)
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ParserError {
-    Check,
-    Choice,
-    Eof,
-    Tag,
-    TakeWhile,
-    MapRes,
 }
 
 pub trait Choice<'a, O> {
@@ -308,414 +666,3 @@ choice!(A B C D E F G H I J, 0 1 2 3 4 5 6 7 8 9);
 choice!(A B C D E F G H I J K, 0 1 2 3 4 5 6 7 8 9 10);
 choice!(A B C D E F G H I J K L, 0 1 2 3 4 5 6 7 8 9 10 11);
 choice!(A B C D E F G H I J K L M, 0 1 2 3 4 5 6 7 8 9 10 11 12);
-
-// Parser
-
-const RESERVED: &[&str] = &["const", "for"];
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Statement<'a> {
-    Expression(Expression<'a>),
-    Block(Vec<Statement<'a>>),
-    If(
-        (
-            Box<Expression<'a>>,
-            Box<Statement<'a>>,
-            Option<Box<Statement<'a>>>,
-        ),
-    ),
-    While((Box<Expression<'a>>, Box<Statement<'a>>)),
-    For(
-        (
-            (
-                Option<Box<Statement<'a>>>,
-                Option<Expression<'a>>,
-                Option<Expression<'a>>,
-            ),
-            Box<Statement<'a>>,
-        ),
-    ),
-    Declaration((&'a str, Vec<Expression<'a>>)),
-    Return(Option<Expression<'a>>),
-    Throw(Option<Expression<'a>>),
-    Continue,
-    Break,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Expression<'a> {
-    Str(String),
-    Ident(String),
-    Double(f64),
-    Octal(u64),
-    Hexadecimal(u64),
-    BinaryNum(u64),
-    List(Vec<Expression<'a>>),
-    Object(Vec<Expression<'a>>),
-    Paren(Box<Expression<'a>>),
-    Closure((Vec<Expression<'a>>, Box<Expression<'a>>)),
-    Function((Option<String>, Vec<Expression<'a>>, Vec<Statement<'a>>)),
-    Generator((Option<String>, Vec<Expression<'a>>, Vec<Statement<'a>>)),
-    Unary(&'a str, Box<Expression<'a>>),
-    Binary(&'a str, Box<Expression<'a>>, Box<Expression<'a>>),
-    Ternary(
-        Box<Expression<'a>>,
-        Box<Expression<'a>>,
-        Box<Expression<'a>>,
-    ),
-
-    Args(Vec<Expression<'a>>),
-    Splat(Box<Expression<'a>>),
-    KeyValue((Box<Expression<'a>>, Box<Expression<'a>>)),
-    Parameter((String, Option<Box<Expression<'a>>>)),
-}
-
-pub fn block<'a>(i: &'a str) -> ParseResult<'a, Vec<Statement<'a>>> {
-    many(statement)(i)
-}
-
-fn statement<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    ws(choice((
-        map(codeblock, Statement::Block::<'a>),
-        map(if_block, Statement::If::<'a>),
-        map(while_block, Statement::While::<'a>),
-        map(for_block, Statement::For::<'a>),
-        single_line_statements,
-    )))(i)
-}
-
-fn single_line_statements<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    let end = choice((
-        ws(eoi),
-        ws(tag(";")),
-        take_while(|c| c == '\n' || c == '\r'),
-        value(ws(peek(tag("}"))), ""),
-    ));
-    left(
-        choice((
-            map(tag("continue"), |_| Statement::Continue::<'a>),
-            map(tag("break"), |_| Statement::Break::<'a>),
-            map(
-                right(tag("return"), opt(expression)),
-                Statement::Return::<'a>,
-            ),
-            map(right(tag("throw"), opt(expression)), Statement::Throw::<'a>),
-            assignment,
-        )),
-        end,
-    )(i)
-}
-
-fn assignment<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    choice((
-        map(declaration, Statement::Declaration::<'a>),
-        map(expression, Statement::Expression::<'a>),
-    ))(i)
-}
-
-fn declaration<'a>(i: &'a str) -> ParseResult<(&str, Vec<Expression<'a>>)> {
-    ws(pair(
-        one_of(&["var", "let", "const"]),
-        chain(ws(tag(",")), mutation),
-    ))(i)
-}
-
-fn if_block<'a>(
-    i: &'a str,
-) -> ParseResult<(
-    Box<Expression<'a>>,
-    Box<Statement<'a>>,
-    Option<Box<Statement<'a>>>,
-)> {
-    let else_block = ws(right(tag("else"), boxed(statement)));
-    let inner = trio(paren, boxed(statement), opt(else_block));
-    ws(right(tag("if"), inner))(i)
-}
-
-fn while_block<'a>(i: &'a str) -> ParseResult<(Box<Expression<'a>>, Box<Statement<'a>>)> {
-    let inner = pair(paren, boxed(statement));
-    ws(right(tag("while"), inner))(i)
-}
-
-fn for_block<'a>(
-    i: &'a str,
-) -> ParseResult<(
-    (
-        Option<Box<Statement<'a>>>,
-        Option<Expression<'a>>,
-        Option<Expression<'a>>,
-    ),
-    Box<Statement<'a>>,
-)> {
-    let trio = trio(
-        opt(boxed(assignment)),
-        right(ws(tag(";")), opt(expression)),
-        right(ws(tag(";")), opt(expression)),
-    );
-    let inner = pair(middle(ws(tag("(")), trio, ws(tag(")"))), boxed(statement));
-    ws(right(tag("for"), inner))(i)
-}
-
-pub fn expression<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        prefix(one_of(&["yield*", "yield"]), mutation),
-        makechain,
-    )(i)
-}
-
-fn mutation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        infix(
-            ternary,
-            one_of(&[
-                "=", "+=", "-=", "**=", "*=", "/=", "%=", "<<=", ">>>=", ">>=", "&=", "^=", "|=",
-            ]),
-        ),
-        makechain2,
-    )(i)
-}
-
-fn ternary<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    let conds = right(ws(tag("?")), outer(equality, ws(tag(":")), equality));
-    ws(map(pair(equality, many(conds)), maketernary))(i)
-}
-
-fn equality<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        infix(comparison, one_of(&["===", "==", "!==", "!="])),
-        makechain2,
-    )(i)
-}
-
-fn comparison<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        infix(bitwise, one_of(&[">=", "<=", ">", "<", "instanceof", "in"])),
-        makechain2,
-    )(i)
-}
-
-fn bitwise<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(logic_or, one_of(&[">>>", ">>", "<<"])), makechain2)(i)
-}
-
-fn logic_or<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(logic_and, tag("&&")), makechain2)(i)
-}
-
-fn logic_and<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(coalesce, tag("||")), makechain2)(i)
-}
-
-fn coalesce<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(bitwise_or, tag("??")), makechain2)(i)
-}
-
-fn bitwise_or<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(bitwise_xor, tag("|")), makechain2)(i)
-}
-
-fn bitwise_xor<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(bitwise_and, tag("^")), makechain2)(i)
-}
-
-fn bitwise_and<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(addition, tag("&")), makechain2)(i)
-}
-
-fn addition<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        infix(multiplication, one_of(&["+", "-"])),
-        makechain2,
-    )(i)
-}
-
-fn multiplication<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        infix(power, one_of(&["*", "/", "%"])),
-        makechain2,
-    )(i)
-}
-
-fn power<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(infix(negation, tag("**")), makechain2)(i)
-}
-
-fn negation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(prefix(tag("!"), prefixes), makechain)(i)
-}
-
-fn prefixes<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        prefix(
-            one_of(&["++", "--", "+", "-", "typeof", "void", "delete", "await"]),
-            postfix,
-        ),
-        makechain,
-    )(i)
-}
-
-fn postfix<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        pair(creation, many(ws(choice((tag("++"), tag("--")))))),
-        makechainb,
-    )(i)
-}
-
-fn creation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(prefix(tag("new"), action), makechain)(i)
-}
-
-fn action<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    map(
-        pair(
-            primitive,
-            many(ws(choice((
-                pair(tag("["), left(expression, ws(tag("]")))),
-                pair(tag("?."), map(ident, Expression::Ident::<'a>)),
-                pair(tag("."), map(ident, Expression::Ident::<'a>)),
-                pair(
-                    tag("("),
-                    left(map(arguments, Expression::Args::<'a>), ws(tag(")"))),
-                ),
-            )))),
-        ),
-        makechain2,
-    )(i)
-}
-
-fn primitive<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    ws(choice((
-        map(string('"'), Expression::Str::<'a>),
-        map(string('\''), Expression::Str::<'a>),
-        map(right(tag("0o"), number(8)), Expression::Octal::<'a>),
-        map(right(tag("0x"), number(16)), Expression::Hexadecimal::<'a>),
-        map(right(tag("0b"), number(2)), Expression::BinaryNum::<'a>),
-        map(double, Expression::Double::<'a>),
-        map(generator, Expression::Generator::<'a>),
-        map(function, Expression::Function::<'a>),
-        map(ident, Expression::Ident::<'a>),
-        map(object, Expression::Object::<'a>),
-        map(closure, Expression::Closure::<'a>),
-        map(paren, Expression::Paren::<'a>),
-        map(list, Expression::List::<'a>),
-    )))(i)
-}
-
-fn ident(i: &str) -> ParseResult<String> {
-    ws(map(
-        check(take_while(|c| c.is_alphanumeric()), |s| {
-            !RESERVED.contains(s)
-        }),
-        String::from,
-    ))(i)
-}
-
-fn object<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
-    middle(tag("{"), chain(ws(tag(",")), key_value), ws(tag("}")))(i)
-}
-
-fn key_value<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    choice((
-        map(
-            outer(
-                ws(boxed(choice((
-                    map(string('"'), Expression::Str::<'a>),
-                    map(string('\''), Expression::Str::<'a>),
-                    map(ident, Expression::Str::<'a>),
-                    middle(tag("["), expression, tag("]")),
-                )))),
-                ws(tag(":")),
-                boxed(expression),
-            ),
-            Expression::KeyValue::<'a>,
-        ),
-        map(ident, Expression::Ident::<'a>),
-        splat,
-    ))(i)
-}
-
-fn paren<'a>(i: &'a str) -> ParseResult<Box<Expression<'a>>> {
-    ws(middle(tag("("), boxed(expression), ws(tag(")"))))(i)
-}
-
-fn list<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
-    ws(middle(tag("["), arguments, ws(tag("]"))))(i)
-}
-
-fn closure<'a>(i: &'a str) -> ParseResult<(Vec<Expression<'a>>, Box<Expression<'a>>)> {
-    ws(outer(parameters, ws(tag("=>")), boxed(expression)))(i)
-}
-
-fn function<'a>(
-    i: &'a str,
-) -> ParseResult<(Option<String>, Vec<Expression<'a>>, Vec<Statement<'a>>)> {
-    let inner = trio(ws(opt(ident)), parameters, codeblock);
-    ws(right(tag("function"), inner))(i)
-}
-
-fn generator<'a>(
-    i: &'a str,
-) -> ParseResult<(Option<String>, Vec<Expression<'a>>, Vec<Statement<'a>>)> {
-    let inner = trio(ws(opt(ident)), parameters, codeblock);
-    ws(right(tag("function*"), inner))(i)
-}
-
-fn codeblock<'a>(i: &'a str) -> ParseResult<Vec<Statement<'a>>> {
-    ws(middle(tag("{"), block, ws(tag("}"))))(i)
-}
-
-fn parameters<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
-    let param = map(
-        pair(ident, opt(right(ws(tag("=")), boxed(ws(expression))))),
-        Expression::Parameter::<'a>,
-    );
-    let inner = chain(ws(tag(",")), choice((splat, param)));
-    ws(middle(tag("("), inner, ws(tag(")"))))(i)
-}
-
-fn arguments<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
-    ws(chain(tag(","), choice((splat, expression))))(i)
-}
-
-fn splat<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    ws(map(
-        boxed(right(tag("..."), expression)),
-        Expression::Splat::<'a>,
-    ))(i)
-}
-
-fn ws<'a, T>(item: impl Fn(&'a str) -> ParseResult<T>) -> impl Fn(&'a str) -> ParseResult<T> {
-    right(whitespace, right(comments, item))
-}
-
-fn comments<'a>(i: &'a str) -> ParseResult<Vec<&'a str>> {
-    many(right(
-        tag("/"),
-        choice((
-            right(tag("/"), left(take_until("\n"), tag("\n"))),
-            right(tag("*"), left(take_until("*/"), tag("*/"))),
-        )),
-    ))(i)
-}
-
-fn maketernary<'a>(e: (Expression<'a>, Vec<(Expression<'a>, Expression<'a>)>)) -> Expression<'a> {
-    e.1.iter().fold(e.0, |a, (b, c)| {
-        Expression::Ternary::<'a>(Box::new(a), Box::new(b.clone()), Box::new(c.clone()))
-    })
-}
-
-fn makechain<'a>(e: (Vec<&'a str>, Expression<'a>)) -> Expression<'a> {
-    e.0.iter()
-        .fold(e.1, |acc, op| Expression::Unary::<'a>(*op, Box::new(acc)))
-}
-
-fn makechainb<'a>(e: (Expression<'a>, Vec<&'a str>)) -> Expression<'a> {
-    e.1.iter()
-        .fold(e.0, |acc, op| Expression::Unary::<'a>(*op, Box::new(acc)))
-}
-
-fn makechain2<'a>(e: (Expression<'a>, Vec<(&'a str, Expression<'a>)>)) -> Expression<'a> {
-    e.1.iter().fold(e.0, |a, (op, b)| {
-        Expression::Binary::<'a>(*op, Box::new(a), Box::new(b.clone()))
-    })
-}

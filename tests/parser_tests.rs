@@ -674,16 +674,16 @@ fn test_object() {
         ))
     );
     assert_eq!(
-        expression("{a: 1, b: 2}"),
+        expression("{x: 1, y: 2}"),
         Ok((
             "",
             Expression::Object(vec![
                 Expression::KeyValue((
-                    Box::new(Expression::Str(String::from("a"))),
+                    Box::new(Expression::Ident(String::from("x"))),
                     Box::new(Expression::Double(1.0))
                 )),
                 Expression::KeyValue((
-                    Box::new(Expression::Str(String::from("b"))),
+                    Box::new(Expression::Ident(String::from("y"))),
                     Box::new(Expression::Double(2.0))
                 )),
             ])
@@ -710,7 +710,7 @@ fn test_object() {
         Ok((
             "",
             Expression::Object(vec![Expression::KeyValue((
-                Box::new(Expression::Str(String::from("a"))),
+                Box::new(Expression::Ident(String::from("a"))),
                 Box::new(Expression::Object(vec![]))
             ))])
         ))
@@ -771,8 +771,8 @@ fn test_closure() {
             "",
             Expression::Closure((
                 vec![
-                    Expression::Parameter((String::from("a"), None)),
-                    Expression::Parameter((String::from("b"), None))
+                    Expression::Param((Box::new(Expression::Ident(String::from("a"))), None)),
+                    Expression::Param((Box::new(Expression::Ident(String::from("b"))), None))
                 ],
                 Box::new(Expression::Binary(
                     "+",
@@ -787,7 +787,10 @@ fn test_closure() {
         Ok((
             "",
             Expression::Closure((
-                vec![Expression::Parameter((String::from("a"), None))],
+                vec![Expression::Param((
+                    Box::new(Expression::Ident(String::from("a"))),
+                    None
+                ))],
                 Box::new(Expression::Paren(Box::new(Expression::Object(vec![]))))
             ))
         ))
@@ -798,21 +801,24 @@ fn test_closure() {
 fn test_function() {
     assert_eq!(
         expression("function(){}"),
-        Ok(("", Expression::Function((None, vec![], vec![]))))
+        Ok((
+            "",
+            Expression::Function((None, vec![], Box::new(Statement::Block(vec![]))))
+        ))
     );
     assert_eq!(
         expression("function f(x, y){ return x; }"),
         Ok((
             "",
             Expression::Function((
-                Some(String::from("f")),
+                Some(Box::new(Expression::Ident(String::from("f")))),
                 vec![
-                    Expression::Parameter((String::from("x"), None)),
-                    Expression::Parameter((String::from("y"), None))
+                    Expression::Param((Box::new(Expression::Ident(String::from("x"))), None)),
+                    Expression::Param((Box::new(Expression::Ident(String::from("y"))), None))
                 ],
-                vec![Statement::Return(Some(Expression::Ident(String::from(
-                    "x"
-                ))))]
+                Box::new(Statement::Block(vec![Statement::Return(Some(
+                    Expression::Ident(String::from("x"))
+                ))]))
             ))
         ))
     );
@@ -821,14 +827,14 @@ fn test_function() {
         Ok((
             "",
             Expression::Function((
-                Some(String::from("f")),
+                Some(Box::new(Expression::Ident(String::from("f")))),
                 vec![
-                    Expression::Parameter((String::from("x"), None)),
-                    Expression::Parameter((String::from("y"), None))
+                    Expression::Param((Box::new(Expression::Ident(String::from("x"))), None)),
+                    Expression::Param((Box::new(Expression::Ident(String::from("y"))), None))
                 ],
-                vec![Statement::Return(Some(Expression::Ident(String::from(
-                    "x"
-                ))))]
+                Box::new(Statement::Block(vec![Statement::Return(Some(
+                    Expression::Ident(String::from("x"))
+                ))]))
             ))
         ))
     );
@@ -838,7 +844,10 @@ fn test_function() {
 fn test_generator() {
     assert_eq!(
         expression("function*() {}"),
-        Ok(("", Expression::Generator((None, vec![], vec![]))))
+        Ok((
+            "",
+            Expression::Generator((None, vec![], Box::new(Statement::Block(vec![]))))
+        ))
     );
 }
 
