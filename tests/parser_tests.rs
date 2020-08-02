@@ -1,6 +1,84 @@
 use paq::parser::{block, expression, Expression, Statement};
 
 #[test]
+fn text_fixtures() {
+    fn assert_parses(path: &str) {
+        let fixtures = std::env::current_dir()
+            .unwrap()
+            .join("tests/fixtures/parser");
+        let fullpath = &fixtures.join(path);
+        let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
+        let start = std::time::Instant::now();
+        let ast = block(&source);
+        let elapsed = start.elapsed();
+        println!("Time: {:?} - {}", elapsed, path);
+        assert!(ast.is_ok());
+        assert_eq!(ast.unwrap().0.trim(), "", "Expected ''. File: {}", path);
+    }
+    assert_parses("basic.js");
+    assert_parses("require.js");
+    assert_parses("exports.js");
+    assert_parses("crazy-indent.js");
+    assert_parses("peter.js");
+    assert_parses("itt_prelude.js");
+    assert_parses("matrix.js");
+    assert_parses("math.js");
+}
+
+#[test]
+fn test_complex() {
+    fn assert_complete(i: &str) {
+        assert!(block(i).is_ok());
+        assert_eq!(block(i).unwrap().0, "");
+    }
+
+    assert_complete("a = b");
+    assert_complete("1");
+    assert_complete("1==1? 1+1 : 1-1");
+    assert_complete("1==1? 1+1 : 1-1");
+    assert_complete("-1");
+    assert_complete("!1");
+    assert_complete("-1");
+    assert_complete("(1)");
+    assert_complete("1*(1+1)");
+    assert_complete("x");
+    assert_complete("x");
+    assert_complete("a+b+c+d");
+    assert_complete("a-b-c-d");
+    assert_complete("a*b*c*d");
+    assert_complete("a/b/c/d");
+    assert_complete("1**1**1");
+    assert_complete("x*x*x");
+    assert_complete("1 + 1 || 1 == 1 ^ 1 != 1/1 - 1");
+    assert_complete("first += second += third");
+    assert_complete("one += two /= 12");
+    assert_complete("x = a && b == c + d * !z[0]++ || d ? 2 : 3");
+    assert_complete(" a . b . c");
+    assert_complete("a.b.c[7]");
+    assert_complete("a()");
+    assert_complete("a()[0]()");
+    assert_complete("(a) => 1 + 1");
+    assert_complete("(a) => [ 1 + 1 ]");
+    assert_complete("(a) => ({a: 1})");
+    assert_complete("((a) => a + 1)(1)");
+    assert_complete("if (1 + 1 == 2) { return true; }");
+    assert_complete("if ( true ) \n { \n return ; \n }");
+    assert_complete("if (true) break; else continue;");
+    assert_complete("if (true) for (0;0;0) break;");
+    assert_complete("if (true) for (0;0;0) break;\nelse continue;");
+    assert_complete("if (true) for (0;0;0) break; else continue;");
+    assert_complete("if (true) 2; else 1;");
+}
+
+#[test]
+fn test_nesting_bench() {
+    let start = std::time::Instant::now();
+
+    let elapsed = start.elapsed();
+    assert!(elapsed.as_millis() < 10);
+}
+
+#[test]
 fn test_comments() {
     assert_eq!(
         block("  // hello\n asdf"),
@@ -238,7 +316,9 @@ fn test_statement() {
         Ok((
             "",
             vec![Statement::If((
-                Box::new(Expression::Ident(String::from("true"))),
+                Box::new(Expression::Paren(Box::new(Expression::Ident(
+                    String::from("true")
+                )))),
                 Box::new(Statement::Block(vec![Statement::Return(None)])),
                 None
             ))]
@@ -249,7 +329,9 @@ fn test_statement() {
         Ok((
             "",
             vec![Statement::If((
-                Box::new(Expression::Ident(String::from("true"))),
+                Box::new(Expression::Paren(Box::new(Expression::Ident(
+                    String::from("true")
+                )))),
                 Box::new(Statement::Return(None)),
                 None
             ))]
@@ -260,7 +342,9 @@ fn test_statement() {
         Ok((
             "",
             vec![Statement::If((
-                Box::new(Expression::Ident(String::from("true"))),
+                Box::new(Expression::Paren(Box::new(Expression::Ident(
+                    String::from("true")
+                )))),
                 Box::new(Statement::Return(None)),
                 Some(Box::new(Statement::Break))
             ))]
@@ -271,7 +355,9 @@ fn test_statement() {
         Ok((
             "",
             vec![Statement::If((
-                Box::new(Expression::Ident(String::from("true"))),
+                Box::new(Expression::Paren(Box::new(Expression::Ident(
+                    String::from("true")
+                )))),
                 Box::new(Statement::Block(vec![Statement::Return(None)])),
                 Some(Box::new(Statement::Block(vec![Statement::Break])))
             ))]
@@ -282,7 +368,9 @@ fn test_statement() {
         Ok((
             "",
             vec![Statement::While((
-                Box::new(Expression::Ident(String::from("true"))),
+                Box::new(Expression::Paren(Box::new(Expression::Ident(
+                    String::from("true")
+                )))),
                 Box::new(Statement::Block(vec![Statement::Return(None)]))
             ))]
         ))
@@ -292,7 +380,9 @@ fn test_statement() {
         Ok((
             " ",
             vec![Statement::While((
-                Box::new(Expression::Ident(String::from("true"))),
+                Box::new(Expression::Paren(Box::new(Expression::Ident(
+                    String::from("true")
+                )))),
                 Box::new(Statement::Return(None))
             ))]
         ))
@@ -1534,82 +1624,4 @@ fn test_action() {
             )
         ))
     );
-}
-
-#[test]
-fn test_complex() {
-    fn assert_complete(i: &str) {
-        assert!(block(i).is_ok());
-        assert_eq!(block(i).unwrap().0, "");
-    }
-
-    assert_complete("a = b");
-    assert_complete("1");
-    assert_complete("1==1? 1+1 : 1-1");
-    assert_complete("1==1? 1+1 : 1-1");
-    assert_complete("-1");
-    assert_complete("!1");
-    assert_complete("-1");
-    assert_complete("(1)");
-    assert_complete("1*(1+1)");
-    assert_complete("x");
-    assert_complete("x");
-    assert_complete("a+b+c+d");
-    assert_complete("a-b-c-d");
-    assert_complete("a*b*c*d");
-    assert_complete("a/b/c/d");
-    assert_complete("1**1**1");
-    assert_complete("x*x*x");
-    assert_complete("1 + 1 || 1 == 1 ^ 1 != 1/1 - 1");
-    assert_complete("first += second += third");
-    assert_complete("one += two /= 12");
-    assert_complete("x = a && b == c + d * !z[0]++ || d ? 2 : 3");
-    assert_complete(" a . b . c");
-    assert_complete("a.b.c[7]");
-    assert_complete("a()");
-    assert_complete("a()[0]()");
-    assert_complete("(a) => 1 + 1");
-    assert_complete("(a) => [ 1 + 1 ]");
-    assert_complete("(a) => ({a: 1})");
-    assert_complete("((a) => a + 1)(1)");
-    assert_complete("if (1 + 1 == 2) { return true; }");
-    assert_complete("if ( true ) \n { \n return ; \n }");
-    assert_complete("if (true) break; else continue;");
-    assert_complete("if (true) for (0;0;0) break;");
-    assert_complete("if (true) for (0;0;0) break;\nelse continue;");
-    assert_complete("if (true) for (0;0;0) break; else continue;");
-    assert_complete("if (true) 2; else 1;");
-}
-
-#[test]
-fn test_nesting_bench() {
-    let start = std::time::Instant::now();
-
-    let elapsed = start.elapsed();
-    assert!(elapsed.as_millis() < 10);
-}
-
-#[test]
-fn text_fixtures() {
-    fn assert_parses(path: &str) {
-        let fixtures = std::env::current_dir()
-            .unwrap()
-            .join("tests/fixtures/parser");
-        let fullpath = &fixtures.join(path);
-        let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
-        let start = std::time::Instant::now();
-        let ast = block(&source);
-        let elapsed = start.elapsed();
-        println!("Time: {:?} - {}", elapsed, path);
-        assert!(ast.is_ok());
-        assert_eq!(ast.unwrap().0.trim(), "", "Expected ''. File: {}", path);
-    }
-    assert_parses("basic.js");
-    assert_parses("require.js");
-    assert_parses("exports.js");
-    assert_parses("crazy-indent.js");
-    assert_parses("peter.js");
-    assert_parses("itt_prelude.js");
-    assert_parses("matrix.js");
-    assert_parses("math.js");
 }

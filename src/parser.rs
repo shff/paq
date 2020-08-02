@@ -78,25 +78,18 @@ fn statement<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
 }
 
 fn gotos<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    let end = choice((
-        ws(eoi),
-        ws(tag(";")),
-        take_while(|c| c == '\n' || c == '\r'),
-        value(ws(peek(tag("}"))), ""),
-    ));
-    left(
-        choice((
-            map(tag("continue"), |_| Statement::Continue::<'a>),
-            map(tag("break"), |_| Statement::Break::<'a>),
-            map(
-                right(tag("return"), opt(expression)),
-                Statement::Return::<'a>,
-            ),
-            map(right(tag("throw"), opt(expression)), Statement::Throw::<'a>),
-            assignment,
-        )),
-        end,
-    )(i)
+    let eol = take_while(|c| c == '\n' || c == '\r');
+    let brace = value(ws(peek(tag("}"))), "");
+    let end = choice((ws(eoi), ws(tag(";")), eol, brace));
+
+    let cont = map(tag("continue"), |_| Statement::Continue::<'a>);
+    let brk = map(tag("break"), |_| Statement::Break::<'a>);
+    let ret = map(
+        right(tag("return"), opt(expression)),
+        Statement::Return::<'a>,
+    );
+    let thrw = map(right(tag("throw"), opt(expression)), Statement::Throw::<'a>);
+    left(choice((cont, brk, ret, thrw, assignment)), end)(i)
 }
 
 fn assignment<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
@@ -111,12 +104,12 @@ fn declaration<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
 
 fn condition<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
     let else_block = ws(right(tag("else"), boxed(statement)));
-    let inner = trio(paren, boxed(statement), opt(else_block));
+    let inner = trio(boxed(paren), boxed(statement), opt(else_block));
     map(ws(right(tag("if"), inner)), Statement::If)(i)
 }
 
 fn while_loop<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    let inner = pair(paren, boxed(statement));
+    let inner = pair(boxed(paren), boxed(statement));
     map(ws(right(tag("while"), inner)), Statement::While)(i)
 }
 
@@ -229,20 +222,26 @@ fn action<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
 }
 
 fn primitive<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let single_quote = map(string('"'), Expression::Str::<'a>);
+    let double_quote = map(string('\''), Expression::Str::<'a>);
+    let octal = map(right(tag("0o"), number(8)), Expression::Octal::<'a>);
+    let hexa = map(right(tag("0x"), number(16)), Expression::Hexadecimal::<'a>);
+    let binary = map(right(tag("0b"), number(2)), Expression::BinaryNum::<'a>);
+    let double = map(double, Expression::Double::<'a>);
     ws(choice((
-        map(string('"'), Expression::Str::<'a>),
-        map(string('\''), Expression::Str::<'a>),
-        map(right(tag("0o"), number(8)), Expression::Octal::<'a>),
-        map(right(tag("0x"), number(16)), Expression::Hexadecimal::<'a>),
-        map(right(tag("0b"), number(2)), Expression::BinaryNum::<'a>),
-        map(double, Expression::Double::<'a>),
+        single_quote,
+        double_quote,
+        octal,
+        hexa,
+        binary,
+        double,
         generator,
         function,
         ident,
         object,
-        map(closure, Expression::Closure::<'a>),
-        map(paren, Expression::Paren::<'a>),
-        map(list, Expression::List::<'a>),
+        closure,
+        paren,
+        list,
     )))(i)
 }
 
@@ -253,20 +252,24 @@ fn ident<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
 }
 
 fn object<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    let object = middle(tag("{"), chain(ws(tag(",")), key_value), ws(tag("}")));
+    let item = choice((key_value, ident, splat));
+    let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
     ws(map(object, Expression::Object::<'a>))(i)
 }
 
-fn paren<'a>(i: &'a str) -> ParseResult<Box<Expression<'a>>> {
-    ws(middle(tag("("), boxed(expression), ws(tag(")"))))(i)
+fn paren<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let paren = middle(tag("("), boxed(expression), ws(tag(")")));
+    ws(map(paren, Expression::Paren::<'a>))(i)
 }
 
-fn list<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
-    ws(middle(tag("["), args, ws(tag("]"))))(i)
+fn list<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let list = middle(tag("["), args, ws(tag("]")));
+    ws(map(list, Expression::List::<'a>))(i)
 }
 
-fn closure<'a>(i: &'a str) -> ParseResult<(Vec<Expression<'a>>, Box<Expression<'a>>)> {
-    ws(outer(params, ws(tag("=>")), boxed(expression)))(i)
+fn closure<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+    let closure = outer(params, ws(tag("=>")), boxed(expression));
+    ws(map(closure, Expression::Closure::<'a>))(i)
 }
 
 fn function<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
@@ -282,7 +285,8 @@ fn generator<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
 }
 
 fn braces<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    map(ws(middle(tag("{"), block, ws(tag("}")))), Statement::Block)(i)
+    let braces = middle(tag("{"), block, ws(tag("}")));
+    ws(map(braces, Statement::Block))(i)
 }
 
 fn params<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
@@ -313,23 +317,12 @@ fn ws<'a, T>(item: impl Fn(&'a str) -> ParseResult<T>) -> impl Fn(&'a str) -> Pa
 }
 
 fn key_value<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    choice((
-        map(
-            outer(
-                ws(boxed(choice((
-                    map(string('"'), Expression::Str::<'a>),
-                    map(string('\''), Expression::Str::<'a>),
-                    ident,
-                    middle(tag("["), expression, tag("]")),
-                )))),
-                ws(tag(":")),
-                boxed(expression),
-            ),
-            Expression::KeyValue::<'a>,
-        ),
-        ident,
-        splat,
-    ))(i)
+    let double_quote = map(string('"'), Expression::Str::<'a>);
+    let single_quote = map(string('\''), Expression::Str::<'a>);
+    let computed = middle(tag("["), expression, tag("]"));
+    let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
+    let value = boxed(expression);
+    map(outer(key, ws(tag(":")), value), Expression::KeyValue::<'a>)(i)
 }
 
 // Utilities
