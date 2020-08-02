@@ -1,233 +1,194 @@
 const RESERVED: &[&str] = &["const", "for"];
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Statement<'a> {
-    Expression(Expression<'a>),
-    Block(Vec<Statement<'a>>),
-    If(
-        (
-            Box<Expression<'a>>,
-            Box<Statement<'a>>,
-            Option<Box<Statement<'a>>>,
-        ),
-    ),
-    While((Box<Expression<'a>>, Box<Statement<'a>>)),
-    For(
-        (
-            (
-                Option<Box<Statement<'a>>>,
-                Option<Expression<'a>>,
-                Option<Expression<'a>>,
-            ),
-            Box<Statement<'a>>,
-        ),
-    ),
-    Declaration((&'a str, Vec<Expression<'a>>)),
-    Return(Option<Expression<'a>>),
-    Throw(Option<Expression<'a>>),
+pub enum Node<'a> {
+    Block(Vec<Node<'a>>),
+    If((Box<Node<'a>>, Box<Node<'a>>, Option<Box<Node<'a>>>)),
+    While((Box<Node<'a>>, Box<Node<'a>>)),
+    For((Vec<Option<Box<Node<'a>>>>, Box<Node<'a>>)),
+    Declaration((&'a str, Vec<Node<'a>>)),
+    Return(Option<Box<Node<'a>>>),
+    Throw(Box<Node<'a>>),
     Continue,
     Break,
-}
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum Expression<'a> {
     Str(String),
     Ident(String),
     Double(f64),
     Octal(u64),
     Hexadecimal(u64),
     BinaryNum(u64),
-    List(Vec<Expression<'a>>),
-    Object(Vec<Expression<'a>>),
-    Paren(Box<Expression<'a>>),
-    Closure((Vec<Expression<'a>>, Box<Expression<'a>>)),
-    Function(
-        (
-            Option<Box<Expression<'a>>>,
-            Vec<Expression<'a>>,
-            Box<Statement<'a>>,
-        ),
-    ),
-    Generator(
-        (
-            Option<Box<Expression<'a>>>,
-            Vec<Expression<'a>>,
-            Box<Statement<'a>>,
-        ),
-    ),
-    Unary(&'a str, Box<Expression<'a>>),
-    Binary(&'a str, Box<Expression<'a>>, Box<Expression<'a>>),
-    Ternary(
-        Box<Expression<'a>>,
-        Box<Expression<'a>>,
-        Box<Expression<'a>>,
-    ),
+    List(Vec<Node<'a>>),
+    Object(Vec<Node<'a>>),
+    Paren(Box<Node<'a>>),
+    Closure((Vec<Node<'a>>, Box<Node<'a>>)),
+    Function((Option<Box<Node<'a>>>, Vec<Node<'a>>, Box<Node<'a>>)),
+    Generator((Option<Box<Node<'a>>>, Vec<Node<'a>>, Box<Node<'a>>)),
+    Unary(&'a str, Box<Node<'a>>),
+    Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
+    Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
 
-    Args(Vec<Expression<'a>>),
-    Splat(Box<Expression<'a>>),
-    KeyValue((Box<Expression<'a>>, Box<Expression<'a>>)),
-    Param((Box<Expression<'a>>, Option<Box<Expression<'a>>>)),
+    Args(Vec<Node<'a>>),
+    Splat(Box<Node<'a>>),
+    KeyValue((Box<Node<'a>>, Box<Node<'a>>)),
+    Param((Box<Node<'a>>, Option<Box<Node<'a>>>)),
 }
 
-pub fn block<'a>(i: &'a str) -> ParseResult<'a, Vec<Statement<'a>>> {
+pub fn block<'a>(i: &'a str) -> ParseResult<'a, Vec<Node<'a>>> {
     many(statement)(i)
 }
 
-fn statement<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(choice((braces, condition, while_loop, for_loop, gotos)))(i)
 }
 
-fn gotos<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let eol = take_while(|c| c == '\n' || c == '\r');
     let brace = value(ws(peek(tag("}"))), "");
     let end = choice((ws(eoi), ws(tag(";")), eol, brace));
 
-    let cont = map(tag("continue"), |_| Statement::Continue::<'a>);
-    let brk = map(tag("break"), |_| Statement::Break::<'a>);
+    let cont = map(tag("continue"), |_| Node::Continue::<'a>);
+    let brk = map(tag("break"), |_| Node::Break::<'a>);
     let ret = map(
-        right(tag("return"), opt(expression)),
-        Statement::Return::<'a>,
+        right(tag("return"), opt(boxed(expression))),
+        Node::Return::<'a>,
     );
-    let thrw = map(right(tag("throw"), opt(expression)), Statement::Throw::<'a>);
+    let thrw = map(right(tag("throw"), boxed(expression)), Node::Throw::<'a>);
     left(choice((cont, brk, ret, thrw, assignment)), end)(i)
 }
 
-fn assignment<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    choice((declaration, standalone))(i)
+fn assignment<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    choice((declaration, expression))(i)
 }
 
-fn declaration<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &["var", "let", "const"];
     let declaration = ws(pair(one_of(ops), chain(ws(tag(",")), mutation)));
-    map(declaration, Statement::Declaration::<'a>)(i)
+    map(declaration, Node::Declaration::<'a>)(i)
 }
 
-fn condition<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+fn condition<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let else_block = ws(right(tag("else"), boxed(statement)));
     let inner = trio(boxed(paren), boxed(statement), opt(else_block));
-    map(ws(right(tag("if"), inner)), Statement::If)(i)
+    map(ws(right(tag("if"), inner)), Node::If)(i)
 }
 
-fn while_loop<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+fn while_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = pair(boxed(paren), boxed(statement));
-    map(ws(right(tag("while"), inner)), Statement::While)(i)
+    map(ws(right(tag("while"), inner)), Node::While)(i)
 }
 
-fn for_loop<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+fn for_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let assign = opt(boxed(assignment));
-    let expr1 = right(ws(tag(";")), opt(expression));
-    let expr2 = right(ws(tag(";")), opt(expression));
-    let trio = trio(assign, expr1, expr2);
+    let expr1 = right(ws(tag(";")), opt(boxed(expression)));
+    let expr2 = right(ws(tag(";")), opt(boxed(expression)));
+    let trio = map(trio(assign, expr1, expr2), |(a, b, c)| vec![a, b, c]);
     let inner = pair(middle(ws(tag("(")), trio, ws(tag(")"))), boxed(statement));
-    map(ws(right(tag("for"), inner)), Statement::For)(i)
+    map(ws(right(tag("for"), inner)), Node::For)(i)
 }
 
-pub fn standalone<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
-    ws(map(expression, Statement::Expression::<'a>))(i)
-}
-
-pub fn expression<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+pub fn expression<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(prefix(one_of(&["yield*", "yield"]), mutation), makechain)(i)
 }
 
-fn mutation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn mutation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &[
         "=", "+=", "-=", "**=", "*=", "/=", "%=", "<<=", ">>>=", ">>=", "&=", "^=", "|=",
     ];
     map(infix(ternary, one_of(ops)), makechain2)(i)
 }
 
-fn ternary<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn ternary<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let conds = right(ws(tag("?")), outer(equality, ws(tag(":")), equality));
     ws(map(pair(equality, many(conds)), maketernary))(i)
 }
 
-fn equality<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn equality<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &["===", "==", "!==", "!="];
     map(infix(comparison, one_of(ops)), makechain2)(i)
 }
 
-fn comparison<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn comparison<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &[">=", "<=", ">", "<", "instanceof", "in"];
     map(infix(bitwise, one_of(ops)), makechain2)(i)
 }
 
-fn bitwise<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn bitwise<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &[">>>", ">>", "<<"];
     map(infix(logic_or, one_of(ops)), makechain2)(i)
 }
 
-fn logic_or<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn logic_or<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(logic_and, tag("&&")), makechain2)(i)
 }
 
-fn logic_and<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn logic_and<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(coalesce, tag("||")), makechain2)(i)
 }
 
-fn coalesce<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn coalesce<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(bitwise_or, tag("??")), makechain2)(i)
 }
 
-fn bitwise_or<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn bitwise_or<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(bitwise_xor, tag("|")), makechain2)(i)
 }
 
-fn bitwise_xor<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn bitwise_xor<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(bitwise_and, tag("^")), makechain2)(i)
 }
 
-fn bitwise_and<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn bitwise_and<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(addition, tag("&")), makechain2)(i)
 }
 
-fn addition<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn addition<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(multiplication, one_of(&["+", "-"])), makechain2)(i)
 }
 
-fn multiplication<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn multiplication<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(power, one_of(&["*", "/", "%"])), makechain2)(i)
 }
 
-fn power<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn power<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(infix(negation, tag("**")), makechain2)(i)
 }
 
-fn negation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn negation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(prefix(tag("!"), prefixes), makechain)(i)
 }
 
-fn prefixes<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn prefixes<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &["++", "--", "+", "-", "typeof", "void", "delete", "await"];
     map(prefix(one_of(ops), postfix), makechain)(i)
 }
 
-fn postfix<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn postfix<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &["++", "--"];
     map(pair(creation, many(ws(one_of(ops)))), makechainb)(i)
 }
 
-fn creation<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn creation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(prefix(tag("new"), action), makechain)(i)
 }
 
-fn action<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let array = pair(tag("["), left(expression, ws(tag("]"))));
     let elvis = pair(tag("?."), ident);
     let dot = pair(tag("."), ident);
-    let args = map(args, Expression::Args::<'a>);
+    let args = map(args, Node::Args::<'a>);
     let call = pair(tag("("), left(args, ws(tag(")"))));
     let action = pair(primitive, many(ws(choice((array, elvis, dot, call)))));
     map(action, makechain2)(i)
 }
 
-fn primitive<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    let single_quote = map(string('"'), Expression::Str::<'a>);
-    let double_quote = map(string('\''), Expression::Str::<'a>);
-    let octal = map(right(tag("0o"), number(8)), Expression::Octal::<'a>);
-    let hexa = map(right(tag("0x"), number(16)), Expression::Hexadecimal::<'a>);
-    let binary = map(right(tag("0b"), number(2)), Expression::BinaryNum::<'a>);
-    let double = map(double, Expression::Double::<'a>);
+fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let single_quote = map(string('"'), Node::Str::<'a>);
+    let double_quote = map(string('\''), Node::Str::<'a>);
+    let octal = map(right(tag("0o"), number(8)), Node::Octal::<'a>);
+    let hexa = map(right(tag("0x"), number(16)), Node::Hexadecimal::<'a>);
+    let binary = map(right(tag("0b"), number(2)), Node::BinaryNum::<'a>);
+    let double = map(double, Node::Double::<'a>);
     ws(choice((
         single_quote,
         double_quote,
@@ -245,65 +206,65 @@ fn primitive<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
     )))(i)
 }
 
-fn ident<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let words = take_while(|c| c.is_alphanumeric());
     let ident = check(words, |s| !RESERVED.contains(s));
-    ws(map(map(ident, String::from), Expression::Ident::<'a>))(i)
+    ws(map(map(ident, String::from), Node::Ident::<'a>))(i)
 }
 
-fn object<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let item = choice((key_value, ident, splat));
     let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
-    ws(map(object, Expression::Object::<'a>))(i)
+    ws(map(object, Node::Object::<'a>))(i)
 }
 
-fn paren<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let paren = middle(tag("("), boxed(expression), ws(tag(")")));
-    ws(map(paren, Expression::Paren::<'a>))(i)
+    ws(map(paren, Node::Paren::<'a>))(i)
 }
 
-fn list<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let list = middle(tag("["), args, ws(tag("]")));
-    ws(map(list, Expression::List::<'a>))(i)
+    ws(map(list, Node::List::<'a>))(i)
 }
 
-fn closure<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn closure<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let closure = outer(params, ws(tag("=>")), boxed(expression));
-    ws(map(closure, Expression::Closure::<'a>))(i)
+    ws(map(closure, Node::Closure::<'a>))(i)
 }
 
-fn function<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn function<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = trio(ws(opt(boxed(ident))), params, boxed(braces));
     let func = ws(right(tag("function"), inner));
-    map(func, Expression::Function::<'a>)(i)
+    map(func, Node::Function::<'a>)(i)
 }
 
-fn generator<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = trio(ws(opt(boxed(ident))), params, boxed(braces));
     let func = ws(right(tag("function*"), inner));
-    map(func, Expression::Generator::<'a>)(i)
+    map(func, Node::Generator::<'a>)(i)
 }
 
-fn braces<'a>(i: &'a str) -> ParseResult<Statement<'a>> {
+fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let braces = middle(tag("{"), block, ws(tag("}")));
-    ws(map(braces, Statement::Block))(i)
+    ws(map(braces, Node::Block))(i)
 }
 
-fn params<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
+fn params<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
     let value = opt(right(ws(tag("=")), boxed(ws(expression))));
     let param = pair(boxed(ident), value);
-    let exp = map(param, Expression::Param::<'a>);
+    let exp = map(param, Node::Param::<'a>);
     let inner = chain(ws(tag(",")), choice((splat, exp)));
     ws(middle(tag("("), inner, ws(tag(")"))))(i)
 }
 
-fn args<'a>(i: &'a str) -> ParseResult<Vec<Expression<'a>>> {
+fn args<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
     ws(chain(tag(","), choice((splat, expression))))(i)
 }
 
-fn splat<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
+fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let exp = boxed(right(tag("..."), expression));
-    ws(map(exp, Expression::Splat::<'a>))(i)
+    ws(map(exp, Node::Splat::<'a>))(i)
 }
 
 fn comments<'a>(i: &'a str) -> ParseResult<Vec<&'a str>> {
@@ -316,13 +277,13 @@ fn ws<'a, T>(item: impl Fn(&'a str) -> ParseResult<T>) -> impl Fn(&'a str) -> Pa
     right(whitespace, right(comments, item))
 }
 
-fn key_value<'a>(i: &'a str) -> ParseResult<Expression<'a>> {
-    let double_quote = map(string('"'), Expression::Str::<'a>);
-    let single_quote = map(string('\''), Expression::Str::<'a>);
+fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let double_quote = map(string('"'), Node::Str::<'a>);
+    let single_quote = map(string('\''), Node::Str::<'a>);
     let computed = middle(tag("["), expression, tag("]"));
     let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
     let value = boxed(expression);
-    map(outer(key, ws(tag(":")), value), Expression::KeyValue::<'a>)(i)
+    map(outer(key, ws(tag(":")), value), Node::KeyValue::<'a>)(i)
 }
 
 // Utilities
@@ -339,39 +300,45 @@ pub enum ParserError {
     MapRes,
 }
 
-fn maketernary<'a>(e: (Expression<'a>, Vec<(Expression<'a>, Expression<'a>)>)) -> Expression<'a> {
+fn maketernary<'a>(e: (Node<'a>, Vec<(Node<'a>, Node<'a>)>)) -> Node<'a> {
     e.1.iter().fold(e.0, |a, (b, c)| {
-        Expression::Ternary::<'a>(Box::new(a), Box::new(b.clone()), Box::new(c.clone()))
+        Node::Ternary::<'a>(Box::new(a), Box::new(b.clone()), Box::new(c.clone()))
     })
 }
 
-fn makechain<'a>(e: (Vec<&'a str>, Expression<'a>)) -> Expression<'a> {
+fn makechain<'a>(e: (Vec<&'a str>, Node<'a>)) -> Node<'a> {
     e.0.iter()
-        .fold(e.1, |acc, op| Expression::Unary::<'a>(*op, Box::new(acc)))
+        .fold(e.1, |acc, op| Node::Unary::<'a>(*op, Box::new(acc)))
 }
 
-fn makechainb<'a>(e: (Expression<'a>, Vec<&'a str>)) -> Expression<'a> {
+fn makechainb<'a>(e: (Node<'a>, Vec<&'a str>)) -> Node<'a> {
     e.1.iter()
-        .fold(e.0, |acc, op| Expression::Unary::<'a>(*op, Box::new(acc)))
+        .fold(e.0, |acc, op| Node::Unary::<'a>(*op, Box::new(acc)))
 }
 
-fn makechain2<'a>(e: (Expression<'a>, Vec<(&'a str, Expression<'a>)>)) -> Expression<'a> {
+fn makechain2<'a>(e: (Node<'a>, Vec<(&'a str, Node<'a>)>)) -> Node<'a> {
     e.1.iter().fold(e.0, |a, (op, b)| {
-        Expression::Binary::<'a>(*op, Box::new(a), Box::new(b.clone()))
+        Node::Binary::<'a>(*op, Box::new(a), Box::new(b.clone()))
     })
 }
 
 pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
-    move |i| match i.starts_with(tag) {
-        true => Ok((&i[tag.len()..], &i[..tag.len()])),
-        false => Err((i, ParserError::Tag)),
+    move |i| {
+        if i.starts_with(tag) {
+            Ok((&i[tag.len()..], &i[..tag.len()]))
+        } else {
+            Err((i, ParserError::Tag))
+        }
     }
 }
 
 pub fn chr(c: char) -> impl Fn(&str) -> ParseResult<&str> {
-    move |i| match i.starts_with(c) {
-        true => Ok((&i[1..], &i[..1])),
-        false => Err((i, ParserError::Tag)),
+    move |i| {
+        if i.starts_with(c) {
+            Ok((&i[1..], &i[..1]))
+        } else {
+            Err((i, ParserError::Tag))
+        }
     }
 }
 
@@ -614,9 +581,10 @@ pub fn double(i: &str) -> ParseResult<f64> {
 }
 
 pub fn eoi(i: &str) -> ParseResult<&str> {
-    match i.is_empty() {
-        true => Ok((i, "")),
-        false => Err((i, ParserError::Eof)),
+    if i.is_empty() {
+        Ok((i, ""))
+    } else {
+        Err((i, ParserError::Eof))
     }
 }
 

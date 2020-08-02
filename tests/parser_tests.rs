@@ -1,4 +1,4 @@
-use paq::parser::{block, expression, Expression, Statement};
+use paq::parser::{block, expression, Node};
 
 #[test]
 fn text_fixtures() {
@@ -82,117 +82,94 @@ fn test_nesting_bench() {
 fn test_comments() {
     assert_eq!(
         block("  // hello\n asdf"),
-        Ok((
-            "",
-            vec![Statement::Expression(Expression::Ident(String::from(
-                "asdf"
-            )))]
-        ))
+        Ok(("", vec![Node::Ident(String::from("asdf"))]))
     );
 }
 
 #[test]
 fn test_statement() {
-    assert_eq!(block("continue}"), Ok(("}", vec![Statement::Continue])));
+    assert_eq!(block("continue}"), Ok(("}", vec![Node::Continue])));
     assert_eq!(
         block("{continue}"),
-        Ok(("", vec![Statement::Block(vec![Statement::Continue])]))
+        Ok(("", vec![Node::Block(vec![Node::Continue])]))
     );
     assert_eq!(
         block("continue;continue;"),
-        Ok(("", vec![Statement::Continue, Statement::Continue]))
+        Ok(("", vec![Node::Continue, Node::Continue]))
     );
     assert_eq!(
         block(" continue ; continue ; "),
-        Ok((" ", vec![Statement::Continue, Statement::Continue]))
+        Ok((" ", vec![Node::Continue, Node::Continue]))
     );
-    assert_eq!(block("continue"), Ok(("", vec![Statement::Continue])));
+    assert_eq!(block("continue"), Ok(("", vec![Node::Continue])));
     assert_eq!(
         block("continue\n1"),
-        Ok((
-            "",
-            vec![
-                Statement::Continue,
-                Statement::Expression(Expression::Double(1.0))
-            ]
-        ))
+        Ok(("", vec![Node::Continue, Node::Double(1.0)]))
     );
     assert_eq!(
         block("continue; 1"),
-        Ok((
-            "",
-            vec![
-                Statement::Continue,
-                Statement::Expression(Expression::Double(1.0))
-            ]
-        ))
+        Ok(("", vec![Node::Continue, Node::Double(1.0)]))
     );
-    assert_eq!(block("break;"), Ok(("", vec![Statement::Break])));
+    assert_eq!(block("break;"), Ok(("", vec![Node::Break])));
     assert_eq!(
         block(" break ; break ; "),
-        Ok((" ", vec![Statement::Break, Statement::Break]))
+        Ok((" ", vec![Node::Break, Node::Break]))
     );
-    assert_eq!(block("break\n"), Ok(("", vec![Statement::Break])));
+    assert_eq!(block("break\n"), Ok(("", vec![Node::Break])));
     assert_eq!(
         block("return 1;"),
-        Ok(("", vec![Statement::Return(Some(Expression::Double(1.0)))]))
+        Ok(("", vec![Node::Return(Some(Box::new(Node::Double(1.0))))]))
     );
     assert_eq!(
         block("throw 1;"),
-        Ok(("", vec![Statement::Throw(Some(Expression::Double(1.0)))]))
+        Ok(("", vec![Node::Throw(Box::new(Node::Double(1.0)))]))
     );
     assert_eq!(
         block("return 1\n"),
-        Ok(("", vec![Statement::Return(Some(Expression::Double(1.0)))]))
+        Ok(("", vec![Node::Return(Some(Box::new(Node::Double(1.0))))]))
     );
     assert_eq!(
         block("return\n1\n"),
-        Ok(("", vec![Statement::Return(Some(Expression::Double(1.0)))]))
+        Ok(("", vec![Node::Return(Some(Box::new(Node::Double(1.0))))]))
     );
     assert_eq!(
         block("return; 1\n"),
-        Ok((
-            "",
-            vec![
-                Statement::Return(None),
-                Statement::Expression(Expression::Double(1.0))
-            ]
-        ))
+        Ok(("", vec![Node::Return(None), Node::Double(1.0)]))
     );
     assert_eq!(
         block(" return 1 ; return 1 ; "),
         Ok((
             " ",
             vec![
-                Statement::Return(Some(Expression::Double(1.0))),
-                Statement::Return(Some(Expression::Double(1.0)))
+                Node::Return(Some(Box::new(Node::Double(1.0)))),
+                Node::Return(Some(Box::new(Node::Double(1.0))))
             ]
         ))
     );
-    assert_eq!(block("return;"), Ok(("", vec![Statement::Return(None)])));
-    assert_eq!(block("return"), Ok(("", vec![Statement::Return(None)])));
-    assert_eq!(block("return\n"), Ok(("", vec![Statement::Return(None)])));
+    assert_eq!(block("return;"), Ok(("", vec![Node::Return(None)])));
+    assert_eq!(block("return"), Ok(("", vec![Node::Return(None)])));
+    assert_eq!(block("return\n"), Ok(("", vec![Node::Return(None)])));
     assert_eq!(
         block("a = 2;"),
         Ok((
             "",
-            vec![Statement::Expression(Expression::Binary(
+            vec![Node::Binary(
                 "=",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Double(2.0))
-            ))]
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Double(2.0))
+            )]
         ))
     );
     assert_eq!(
         block("var a = 2;"),
         Ok((
             "",
-            vec![Statement::Declaration((
+            vec![Node::Declaration((
                 "var",
-                vec![Expression::Binary(
+                vec![Node::Binary(
                     "=",
-                    Box::new(Expression::Ident(String::from("a"))),
-                    Box::new(Expression::Double(2.0))
+                    Box::new(Node::Ident(String::from("a"))),
+                    Box::new(Node::Double(2.0))
                 )]
             ))]
         ))
@@ -201,18 +178,18 @@ fn test_statement() {
         block("let a = 2, b = 3"),
         Ok((
             "",
-            vec![Statement::Declaration((
+            vec![Node::Declaration((
                 "let",
                 vec![
-                    Expression::Binary(
+                    Node::Binary(
                         "=",
-                        Box::new(Expression::Ident(String::from("a"))),
-                        Box::new(Expression::Double(2.0))
+                        Box::new(Node::Ident(String::from("a"))),
+                        Box::new(Node::Double(2.0))
                     ),
-                    Expression::Binary(
+                    Node::Binary(
                         "=",
-                        Box::new(Expression::Ident(String::from("b"))),
-                        Box::new(Expression::Double(3.0))
+                        Box::new(Node::Ident(String::from("b"))),
+                        Box::new(Node::Double(3.0))
                     ),
                 ]
             ))]
@@ -222,18 +199,18 @@ fn test_statement() {
         block("let a=2,b=3"),
         Ok((
             "",
-            vec![Statement::Declaration((
+            vec![Node::Declaration((
                 "let",
                 vec![
-                    Expression::Binary(
+                    Node::Binary(
                         "=",
-                        Box::new(Expression::Ident(String::from("a"))),
-                        Box::new(Expression::Double(2.0))
+                        Box::new(Node::Ident(String::from("a"))),
+                        Box::new(Node::Double(2.0))
                     ),
-                    Expression::Binary(
+                    Node::Binary(
                         "=",
-                        Box::new(Expression::Ident(String::from("b"))),
-                        Box::new(Expression::Double(3.0))
+                        Box::new(Node::Ident(String::from("b"))),
+                        Box::new(Node::Double(3.0))
                     ),
                 ]
             ))]
@@ -243,12 +220,12 @@ fn test_statement() {
         block("const x = [];"),
         Ok((
             "",
-            vec![Statement::Declaration((
+            vec![Node::Declaration((
                 "const",
-                vec![Expression::Binary(
+                vec![Node::Binary(
                     "=",
-                    Box::new(Expression::Ident(String::from("x"))),
-                    Box::new(Expression::List(vec![]))
+                    Box::new(Node::Ident(String::from("x"))),
+                    Box::new(Node::List(vec![]))
                 )]
             ))]
         ))
@@ -257,69 +234,61 @@ fn test_statement() {
         block("a = 2"),
         Ok((
             "",
-            vec![Statement::Expression(Expression::Binary(
+            vec![Node::Binary(
                 "=",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Double(2.0))
-            ))]
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Double(2.0))
+            )]
         ))
     );
     assert_eq!(
         block("a = G"),
         Ok((
             "",
-            vec![Statement::Expression(Expression::Binary(
+            vec![Node::Binary(
                 "=",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Ident(String::from("G")))
-            ))]
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Ident(String::from("G")))
+            )]
         ))
     );
     assert_eq!(
         block("abc = G"),
         Ok((
             "",
-            vec![Statement::Expression(Expression::Binary(
+            vec![Node::Binary(
                 "=",
-                Box::new(Expression::Ident(String::from("abc"))),
-                Box::new(Expression::Ident(String::from("G")))
-            ))]
+                Box::new(Node::Ident(String::from("abc"))),
+                Box::new(Node::Ident(String::from("G")))
+            )]
         ))
     );
     assert_eq!(
         block("const empty = G()"),
         Ok((
             "",
-            vec![Statement::Declaration((
+            vec![Node::Declaration((
                 "const",
-                vec![Expression::Binary(
+                vec![Node::Binary(
                     "=",
-                    Box::new(Expression::Ident(String::from("empty"))),
-                    Box::new(Expression::Binary(
+                    Box::new(Node::Ident(String::from("empty"))),
+                    Box::new(Node::Binary(
                         "(",
-                        Box::new(Expression::Ident(String::from("G"))),
-                        Box::new(Expression::Args(vec![]))
+                        Box::new(Node::Ident(String::from("G"))),
+                        Box::new(Node::Args(vec![]))
                     ))
                 )]
             ))]
         ))
     );
-    assert_eq!(
-        block("z"),
-        Ok((
-            "",
-            vec![Statement::Expression(Expression::Ident(String::from("z")))]
-        ))
-    );
+    assert_eq!(block("z"), Ok(("", vec![Node::Ident(String::from("z"))])));
     assert_eq!(
         block("if(true){return;}"),
         Ok((
             "",
-            vec![Statement::If((
-                Box::new(Expression::Paren(Box::new(Expression::Ident(
-                    String::from("true")
-                )))),
-                Box::new(Statement::Block(vec![Statement::Return(None)])),
+            vec![Node::If((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
+                Box::new(Node::Block(vec![Node::Return(None)])),
                 None
             ))]
         ))
@@ -328,11 +297,9 @@ fn test_statement() {
         block("if(true)return;"),
         Ok((
             "",
-            vec![Statement::If((
-                Box::new(Expression::Paren(Box::new(Expression::Ident(
-                    String::from("true")
-                )))),
-                Box::new(Statement::Return(None)),
+            vec![Node::If((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
+                Box::new(Node::Return(None)),
                 None
             ))]
         ))
@@ -341,12 +308,10 @@ fn test_statement() {
         block("if(true)return;else break;"),
         Ok((
             "",
-            vec![Statement::If((
-                Box::new(Expression::Paren(Box::new(Expression::Ident(
-                    String::from("true")
-                )))),
-                Box::new(Statement::Return(None)),
-                Some(Box::new(Statement::Break))
+            vec![Node::If((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
+                Box::new(Node::Return(None)),
+                Some(Box::new(Node::Break))
             ))]
         ))
     );
@@ -354,12 +319,10 @@ fn test_statement() {
         block("if ( true )\n {\n return; \n}\n else \n { break; }"),
         Ok((
             "",
-            vec![Statement::If((
-                Box::new(Expression::Paren(Box::new(Expression::Ident(
-                    String::from("true")
-                )))),
-                Box::new(Statement::Block(vec![Statement::Return(None)])),
-                Some(Box::new(Statement::Block(vec![Statement::Break])))
+            vec![Node::If((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
+                Box::new(Node::Block(vec![Node::Return(None)])),
+                Some(Box::new(Node::Block(vec![Node::Break])))
             ))]
         ))
     );
@@ -367,11 +330,9 @@ fn test_statement() {
         block("while(true){return;}"),
         Ok((
             "",
-            vec![Statement::While((
-                Box::new(Expression::Paren(Box::new(Expression::Ident(
-                    String::from("true")
-                )))),
-                Box::new(Statement::Block(vec![Statement::Return(None)]))
+            vec![Node::While((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
+                Box::new(Node::Block(vec![Node::Return(None)]))
             ))]
         ))
     );
@@ -379,11 +340,9 @@ fn test_statement() {
         block(" while ( true ) return ; "),
         Ok((
             " ",
-            vec![Statement::While((
-                Box::new(Expression::Paren(Box::new(Expression::Ident(
-                    String::from("true")
-                )))),
-                Box::new(Statement::Return(None))
+            vec![Node::While((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
+                Box::new(Node::Return(None))
             ))]
         ))
     );
@@ -391,13 +350,13 @@ fn test_statement() {
         block("for(0;0;0){return;}"),
         Ok((
             "",
-            vec![Statement::For((
-                (
-                    Some(Box::new(Statement::Expression(Expression::Double(0.0)))),
-                    Some(Expression::Double(0.0)),
-                    Some(Expression::Double(0.0))
-                ),
-                Box::new(Statement::Block(vec![Statement::Return(None)]))
+            vec![Node::For((
+                vec![
+                    Some(Box::new(Node::Double(0.0))),
+                    Some(Box::new(Node::Double(0.0))),
+                    Some(Box::new(Node::Double(0.0))),
+                ],
+                Box::new(Node::Block(vec![Node::Return(None)]))
             ))]
         ))
     );
@@ -405,13 +364,13 @@ fn test_statement() {
         block("for ( 0 ; 0 ; 0 ) return ; "),
         Ok((
             " ",
-            vec![Statement::For((
-                (
-                    Some(Box::new(Statement::Expression(Expression::Double(0.0)))),
-                    Some(Expression::Double(0.0)),
-                    Some(Expression::Double(0.0))
-                ),
-                Box::new(Statement::Return(None))
+            vec![Node::For((
+                vec![
+                    Some(Box::new(Node::Double(0.0))),
+                    Some(Box::new(Node::Double(0.0))),
+                    Some(Box::new(Node::Double(0.0)))
+                ],
+                Box::new(Node::Return(None))
             ))]
         ))
     );
@@ -419,9 +378,9 @@ fn test_statement() {
         block("for ( ; ; ) return ; "),
         Ok((
             " ",
-            vec![Statement::For((
-                (None, None, None),
-                Box::new(Statement::Return(None))
+            vec![Node::For((
+                vec![None, None, None],
+                Box::new(Node::Return(None))
             ))]
         ))
     );
@@ -429,262 +388,199 @@ fn test_statement() {
 
 #[test]
 fn test_string() {
-    assert_eq!(
-        expression("\"\""),
-        Ok(("", Expression::Str(String::from(""))))
-    );
-    assert_eq!(
-        expression(" \"\" "),
-        Ok((" ", Expression::Str(String::from(""))))
-    );
+    assert_eq!(expression("\"\""), Ok(("", Node::Str(String::from("")))));
+    assert_eq!(expression(" \"\" "), Ok((" ", Node::Str(String::from("")))));
     assert_eq!(
         expression(" \"a\" "),
-        Ok((" ", Expression::Str(String::from("a"))))
+        Ok((" ", Node::Str(String::from("a"))))
     );
     assert_eq!(
         expression(" \"Example\" "),
-        Ok((" ", Expression::Str(String::from("Example"))))
+        Ok((" ", Node::Str(String::from("Example"))))
     );
     assert_eq!(
         expression("\"\\     a\""),
-        Ok(("", Expression::Str(String::from("a"))))
+        Ok(("", Node::Str(String::from("a"))))
     );
     assert_eq!(
         expression("\"\\   b  a\""),
-        Ok(("", Expression::Str(String::from("b  a"))))
+        Ok(("", Node::Str(String::from("b  a"))))
     );
     assert_eq!(
         expression("\"\\n\\n\""),
-        Ok(("", Expression::Str(String::from("\n\n"))))
+        Ok(("", Node::Str(String::from("\n\n"))))
     );
     assert_eq!(
         expression("\"✅\""),
-        Ok(("", Expression::Str(String::from("✅"))))
+        Ok(("", Node::Str(String::from("✅"))))
     );
     assert_eq!(
         expression("\"\\n\""),
-        Ok(("", Expression::Str(String::from("\n"))))
+        Ok(("", Node::Str(String::from("\n"))))
     );
     assert_eq!(
         expression("\"\\r\""),
-        Ok(("", Expression::Str(String::from("\r"))))
+        Ok(("", Node::Str(String::from("\r"))))
     );
     assert_eq!(
         expression("\"\\t\""),
-        Ok(("", Expression::Str(String::from("\t"))))
+        Ok(("", Node::Str(String::from("\t"))))
     );
     assert_eq!(
         expression("\"\\b\""),
-        Ok(("", Expression::Str(String::from("\u{08}"))))
+        Ok(("", Node::Str(String::from("\u{08}"))))
     );
     assert_eq!(
         expression("\"\\v\""),
-        Ok(("", Expression::Str(String::from("\u{0B}"))))
+        Ok(("", Node::Str(String::from("\u{0B}"))))
     );
     assert_eq!(
         expression("\"\\f\""),
-        Ok(("", Expression::Str(String::from("\u{0C}"))))
+        Ok(("", Node::Str(String::from("\u{0C}"))))
     );
     assert_eq!(
         expression("\"\\\\\""),
-        Ok(("", Expression::Str(String::from("\\"))))
+        Ok(("", Node::Str(String::from("\\"))))
     );
     assert_eq!(
         expression("\"\\/\""),
-        Ok(("", Expression::Str(String::from("/"))))
+        Ok(("", Node::Str(String::from("/"))))
     );
     assert_eq!(
         expression("\"\\\"\""),
-        Ok(("", Expression::Str(String::from("\""))))
+        Ok(("", Node::Str(String::from("\""))))
     );
     assert_eq!(
         expression("\"\\\'\""),
-        Ok(("", Expression::Str(String::from("'"))))
+        Ok(("", Node::Str(String::from("'"))))
     );
 }
 
 #[test]
 fn test_single_quoted_string() {
-    assert_eq!(
-        expression("''"),
-        Ok(("", Expression::Str(String::from(""))))
-    );
-    assert_eq!(
-        expression(" '' "),
-        Ok((" ", Expression::Str(String::from(""))))
-    );
-    assert_eq!(
-        expression(" 'a' "),
-        Ok((" ", Expression::Str(String::from("a"))))
-    );
+    assert_eq!(expression("''"), Ok(("", Node::Str(String::from("")))));
+    assert_eq!(expression(" '' "), Ok((" ", Node::Str(String::from("")))));
+    assert_eq!(expression(" 'a' "), Ok((" ", Node::Str(String::from("a")))));
     assert_eq!(
         expression(" 'Example' "),
-        Ok((" ", Expression::Str(String::from("Example"))))
+        Ok((" ", Node::Str(String::from("Example"))))
     );
     assert_eq!(
         expression("'\\     a'"),
-        Ok(("", Expression::Str(String::from("a"))))
+        Ok(("", Node::Str(String::from("a"))))
     );
     assert_eq!(
         expression("'\\   b  a'"),
-        Ok(("", Expression::Str(String::from("b  a"))))
+        Ok(("", Node::Str(String::from("b  a"))))
     );
     assert_eq!(
         expression("'\\n\\n'"),
-        Ok(("", Expression::Str(String::from("\n\n"))))
+        Ok(("", Node::Str(String::from("\n\n"))))
     );
     assert_eq!(
         expression("\"✅\""),
-        Ok(("", Expression::Str(String::from("✅"))))
+        Ok(("", Node::Str(String::from("✅"))))
     );
-    assert_eq!(
-        expression("'\\n'"),
-        Ok(("", Expression::Str(String::from("\n"))))
-    );
-    assert_eq!(
-        expression("'\\r'"),
-        Ok(("", Expression::Str(String::from("\r"))))
-    );
-    assert_eq!(
-        expression("'\\t'"),
-        Ok(("", Expression::Str(String::from("\t"))))
-    );
+    assert_eq!(expression("'\\n'"), Ok(("", Node::Str(String::from("\n")))));
+    assert_eq!(expression("'\\r'"), Ok(("", Node::Str(String::from("\r")))));
+    assert_eq!(expression("'\\t'"), Ok(("", Node::Str(String::from("\t")))));
     assert_eq!(
         expression("'\\b'"),
-        Ok(("", Expression::Str(String::from("\u{08}"))))
+        Ok(("", Node::Str(String::from("\u{08}"))))
     );
     assert_eq!(
         expression("'\\v'"),
-        Ok(("", Expression::Str(String::from("\u{0B}"))))
+        Ok(("", Node::Str(String::from("\u{0B}"))))
     );
     assert_eq!(
         expression("'\\f'"),
-        Ok(("", Expression::Str(String::from("\u{0C}"))))
+        Ok(("", Node::Str(String::from("\u{0C}"))))
     );
     assert_eq!(
         expression("'\\\\'"),
-        Ok(("", Expression::Str(String::from("\\"))))
+        Ok(("", Node::Str(String::from("\\"))))
     );
-    assert_eq!(
-        expression("'\\/'"),
-        Ok(("", Expression::Str(String::from("/"))))
-    );
+    assert_eq!(expression("'\\/'"), Ok(("", Node::Str(String::from("/")))));
     assert_eq!(
         expression("'\\\"'"),
-        Ok(("", Expression::Str(String::from("\""))))
+        Ok(("", Node::Str(String::from("\""))))
     );
-    assert_eq!(
-        expression("'\\''"),
-        Ok(("", Expression::Str(String::from("'"))))
-    );
+    assert_eq!(expression("'\\''"), Ok(("", Node::Str(String::from("'")))));
 }
 
 #[test]
 fn test_double() {
-    assert_eq!(expression("0"), Ok(("", Expression::Double(0.0))));
-    assert_eq!(expression("1"), Ok(("", Expression::Double(1.0))));
-    assert_eq!(expression("2.2"), Ok(("", Expression::Double(2.2))));
-    assert_eq!(expression("3."), Ok(("", Expression::Double(3.0))));
-    assert_eq!(expression(".4"), Ok(("", Expression::Double(0.4))));
-    assert_eq!(expression("1e2"), Ok(("", Expression::Double(100.0))));
-    assert_eq!(expression("1e-2"), Ok(("", Expression::Double(0.01))));
-    assert_eq!(expression("0"), Ok(("", Expression::Double(0.0))));
-    assert_eq!(
-        expression("123456789"),
-        Ok(("", Expression::Double(123456789.0)))
-    );
-    assert_eq!(expression("0."), Ok(("", Expression::Double(0.0))));
-    assert_eq!(expression("123."), Ok(("", Expression::Double(123.0))));
-    assert_eq!(expression(".012300"), Ok(("", Expression::Double(0.0123))));
-    assert_eq!(expression("0.012300"), Ok(("", Expression::Double(0.0123))));
-    assert_eq!(
-        expression("123.045600"),
-        Ok(("", Expression::Double(123.0456)))
-    );
-    assert_eq!(expression(".123e0"), Ok(("", Expression::Double(0.123))));
-    assert_eq!(expression("0.123e0"), Ok(("", Expression::Double(0.123))));
-    assert_eq!(
-        expression("123.456e0"),
-        Ok(("", Expression::Double(123.456)))
-    );
-    assert_eq!(expression(".123e01"), Ok(("", Expression::Double(1.23))));
-    assert_eq!(expression("0.123e01"), Ok(("", Expression::Double(1.23))));
-    assert_eq!(
-        expression("123.456e02"),
-        Ok(("", Expression::Double(12345.6)))
-    );
-    assert_eq!(expression(".123e+4"), Ok(("", Expression::Double(1230.0))));
-    assert_eq!(expression("0.123e+4"), Ok(("", Expression::Double(1230.0))));
-    assert_eq!(
-        expression("123.456e+4"),
-        Ok(("", Expression::Double(1234560.0)))
-    );
-    assert_eq!(
-        expression(".123e-4"),
-        Ok(("", Expression::Double(0.0000123)))
-    );
-    assert_eq!(
-        expression("0.123e-4"),
-        Ok(("", Expression::Double(0.0000123)))
-    );
-    assert_eq!(
-        expression("123.456e-4"),
-        Ok(("", Expression::Double(0.0123456)))
-    );
-    assert_eq!(expression("0e0"), Ok(("", Expression::Double(0.0))));
-    assert_eq!(expression("123e0"), Ok(("", Expression::Double(123.0))));
-    assert_eq!(expression("0e01"), Ok(("", Expression::Double(0.0))));
-    assert_eq!(expression("123e02"), Ok(("", Expression::Double(12300.0))));
-    assert_eq!(expression("0e+4"), Ok(("", Expression::Double(0.0))));
-    assert_eq!(
-        expression("123e+4"),
-        Ok(("", Expression::Double(1230000.0)))
-    );
-    assert_eq!(expression("0e-4"), Ok(("", Expression::Double(0.0))));
-    assert_eq!(expression("123e-4"), Ok(("", Expression::Double(0.0123))));
+    assert_eq!(expression("0"), Ok(("", Node::Double(0.0))));
+    assert_eq!(expression("1"), Ok(("", Node::Double(1.0))));
+    assert_eq!(expression("2.2"), Ok(("", Node::Double(2.2))));
+    assert_eq!(expression("3."), Ok(("", Node::Double(3.0))));
+    assert_eq!(expression(".4"), Ok(("", Node::Double(0.4))));
+    assert_eq!(expression("1e2"), Ok(("", Node::Double(100.0))));
+    assert_eq!(expression("1e-2"), Ok(("", Node::Double(0.01))));
+    assert_eq!(expression("0"), Ok(("", Node::Double(0.0))));
+    assert_eq!(expression("123456789"), Ok(("", Node::Double(123456789.0))));
+    assert_eq!(expression("0."), Ok(("", Node::Double(0.0))));
+    assert_eq!(expression("123."), Ok(("", Node::Double(123.0))));
+    assert_eq!(expression(".012300"), Ok(("", Node::Double(0.0123))));
+    assert_eq!(expression("0.012300"), Ok(("", Node::Double(0.0123))));
+    assert_eq!(expression("123.045600"), Ok(("", Node::Double(123.0456))));
+    assert_eq!(expression(".123e0"), Ok(("", Node::Double(0.123))));
+    assert_eq!(expression("0.123e0"), Ok(("", Node::Double(0.123))));
+    assert_eq!(expression("123.456e0"), Ok(("", Node::Double(123.456))));
+    assert_eq!(expression(".123e01"), Ok(("", Node::Double(1.23))));
+    assert_eq!(expression("0.123e01"), Ok(("", Node::Double(1.23))));
+    assert_eq!(expression("123.456e02"), Ok(("", Node::Double(12345.6))));
+    assert_eq!(expression(".123e+4"), Ok(("", Node::Double(1230.0))));
+    assert_eq!(expression("0.123e+4"), Ok(("", Node::Double(1230.0))));
+    assert_eq!(expression("123.456e+4"), Ok(("", Node::Double(1234560.0))));
+    assert_eq!(expression(".123e-4"), Ok(("", Node::Double(0.0000123))));
+    assert_eq!(expression("0.123e-4"), Ok(("", Node::Double(0.0000123))));
+    assert_eq!(expression("123.456e-4"), Ok(("", Node::Double(0.0123456))));
+    assert_eq!(expression("0e0"), Ok(("", Node::Double(0.0))));
+    assert_eq!(expression("123e0"), Ok(("", Node::Double(123.0))));
+    assert_eq!(expression("0e01"), Ok(("", Node::Double(0.0))));
+    assert_eq!(expression("123e02"), Ok(("", Node::Double(12300.0))));
+    assert_eq!(expression("0e+4"), Ok(("", Node::Double(0.0))));
+    assert_eq!(expression("123e+4"), Ok(("", Node::Double(1230000.0))));
+    assert_eq!(expression("0e-4"), Ok(("", Node::Double(0.0))));
+    assert_eq!(expression("123e-4"), Ok(("", Node::Double(0.0123))));
 }
 
 #[test]
 fn test_octal() {
-    assert_eq!(expression("0o123"), Ok(("", Expression::Octal(0o123))));
-    assert_eq!(expression("0o111"), Ok(("", Expression::Octal(0o111))));
-    assert_eq!(expression("0o0"), Ok(("", Expression::Octal(0o0))));
-    assert_eq!(expression("0o03 "), Ok((" ", Expression::Octal(0o3))));
-    assert_eq!(expression("0o012 "), Ok((" ", Expression::Octal(0o12))));
-    assert_eq!(
-        expression("0o07654321 "),
-        Ok((" ", Expression::Octal(0o7654321)))
-    );
+    assert_eq!(expression("0o123"), Ok(("", Node::Octal(0o123))));
+    assert_eq!(expression("0o111"), Ok(("", Node::Octal(0o111))));
+    assert_eq!(expression("0o0"), Ok(("", Node::Octal(0o0))));
+    assert_eq!(expression("0o03 "), Ok((" ", Node::Octal(0o3))));
+    assert_eq!(expression("0o012 "), Ok((" ", Node::Octal(0o12))));
+    assert_eq!(expression("0o07654321 "), Ok((" ", Node::Octal(0o7654321))));
 }
 
 #[test]
 fn test_hexadecimal() {
-    assert_eq!(expression("0x3 "), Ok((" ", Expression::Hexadecimal(0x3))));
+    assert_eq!(expression("0x3 "), Ok((" ", Node::Hexadecimal(0x3))));
     assert_eq!(
         expression("0x0123789"),
-        Ok(("", Expression::Hexadecimal(0x0123789)))
+        Ok(("", Node::Hexadecimal(0x0123789)))
     );
     assert_eq!(
         expression("0xABCDEF"),
-        Ok(("", Expression::Hexadecimal(0xabcdef)))
+        Ok(("", Node::Hexadecimal(0xabcdef)))
     );
     assert_eq!(
         expression("0xabcdef"),
-        Ok(("", Expression::Hexadecimal(0xabcdef)))
+        Ok(("", Node::Hexadecimal(0xabcdef)))
     );
 }
 
 #[test]
 fn test_binarynum() {
-    assert_eq!(expression("0b0"), Ok(("", Expression::BinaryNum(0b0))));
-    assert_eq!(expression("0b1"), Ok(("", Expression::BinaryNum(0b1))));
-    assert_eq!(
-        expression("0b01010"),
-        Ok(("", Expression::BinaryNum(0b01010)))
-    );
+    assert_eq!(expression("0b0"), Ok(("", Node::BinaryNum(0b0))));
+    assert_eq!(expression("0b1"), Ok(("", Node::BinaryNum(0b1))));
+    assert_eq!(expression("0b01010"), Ok(("", Node::BinaryNum(0b01010))));
     assert_eq!(
         expression("0b1010111"),
-        Ok(("", Expression::BinaryNum(0b1010111)))
+        Ok(("", Node::BinaryNum(0b1010111)))
     );
 }
 
@@ -692,50 +588,41 @@ fn test_binarynum() {
 fn test_identifier() {
     assert_eq!(
         expression("hello"),
-        Ok(("", Expression::Ident(String::from("hello"))))
+        Ok(("", Node::Ident(String::from("hello"))))
     );
-    assert_eq!(
-        expression("e"),
-        Ok(("", Expression::Ident(String::from("e"))))
-    );
+    assert_eq!(expression("e"), Ok(("", Node::Ident(String::from("e")))));
 }
 
 #[test]
 fn test_list() {
-    assert_eq!(expression(" [ ] "), Ok((" ", Expression::List(vec![]))));
+    assert_eq!(expression(" [ ] "), Ok((" ", Node::List(vec![]))));
     assert_eq!(
         expression("[[]]"),
-        Ok(("", Expression::List(vec![Expression::List(vec![])])))
+        Ok(("", Node::List(vec![Node::List(vec![])])))
     );
-    assert_eq!(expression("[]"), Ok(("", Expression::List(vec![]))));
+    assert_eq!(expression("[]"), Ok(("", Node::List(vec![]))));
     assert_eq!(
         expression("[ 1 ]"),
-        Ok(("", Expression::List(vec![Expression::Double(1.0)])))
+        Ok(("", Node::List(vec![Node::Double(1.0)])))
     );
     assert_eq!(
         expression("[ 1, 2 ]"),
-        Ok((
-            "",
-            Expression::List(vec![Expression::Double(1.0), Expression::Double(2.0)])
-        ))
+        Ok(("", Node::List(vec![Node::Double(1.0), Node::Double(2.0)])))
     );
     assert_eq!(
         expression("[ 1, \"2\" ]"),
         Ok((
             "",
-            Expression::List(vec![
-                Expression::Double(1.0),
-                Expression::Str(String::from("2"))
-            ])
+            Node::List(vec![Node::Double(1.0), Node::Str(String::from("2"))])
         ))
     );
     assert_eq!(
         expression("[ ...a, 1 ]"),
         Ok((
             "",
-            Expression::List(vec![
-                Expression::Splat(Box::new(Expression::Ident(String::from("a")))),
-                Expression::Double(1.0)
+            Node::List(vec![
+                Node::Splat(Box::new(Node::Ident(String::from("a")))),
+                Node::Double(1.0)
             ])
         ))
     );
@@ -743,9 +630,9 @@ fn test_list() {
         expression("[ ...[], 1 ]"),
         Ok((
             "",
-            Expression::List(vec![
-                Expression::Splat(Box::new(Expression::List(vec![]))),
-                Expression::Double(1.0)
+            Node::List(vec![
+                Node::Splat(Box::new(Node::List(vec![]))),
+                Node::Double(1.0)
             ])
         ))
     );
@@ -757,9 +644,9 @@ fn test_object() {
         expression("{\"a\": 1}"),
         Ok((
             "",
-            Expression::Object(vec![Expression::KeyValue((
-                Box::new(Expression::Str(String::from("a"))),
-                Box::new(Expression::Double(1.0))
+            Node::Object(vec![Node::KeyValue((
+                Box::new(Node::Str(String::from("a"))),
+                Box::new(Node::Double(1.0))
             ))])
         ))
     );
@@ -767,14 +654,14 @@ fn test_object() {
         expression("{x: 1, y: 2}"),
         Ok((
             "",
-            Expression::Object(vec![
-                Expression::KeyValue((
-                    Box::new(Expression::Ident(String::from("x"))),
-                    Box::new(Expression::Double(1.0))
+            Node::Object(vec![
+                Node::KeyValue((
+                    Box::new(Node::Ident(String::from("x"))),
+                    Box::new(Node::Double(1.0))
                 )),
-                Expression::KeyValue((
-                    Box::new(Expression::Ident(String::from("y"))),
-                    Box::new(Expression::Double(2.0))
+                Node::KeyValue((
+                    Box::new(Node::Ident(String::from("y"))),
+                    Box::new(Node::Double(2.0))
                 )),
             ])
         ))
@@ -783,14 +670,11 @@ fn test_object() {
         expression("{[1]: 1, [\"a\"]: 2}"),
         Ok((
             "",
-            Expression::Object(vec![
-                Expression::KeyValue((
-                    Box::new(Expression::Double(1.0)),
-                    Box::new(Expression::Double(1.0))
-                )),
-                Expression::KeyValue((
-                    Box::new(Expression::Str(String::from("a"))),
-                    Box::new(Expression::Double(2.0))
+            Node::Object(vec![
+                Node::KeyValue((Box::new(Node::Double(1.0)), Box::new(Node::Double(1.0)))),
+                Node::KeyValue((
+                    Box::new(Node::Str(String::from("a"))),
+                    Box::new(Node::Double(2.0))
                 )),
             ])
         ))
@@ -799,9 +683,9 @@ fn test_object() {
         expression("{a: {}}"),
         Ok((
             "",
-            Expression::Object(vec![Expression::KeyValue((
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Object(vec![]))
+            Node::Object(vec![Node::KeyValue((
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Object(vec![]))
             ))])
         ))
     );
@@ -809,25 +693,23 @@ fn test_object() {
         expression("{ ...a }"),
         Ok((
             "",
-            Expression::Object(vec![Expression::Splat(Box::new(Expression::Ident(
-                String::from("a")
-            )))])
+            Node::Object(vec![Node::Splat(Box::new(Node::Ident(String::from("a"))))])
         ))
     );
     assert_eq!(
         expression("{ ...[] }"),
         Ok((
             "",
-            Expression::Object(vec![Expression::Splat(Box::new(Expression::List(vec![])))])
+            Node::Object(vec![Node::Splat(Box::new(Node::List(vec![])))])
         ))
     );
     assert_eq!(
         expression("{ a, b }"),
         Ok((
             "",
-            Expression::Object(vec![
-                Expression::Ident(String::from("a")),
-                Expression::Ident(String::from("b"))
+            Node::Object(vec![
+                Node::Ident(String::from("a")),
+                Node::Ident(String::from("b"))
             ])
         ))
     );
@@ -837,19 +719,19 @@ fn test_object() {
 fn test_parenthesis() {
     assert_eq!(
         expression("(1)"),
-        Ok(("", Expression::Paren(Box::new(Expression::Double(1.0)))))
+        Ok(("", Node::Paren(Box::new(Node::Double(1.0)))))
     );
     assert_eq!(
         expression("([])"),
-        Ok(("", Expression::Paren(Box::new(Expression::List(vec![])))))
+        Ok(("", Node::Paren(Box::new(Node::List(vec![])))))
     );
     assert_eq!(
         expression(" ( 1 ) "),
-        Ok((" ", Expression::Paren(Box::new(Expression::Double(1.0)))))
+        Ok((" ", Node::Paren(Box::new(Node::Double(1.0)))))
     );
     assert_eq!(
         expression(" ( [ ] ) "),
-        Ok((" ", Expression::Paren(Box::new(Expression::List(vec![])))))
+        Ok((" ", Node::Paren(Box::new(Node::List(vec![])))))
     );
 }
 
@@ -859,15 +741,15 @@ fn test_closure() {
         expression("(a, b) => 1 + 1"),
         Ok((
             "",
-            Expression::Closure((
+            Node::Closure((
                 vec![
-                    Expression::Param((Box::new(Expression::Ident(String::from("a"))), None)),
-                    Expression::Param((Box::new(Expression::Ident(String::from("b"))), None))
+                    Node::Param((Box::new(Node::Ident(String::from("a"))), None)),
+                    Node::Param((Box::new(Node::Ident(String::from("b"))), None))
                 ],
-                Box::new(Expression::Binary(
+                Box::new(Node::Binary(
                     "+",
-                    Box::new(Expression::Double(1.0)),
-                    Box::new(Expression::Double(1.0))
+                    Box::new(Node::Double(1.0)),
+                    Box::new(Node::Double(1.0))
                 ))
             ))
         ))
@@ -876,12 +758,12 @@ fn test_closure() {
         expression("(a) => ({})"),
         Ok((
             "",
-            Expression::Closure((
-                vec![Expression::Param((
-                    Box::new(Expression::Ident(String::from("a"))),
+            Node::Closure((
+                vec![Node::Param((
+                    Box::new(Node::Ident(String::from("a"))),
                     None
                 ))],
-                Box::new(Expression::Paren(Box::new(Expression::Object(vec![]))))
+                Box::new(Node::Paren(Box::new(Node::Object(vec![]))))
             ))
         ))
     );
@@ -893,22 +775,22 @@ fn test_function() {
         expression("function(){}"),
         Ok((
             "",
-            Expression::Function((None, vec![], Box::new(Statement::Block(vec![]))))
+            Node::Function((None, vec![], Box::new(Node::Block(vec![]))))
         ))
     );
     assert_eq!(
         expression("function f(x, y){ return x; }"),
         Ok((
             "",
-            Expression::Function((
-                Some(Box::new(Expression::Ident(String::from("f")))),
+            Node::Function((
+                Some(Box::new(Node::Ident(String::from("f")))),
                 vec![
-                    Expression::Param((Box::new(Expression::Ident(String::from("x"))), None)),
-                    Expression::Param((Box::new(Expression::Ident(String::from("y"))), None))
+                    Node::Param((Box::new(Node::Ident(String::from("x"))), None)),
+                    Node::Param((Box::new(Node::Ident(String::from("y"))), None))
                 ],
-                Box::new(Statement::Block(vec![Statement::Return(Some(
-                    Expression::Ident(String::from("x"))
-                ))]))
+                Box::new(Node::Block(vec![Node::Return(Some(Box::new(
+                    Node::Ident(String::from("x"))
+                )))]))
             ))
         ))
     );
@@ -916,15 +798,15 @@ fn test_function() {
         expression("function f ( x, y) { return x }"),
         Ok((
             "",
-            Expression::Function((
-                Some(Box::new(Expression::Ident(String::from("f")))),
+            Node::Function((
+                Some(Box::new(Node::Ident(String::from("f")))),
                 vec![
-                    Expression::Param((Box::new(Expression::Ident(String::from("x"))), None)),
-                    Expression::Param((Box::new(Expression::Ident(String::from("y"))), None))
+                    Node::Param((Box::new(Node::Ident(String::from("x"))), None)),
+                    Node::Param((Box::new(Node::Ident(String::from("y"))), None))
                 ],
-                Box::new(Statement::Block(vec![Statement::Return(Some(
-                    Expression::Ident(String::from("x"))
-                ))]))
+                Box::new(Node::Block(vec![Node::Return(Some(Box::new(
+                    Node::Ident(String::from("x"))
+                )))]))
             ))
         ))
     );
@@ -936,7 +818,7 @@ fn test_generator() {
         expression("function*() {}"),
         Ok((
             "",
-            Expression::Generator((None, vec![], Box::new(Statement::Block(vec![]))))
+            Node::Generator((None, vec![], Box::new(Node::Block(vec![]))))
         ))
     );
 }
@@ -947,10 +829,10 @@ fn test_mutation() {
         expression(" 1 = 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -958,10 +840,10 @@ fn test_mutation() {
         expression(" 1 += 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "+=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -969,10 +851,10 @@ fn test_mutation() {
         expression(" 1 -= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "-=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -980,10 +862,10 @@ fn test_mutation() {
         expression(" 1 %= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "%=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -991,10 +873,10 @@ fn test_mutation() {
         expression(" 1 *= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "*=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1002,10 +884,10 @@ fn test_mutation() {
         expression(" 1 /= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "/=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1013,10 +895,10 @@ fn test_mutation() {
         expression(" 1 <<= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "<<=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1024,10 +906,10 @@ fn test_mutation() {
         expression(" 1 >>>= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 ">>>=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1035,10 +917,10 @@ fn test_mutation() {
         expression(" 1 >>= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 ">>=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1046,10 +928,10 @@ fn test_mutation() {
         expression(" 1 &= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "&=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1057,10 +939,10 @@ fn test_mutation() {
         expression(" 1 ^= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "^=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1068,10 +950,10 @@ fn test_mutation() {
         expression(" 1 |= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "|=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1079,14 +961,14 @@ fn test_mutation() {
         expression(" 1 = 2 = 3 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "=",
-                Box::new(Expression::Binary(
+                Box::new(Node::Binary(
                     "=",
-                    Box::new(Expression::Double(1.0)),
-                    Box::new(Expression::Double(2.0))
+                    Box::new(Node::Double(1.0)),
+                    Box::new(Node::Double(2.0))
                 )),
-                Box::new(Expression::Double(3.0))
+                Box::new(Node::Double(3.0))
             )
         ))
     );
@@ -1098,10 +980,10 @@ fn test_ternary() {
         expression("1 ? 2 : 3"),
         Ok((
             "",
-            Expression::Ternary(
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0)),
-                Box::new(Expression::Double(3.0))
+            Node::Ternary(
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0)),
+                Box::new(Node::Double(3.0))
             )
         ))
     );
@@ -1113,10 +995,10 @@ fn test_comparison() {
         expression(" 1 == 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "==",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1124,10 +1006,10 @@ fn test_comparison() {
         expression(" 1 != 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "!=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1135,10 +1017,10 @@ fn test_comparison() {
         expression(" 1 > 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 ">",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1146,10 +1028,10 @@ fn test_comparison() {
         expression(" 1 < 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "<",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1157,10 +1039,10 @@ fn test_comparison() {
         expression(" 1 >= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 ">=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1168,10 +1050,10 @@ fn test_comparison() {
         expression(" 1 <= 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "<=",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1179,10 +1061,10 @@ fn test_comparison() {
         expression(" 1 === 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "===",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1190,10 +1072,10 @@ fn test_comparison() {
         expression(" 1 !== 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "!==",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1201,10 +1083,10 @@ fn test_comparison() {
         expression(" 1 instanceof 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "instanceof",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1212,10 +1094,10 @@ fn test_comparison() {
         expression(" 1 in 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "in",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1223,14 +1105,14 @@ fn test_comparison() {
         expression(" 1 == 2 == 3 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "==",
-                Box::new(Expression::Binary(
+                Box::new(Node::Binary(
                     "==",
-                    Box::new(Expression::Double(1.0)),
-                    Box::new(Expression::Double(2.0))
+                    Box::new(Node::Double(1.0)),
+                    Box::new(Node::Double(2.0))
                 )),
-                Box::new(Expression::Double(3.0))
+                Box::new(Node::Double(3.0))
             )
         ))
     );
@@ -1242,10 +1124,10 @@ fn test_logic() {
         expression(" 1 || 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "||",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1253,10 +1135,10 @@ fn test_logic() {
         expression(" 1 && 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "&&",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1264,10 +1146,10 @@ fn test_logic() {
         expression(" 1 ?? 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "??",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1279,10 +1161,10 @@ fn test_bitwise() {
         expression(" 1 | 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "|",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1290,10 +1172,10 @@ fn test_bitwise() {
         expression(" 1 ^ 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "^",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1301,10 +1183,10 @@ fn test_bitwise() {
         expression(" 1 & 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "&",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1313,10 +1195,10 @@ fn test_bitwise() {
         expression(" 1 >> 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 ">>",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1324,10 +1206,10 @@ fn test_bitwise() {
         expression(" 1 >>> 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 ">>>",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1335,10 +1217,10 @@ fn test_bitwise() {
         expression(" 1 << 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "<<",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1350,10 +1232,10 @@ fn test_arithmetic() {
         expression(" 1 + 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "+",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1361,10 +1243,10 @@ fn test_arithmetic() {
         expression(" 1 - 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "-",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1372,10 +1254,10 @@ fn test_arithmetic() {
         expression(" 1 * 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "*",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1383,10 +1265,10 @@ fn test_arithmetic() {
         expression(" 1 / 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "/",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1394,10 +1276,10 @@ fn test_arithmetic() {
         expression(" 1 % 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "%",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1405,10 +1287,10 @@ fn test_arithmetic() {
         expression(" 1 ** 2 "),
         Ok((
             " ",
-            Expression::Binary(
+            Node::Binary(
                 "**",
-                Box::new(Expression::Double(1.0)),
-                Box::new(Expression::Double(2.0))
+                Box::new(Node::Double(1.0)),
+                Box::new(Node::Double(2.0))
             )
         ))
     );
@@ -1418,57 +1300,36 @@ fn test_arithmetic() {
 fn test_prefix() {
     assert_eq!(
         expression(" ++ 2 "),
-        Ok((
-            " ",
-            Expression::Unary("++", Box::new(Expression::Double(2.0)))
-        ))
+        Ok((" ", Node::Unary("++", Box::new(Node::Double(2.0)))))
     );
     assert_eq!(
         expression(" -- 2 "),
-        Ok((
-            " ",
-            Expression::Unary("--", Box::new(Expression::Double(2.0)))
-        ))
+        Ok((" ", Node::Unary("--", Box::new(Node::Double(2.0)))))
     );
     assert_eq!(
         expression(" + 2 "),
-        Ok((
-            " ",
-            Expression::Unary("+", Box::new(Expression::Double(2.0)))
-        ))
+        Ok((" ", Node::Unary("+", Box::new(Node::Double(2.0)))))
     );
     assert_eq!(
         expression(" - 2 "),
-        Ok((
-            " ",
-            Expression::Unary("-", Box::new(Expression::Double(2.0)))
-        ))
+        Ok((" ", Node::Unary("-", Box::new(Node::Double(2.0)))))
     );
     assert_eq!(
         expression(" ! 2 "),
-        Ok((
-            " ",
-            Expression::Unary("!", Box::new(Expression::Double(2.0)))
-        ))
+        Ok((" ", Node::Unary("!", Box::new(Node::Double(2.0)))))
     );
     assert_eq!(
         expression(" !!2 "),
         Ok((
             " ",
-            Expression::Unary(
-                "!",
-                Box::new(Expression::Unary("!", Box::new(Expression::Double(2.0))))
-            )
+            Node::Unary("!", Box::new(Node::Unary("!", Box::new(Node::Double(2.0)))))
         ))
     );
     assert_eq!(
         expression(" ! ! 2 "),
         Ok((
             " ",
-            Expression::Unary(
-                "!",
-                Box::new(Expression::Unary("!", Box::new(Expression::Double(2.0))))
-            )
+            Node::Unary("!", Box::new(Node::Unary("!", Box::new(Node::Double(2.0)))))
         ))
     );
 
@@ -1476,49 +1337,49 @@ fn test_prefix() {
         expression("typeof a"),
         Ok((
             "",
-            Expression::Unary("typeof", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("typeof", Box::new(Node::Ident(String::from("a"))))
         ))
     );
     assert_eq!(
         expression("void a"),
         Ok((
             "",
-            Expression::Unary("void", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("void", Box::new(Node::Ident(String::from("a"))))
         ))
     );
     assert_eq!(
         expression("delete a"),
         Ok((
             "",
-            Expression::Unary("delete", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("delete", Box::new(Node::Ident(String::from("a"))))
         ))
     );
     assert_eq!(
         expression("await a"),
         Ok((
             "",
-            Expression::Unary("await", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("await", Box::new(Node::Ident(String::from("a"))))
         ))
     );
     assert_eq!(
         expression("yield a"),
         Ok((
             "",
-            Expression::Unary("yield", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("yield", Box::new(Node::Ident(String::from("a"))))
         ))
     );
     assert_eq!(
         expression("yield* a"),
         Ok((
             "",
-            Expression::Unary("yield*", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("yield*", Box::new(Node::Ident(String::from("a"))))
         ))
     );
     assert_eq!(
         expression("new a"),
         Ok((
             "",
-            Expression::Unary("new", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("new", Box::new(Node::Ident(String::from("a"))))
         ))
     );
 }
@@ -1529,14 +1390,14 @@ fn test_postfix() {
         expression(" a++"),
         Ok((
             "",
-            Expression::Unary("++", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("++", Box::new(Node::Ident(String::from("a"))))
         ))
     );
     assert_eq!(
         expression(" a--"),
         Ok((
             "",
-            Expression::Unary("--", Box::new(Expression::Ident(String::from("a"))))
+            Node::Unary("--", Box::new(Node::Ident(String::from("a"))))
         ))
     );
 }
@@ -1547,10 +1408,10 @@ fn test_action() {
         expression(" a?.a"),
         Ok((
             "",
-            Expression::Binary(
+            Node::Binary(
                 "?.",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Ident(String::from("a")))
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Ident(String::from("a")))
             )
         ))
     );
@@ -1558,10 +1419,10 @@ fn test_action() {
         expression(" a[a]"),
         Ok((
             "",
-            Expression::Binary(
+            Node::Binary(
                 "[",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Ident(String::from("a")))
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Ident(String::from("a")))
             )
         ))
     );
@@ -1569,10 +1430,10 @@ fn test_action() {
         expression(" a [ a ]"),
         Ok((
             "",
-            Expression::Binary(
+            Node::Binary(
                 "[",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Ident(String::from("a")))
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Ident(String::from("a")))
             )
         ))
     );
@@ -1580,12 +1441,10 @@ fn test_action() {
         expression(" a(a)"),
         Ok((
             "",
-            Expression::Binary(
+            Node::Binary(
                 "(",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Args(vec![
-                    (Expression::Ident(String::from("a")))
-                ]))
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Args(vec![(Node::Ident(String::from("a")))]))
             )
         ))
     );
@@ -1593,12 +1452,10 @@ fn test_action() {
         expression(" a ( a )"),
         Ok((
             "",
-            Expression::Binary(
+            Node::Binary(
                 "(",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Args(vec![
-                    (Expression::Ident(String::from("a")))
-                ]))
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Args(vec![(Node::Ident(String::from("a")))]))
             )
         ))
     );
@@ -1606,10 +1463,10 @@ fn test_action() {
         expression(" a.a"),
         Ok((
             "",
-            Expression::Binary(
+            Node::Binary(
                 ".",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Ident(String::from("a")))
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Ident(String::from("a")))
             )
         ))
     );
@@ -1617,10 +1474,10 @@ fn test_action() {
         expression(" a()"),
         Ok((
             "",
-            Expression::Binary(
+            Node::Binary(
                 "(",
-                Box::new(Expression::Ident(String::from("a"))),
-                Box::new(Expression::Args(vec![]))
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Args(vec![]))
             )
         ))
     );
