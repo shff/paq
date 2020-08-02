@@ -1,4 +1,3 @@
-pub mod lexer;
 pub mod parser;
 pub mod queue;
 pub mod resolve;
@@ -13,7 +12,8 @@ pub fn bundle(entry: &PathBuf) -> Result<String, queue::Error> {
         let source = read_to_string(&path)?;
 
         let mut deps = HashMap::new();
-        for dep in lexer::get_deps(&source) {
+        let ast = parser::block(&source).unwrap().1;
+        for dep in parser::get_deps(ast) {
             deps.insert(dep.clone(), resolve::resolve(dep, &path)?);
         }
         let paths = deps.values().cloned().collect();

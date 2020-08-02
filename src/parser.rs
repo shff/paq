@@ -34,8 +34,8 @@ pub enum Node<'a> {
     Param((Box<Node<'a>>, Option<Box<Node<'a>>>)),
 }
 
-pub fn block<'a>(i: &'a str) -> ParseResult<'a, Vec<Node<'a>>> {
-    many(statement)(i)
+pub fn block(i: &str) -> ParseResult<Node> {
+    ws(map(many(statement), Node::Block))(i)
 }
 
 fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -246,8 +246,7 @@ fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let braces = middle(tag("{"), block, ws(tag("}")));
-    ws(map(braces, Node::Block))(i)
+    ws(middle(tag("{"), block, ws(tag("}"))))(i)
 }
 
 fn params<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
@@ -284,6 +283,57 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
     let value = boxed(expression);
     map(outer(key, ws(tag(":")), value), Node::KeyValue::<'a>)(i)
+}
+
+// Tree walking
+
+pub fn get_deps(root: Node) -> Vec<String> {
+    let deps = std::cell::RefCell::new(Vec::new());
+    walk(root, |child| {
+        if let Node::Binary("(", call, args) = child {
+            if let Node::Ident(func_name) = *call.clone() {
+                if func_name.as_str() == "require" {
+                    if let Node::Args(s) = *args {
+                        if let Some(Node::Str(dep)) = s.first() {
+                            deps.borrow_mut().push(dep.clone());
+                        }
+                    }
+                }
+            }
+        }
+    });
+    deps.replace(vec![])
+}
+
+#[allow(dead_code)]
+fn walk<V>(node: Node, mut visitor: V)
+where
+    V: Copy + FnMut(Node),
+{
+    visitor(node.clone());
+    match node {
+        Node::Block(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
+        Node::Declaration((_, a)) => a.iter().for_each(|n| walk(n.clone(), visitor)),
+        Node::List(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
+        Node::Object(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
+        Node::Return(Some(a)) => walk(*a, visitor),
+        Node::Throw(a) => walk(*a, visitor),
+        Node::Paren(a) => walk(*a, visitor),
+        Node::Function((_, _, a)) => walk(*a, visitor),
+        Node::Generator((_, _, a)) => walk(*a, visitor),
+        Node::Closure((_, a)) => walk(*a, visitor),
+        Node::Unary(_, a) => walk(*a, visitor),
+        Node::Binary(_, a, b) => {
+            walk(*a, visitor);
+            walk(*b, visitor);
+        }
+        Node::Ternary(a, b, c) => {
+            walk(*a, visitor);
+            walk(*b, visitor);
+            walk(*c, visitor);
+        }
+        _ => {}
+    }
 }
 
 // Utilities

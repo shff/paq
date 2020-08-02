@@ -1,4 +1,4 @@
-use paq::parser::{block, expression, Node};
+use paq::parser::{block, expression, get_deps, Node};
 
 #[test]
 fn text_fixtures() {
@@ -23,6 +23,30 @@ fn text_fixtures() {
     assert_parses("itt_prelude.js");
     assert_parses("matrix.js");
     assert_parses("math.js");
+}
+
+#[test]
+fn test_parser_deps() {
+    fn assert_dep(path: &str, substring: &str) {
+        let entry = std::env::current_dir()
+            .unwrap()
+            .join("tests/fixtures/parser_deps")
+            .join(path)
+            .join("index.js");
+        let source = std::fs::read_to_string(&entry).unwrap();
+        let ast = block(&source);
+        let result = get_deps(ast.unwrap().1);
+        assert!(result.contains(&String::from(substring)))
+    }
+    assert_dep("deps-modules", "peter");
+    assert_dep("deps-crazy-indent", "./math.js");
+    assert_dep("deps-double-quotes", "./math");
+    assert_dep("deps-modules-2", "itt");
+    assert_dep("deps-relative", "./math.js");
+    assert_dep("deps-multiple", "math");
+    assert_dep("deps-multiple", "./index.js");
+    assert_dep("deps-multiple", "fs");
+    assert_dep("deps-comments", "fs");
 }
 
 #[test]
@@ -82,103 +106,130 @@ fn test_nesting_bench() {
 fn test_comments() {
     assert_eq!(
         block("  // hello\n asdf"),
-        Ok(("", vec![Node::Ident(String::from("asdf"))]))
+        Ok(("", Node::Block(vec![Node::Ident(String::from("asdf"))])))
     );
 }
 
 #[test]
 fn test_statement() {
-    assert_eq!(block("continue}"), Ok(("}", vec![Node::Continue])));
+    assert_eq!(
+        block("continue}"),
+        Ok(("}", Node::Block(vec![Node::Continue])))
+    );
     assert_eq!(
         block("{continue}"),
-        Ok(("", vec![Node::Block(vec![Node::Continue])]))
+        Ok(("", Node::Block(vec![Node::Block(vec![Node::Continue])])))
     );
     assert_eq!(
         block("continue;continue;"),
-        Ok(("", vec![Node::Continue, Node::Continue]))
+        Ok(("", Node::Block(vec![Node::Continue, Node::Continue])))
     );
     assert_eq!(
         block(" continue ; continue ; "),
-        Ok((" ", vec![Node::Continue, Node::Continue]))
+        Ok((" ", Node::Block(vec![Node::Continue, Node::Continue])))
     );
-    assert_eq!(block("continue"), Ok(("", vec![Node::Continue])));
+    assert_eq!(
+        block("continue"),
+        Ok(("", Node::Block(vec![Node::Continue])))
+    );
     assert_eq!(
         block("continue\n1"),
-        Ok(("", vec![Node::Continue, Node::Double(1.0)]))
+        Ok(("", Node::Block(vec![Node::Continue, Node::Double(1.0)])))
     );
     assert_eq!(
         block("continue; 1"),
-        Ok(("", vec![Node::Continue, Node::Double(1.0)]))
+        Ok(("", Node::Block(vec![Node::Continue, Node::Double(1.0)])))
     );
-    assert_eq!(block("break;"), Ok(("", vec![Node::Break])));
+    assert_eq!(block("break;"), Ok(("", Node::Block(vec![Node::Break]))));
     assert_eq!(
         block(" break ; break ; "),
-        Ok((" ", vec![Node::Break, Node::Break]))
+        Ok((" ", Node::Block(vec![Node::Break, Node::Break])))
     );
-    assert_eq!(block("break\n"), Ok(("", vec![Node::Break])));
+    assert_eq!(block("break\n"), Ok(("", Node::Block(vec![Node::Break]))));
     assert_eq!(
         block("return 1;"),
-        Ok(("", vec![Node::Return(Some(Box::new(Node::Double(1.0))))]))
+        Ok((
+            "",
+            Node::Block(vec![Node::Return(Some(Box::new(Node::Double(1.0))))])
+        ))
     );
     assert_eq!(
         block("throw 1;"),
-        Ok(("", vec![Node::Throw(Box::new(Node::Double(1.0)))]))
+        Ok((
+            "",
+            Node::Block(vec![Node::Throw(Box::new(Node::Double(1.0)))])
+        ))
     );
     assert_eq!(
         block("return 1\n"),
-        Ok(("", vec![Node::Return(Some(Box::new(Node::Double(1.0))))]))
+        Ok((
+            "",
+            Node::Block(vec![Node::Return(Some(Box::new(Node::Double(1.0))))])
+        ))
     );
     assert_eq!(
         block("return\n1\n"),
-        Ok(("", vec![Node::Return(Some(Box::new(Node::Double(1.0))))]))
+        Ok((
+            "",
+            Node::Block(vec![Node::Return(Some(Box::new(Node::Double(1.0))))])
+        ))
     );
     assert_eq!(
         block("return; 1\n"),
-        Ok(("", vec![Node::Return(None), Node::Double(1.0)]))
+        Ok(("", Node::Block(vec![Node::Return(None), Node::Double(1.0)])))
     );
     assert_eq!(
         block(" return 1 ; return 1 ; "),
         Ok((
             " ",
-            vec![
+            Node::Block(vec![
                 Node::Return(Some(Box::new(Node::Double(1.0)))),
                 Node::Return(Some(Box::new(Node::Double(1.0))))
-            ]
+            ])
         ))
     );
-    assert_eq!(block("return;"), Ok(("", vec![Node::Return(None)])));
-    assert_eq!(block("return"), Ok(("", vec![Node::Return(None)])));
-    assert_eq!(block("return\n"), Ok(("", vec![Node::Return(None)])));
+    assert_eq!(
+        block("return;"),
+        Ok(("", Node::Block(vec![Node::Return(None)])))
+    );
+    assert_eq!(
+        block("return"),
+        Ok(("", Node::Block(vec![Node::Return(None)])))
+    );
+    assert_eq!(
+        block("return\n"),
+        Ok(("", Node::Block(vec![Node::Return(None)])))
+    );
     assert_eq!(
         block("a = 2;"),
         Ok((
             "",
-            vec![Node::Binary(
+            Node::Block(vec![Node::Binary(
                 "=",
                 Box::new(Node::Ident(String::from("a"))),
                 Box::new(Node::Double(2.0))
-            )]
+            )])
         ))
     );
     assert_eq!(
         block("var a = 2;"),
         Ok((
             "",
-            vec![Node::Declaration((
+            Node::Block(vec![Node::Declaration((
                 "var",
                 vec![Node::Binary(
                     "=",
                     Box::new(Node::Ident(String::from("a"))),
                     Box::new(Node::Double(2.0))
                 )]
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("let a = 2, b = 3"),
         Ok((
             "",
-            vec![Node::Declaration((
+            Node::Block(vec![Node::Declaration((
                 "let",
                 vec![
                     Node::Binary(
@@ -192,14 +243,14 @@ fn test_statement() {
                         Box::new(Node::Double(3.0))
                     ),
                 ]
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("let a=2,b=3"),
         Ok((
             "",
-            vec![Node::Declaration((
+            Node::Block(vec![Node::Declaration((
                 "let",
                 vec![
                     Node::Binary(
@@ -213,61 +264,61 @@ fn test_statement() {
                         Box::new(Node::Double(3.0))
                     ),
                 ]
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("const x = [];"),
         Ok((
             "",
-            vec![Node::Declaration((
+            Node::Block(vec![Node::Declaration((
                 "const",
                 vec![Node::Binary(
                     "=",
                     Box::new(Node::Ident(String::from("x"))),
                     Box::new(Node::List(vec![]))
                 )]
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("a = 2"),
         Ok((
             "",
-            vec![Node::Binary(
+            Node::Block(vec![Node::Binary(
                 "=",
                 Box::new(Node::Ident(String::from("a"))),
                 Box::new(Node::Double(2.0))
-            )]
+            )])
         ))
     );
     assert_eq!(
         block("a = G"),
         Ok((
             "",
-            vec![Node::Binary(
+            Node::Block(vec![Node::Binary(
                 "=",
                 Box::new(Node::Ident(String::from("a"))),
                 Box::new(Node::Ident(String::from("G")))
-            )]
+            )])
         ))
     );
     assert_eq!(
         block("abc = G"),
         Ok((
             "",
-            vec![Node::Binary(
+            Node::Block(vec![Node::Binary(
                 "=",
                 Box::new(Node::Ident(String::from("abc"))),
                 Box::new(Node::Ident(String::from("G")))
-            )]
+            )])
         ))
     );
     assert_eq!(
         block("const empty = G()"),
         Ok((
             "",
-            vec![Node::Declaration((
+            Node::Block(vec![Node::Declaration((
                 "const",
                 vec![Node::Binary(
                     "=",
@@ -278,110 +329,113 @@ fn test_statement() {
                         Box::new(Node::Args(vec![]))
                     ))
                 )]
-            ))]
+            ))])
         ))
     );
-    assert_eq!(block("z"), Ok(("", vec![Node::Ident(String::from("z"))])));
+    assert_eq!(
+        block("z"),
+        Ok(("", Node::Block(vec![Node::Ident(String::from("z"))])))
+    );
     assert_eq!(
         block("if(true){return;}"),
         Ok((
             "",
-            vec![Node::If((
+            Node::Block(vec![Node::If((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Block(vec![Node::Return(None)])),
                 None
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("if(true)return;"),
         Ok((
             "",
-            vec![Node::If((
+            Node::Block(vec![Node::If((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Return(None)),
                 None
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("if(true)return;else break;"),
         Ok((
             "",
-            vec![Node::If((
+            Node::Block(vec![Node::If((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Return(None)),
                 Some(Box::new(Node::Break))
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("if ( true )\n {\n return; \n}\n else \n { break; }"),
         Ok((
             "",
-            vec![Node::If((
+            Node::Block(vec![Node::If((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Block(vec![Node::Return(None)])),
                 Some(Box::new(Node::Block(vec![Node::Break])))
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("while(true){return;}"),
         Ok((
             "",
-            vec![Node::While((
+            Node::Block(vec![Node::While((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Block(vec![Node::Return(None)]))
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block(" while ( true ) return ; "),
         Ok((
             " ",
-            vec![Node::While((
+            Node::Block(vec![Node::While((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Return(None))
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("for(0;0;0){return;}"),
         Ok((
             "",
-            vec![Node::For((
+            Node::Block(vec![Node::For((
                 vec![
                     Some(Box::new(Node::Double(0.0))),
                     Some(Box::new(Node::Double(0.0))),
                     Some(Box::new(Node::Double(0.0))),
                 ],
                 Box::new(Node::Block(vec![Node::Return(None)]))
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("for ( 0 ; 0 ; 0 ) return ; "),
         Ok((
             " ",
-            vec![Node::For((
+            Node::Block(vec![Node::For((
                 vec![
                     Some(Box::new(Node::Double(0.0))),
                     Some(Box::new(Node::Double(0.0))),
                     Some(Box::new(Node::Double(0.0)))
                 ],
                 Box::new(Node::Return(None))
-            ))]
+            ))])
         ))
     );
     assert_eq!(
         block("for ( ; ; ) return ; "),
         Ok((
             " ",
-            vec![Node::For((
+            Node::Block(vec![Node::For((
                 vec![None, None, None],
                 Box::new(Node::Return(None))
-            ))]
+            ))])
         ))
     );
 }
