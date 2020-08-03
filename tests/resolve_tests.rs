@@ -76,6 +76,11 @@ fn test_resolve() {
     assert_resolves("😅", "unicode-pkg", "node_modules/😅/index.js");
     assert_resolves("package", "unicode-pkg-entry", "node_modules/package/🤔.js");
     assert_resolves("🤔", "unicode-both", "node_modules/🤔/😅");
+
+    let absolute = std::env::current_dir()
+        .unwrap()
+        .join("tests/fixtures/resolve/absolute/counter.js");
+    assert_resolves(absolute.to_str().unwrap(), "absolute", "counter.js");
 }
 
 #[test]
@@ -91,5 +96,9 @@ fn test_normalize() {
     assert_eq!(
         normalize(&Path::new("/../..").join(Path::new("/../.."))),
         PathBuf::from("/")
+    );
+    assert_eq!(
+        normalize(&Path::new("/Users/shf/./Projects")),
+        PathBuf::from("/Users/shf/Projects")
     );
 }
