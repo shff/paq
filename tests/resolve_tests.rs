@@ -13,6 +13,11 @@ fn test_resolve() {
         );
     }
 
+    let absolute = std::env::current_dir()
+        .unwrap()
+        .join("tests/fixtures/resolve/absolute/counter.js");
+    assert_resolves("./counter", "absolute", absolute.to_str().unwrap());
+
     assert_resolves("", "no-entry", "index.js");
     assert_resolves("./counter", "relative-file", "counter");
     assert_resolves("./counter", "relative-file-js", "counter.js");
@@ -91,5 +96,9 @@ fn test_normalize() {
     assert_eq!(
         normalize(&Path::new("/../..").join(Path::new("/../.."))),
         PathBuf::from("/")
+    );
+    assert_eq!(
+        normalize(&Path::new("/Users/shf/Projects").join(Path::new("."))),
+        PathBuf::from("/Users/shf/Projects")
     );
 }
