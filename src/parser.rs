@@ -176,7 +176,6 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let array = pair(tag("["), left(expression, ws(tag("]"))));
     let elvis = pair(tag("?."), ident);
     let dot = pair(tag("."), ident);
-    let args = map(args, Node::Args::<'a>);
     let call = pair(tag("("), left(args, ws(tag(")"))));
     let action = pair(primitive, many(ws(choice((array, elvis, dot, call)))));
     map(action, makechain2)(i)
@@ -224,7 +223,8 @@ fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let list = middle(tag("["), args, ws(tag("]")));
+    let items = chain(tag(","), choice((splat, expression)));
+    let list = middle(tag("["), items, ws(tag("]")));
     ws(map(list, Node::List::<'a>))(i)
 }
 
@@ -257,8 +257,9 @@ fn params<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
     ws(middle(tag("("), inner, ws(tag(")"))))(i)
 }
 
-fn args<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
-    ws(chain(tag(","), choice((splat, expression))))(i)
+fn args<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let args = chain(tag(","), choice((splat, expression)));
+    ws(map(args, Node::Args::<'a>))(i)
 }
 
 fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
