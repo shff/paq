@@ -305,7 +305,6 @@ pub fn get_deps(root: Node) -> Vec<String> {
     deps.replace(vec![])
 }
 
-#[allow(dead_code)]
 fn walk<V>(node: Node, mut visitor: V)
 where
     V: Copy + FnMut(Node),
@@ -313,15 +312,33 @@ where
     visitor(node.clone());
     match node {
         Node::Block(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
+        Node::If((a, b, c)) => {
+            walk(*a, visitor);
+            walk(*b, visitor);
+            if let Some(c) = c {
+                walk(*c, visitor);
+            }
+        }
+        Node::While((_, a)) => walk(*a, visitor),
+        Node::For((_, a)) => walk(*a, visitor),
         Node::Declaration((_, a)) => a.iter().for_each(|n| walk(n.clone(), visitor)),
+        Node::Return(Some(a)) => walk(*a, visitor),
+        Node::Return(None) => {}
+        Node::Throw(a) => walk(*a, visitor),
+        Node::Continue => {}
+        Node::Break => {}
+        Node::Str(_) => {}
+        Node::Ident(_) => {}
+        Node::Double(_) => {}
+        Node::Octal(_) => {}
+        Node::Hexadecimal(_) => {}
+        Node::BinaryNum(_) => {}
         Node::List(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
         Node::Object(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
-        Node::Return(Some(a)) => walk(*a, visitor),
-        Node::Throw(a) => walk(*a, visitor),
         Node::Paren(a) => walk(*a, visitor),
+        Node::Closure((_, a)) => walk(*a, visitor),
         Node::Function((_, _, a)) => walk(*a, visitor),
         Node::Generator((_, _, a)) => walk(*a, visitor),
-        Node::Closure((_, a)) => walk(*a, visitor),
         Node::Unary(_, a) => walk(*a, visitor),
         Node::Binary(_, a, b) => {
             walk(*a, visitor);
@@ -332,7 +349,10 @@ where
             walk(*b, visitor);
             walk(*c, visitor);
         }
-        _ => {}
+        Node::Args(_) => {}
+        Node::Splat(_) => {}
+        Node::KeyValue((_, a)) => walk(*a, visitor),
+        Node::Param(_) => {}
     }
 }
 
