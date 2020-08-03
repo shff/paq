@@ -31,22 +31,25 @@ fn test_parser_deps() {
         let entry = std::env::current_dir()
             .unwrap()
             .join("tests/fixtures/parser_deps")
-            .join(path)
-            .join("index.js");
+            .join(path);
         let source = std::fs::read_to_string(&entry).unwrap();
         let ast = block(&source);
         let result = get_deps(ast.unwrap().1);
         assert!(result.contains(&String::from(substring)))
     }
-    assert_dep("deps-modules", "peter");
-    assert_dep("deps-crazy-indent", "./math.js");
-    assert_dep("deps-double-quotes", "./math");
-    assert_dep("deps-modules-2", "itt");
-    assert_dep("deps-relative", "./math.js");
-    assert_dep("deps-multiple", "math");
-    assert_dep("deps-multiple", "./index.js");
-    assert_dep("deps-multiple", "fs");
-    assert_dep("deps-comments", "fs");
+    assert_dep("deps-modules.js", "peter");
+    assert_dep("deps-crazy-indent.js", "./math.js");
+    assert_dep("deps-double-quotes.js", "./math");
+    assert_dep("deps-modules-2.js", "itt");
+    assert_dep("deps-relative.js", "./math.js");
+    assert_dep("deps-multiple.js", "math");
+    assert_dep("deps-multiple.js", "./index.js");
+    assert_dep("deps-multiple.js", "fs");
+    assert_dep("deps-comments.js", "fs");
+    assert_dep("deps-if.js", "lodash");
+    assert_dep("deps-else.js", "lodash");
+    assert_dep("deps-for.js", "lodash");
+    assert_dep("deps-while.js", "lodash");
 }
 
 #[test]
