@@ -351,7 +351,7 @@ where
         }
         Node::Args(_) => {}
         Node::Splat(_) => {}
-        Node::KeyValue(_) => {}
+        Node::KeyValue((_, a)) => walk(*a, visitor),
         Node::Param(_) => {}
     }
 }

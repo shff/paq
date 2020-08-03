@@ -50,6 +50,10 @@ fn test_parser_deps() {
     assert_dep("deps-else.js", "lodash");
     assert_dep("deps-for.js", "lodash");
     assert_dep("deps-while.js", "lodash");
+    assert_dep("deps-walker-all.js", "lodash");
+    assert_dep("deps-walker-all.js", "underscore");
+    assert_dep("deps-walker-all.js", "debounce");
+    assert_dep("deps-walker-all.js", "assert");
 }
 
 #[test]
