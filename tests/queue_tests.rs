@@ -4,8 +4,8 @@ use paq::queue::run;
 fn test_queue() {
     let result = run(1, |num| match num {
         1 => Ok(("one", vec![2])),
-        2 => Ok(("two", vec![])),
-        _ => Err(Box::new(std::fmt::Error)),
+        2 => Ok(("two", vec![3])),
+        _ => Ok(("three", vec![])),
     })
     .unwrap();
     assert_eq!(result.get(&1), Some(&"one"));
@@ -27,8 +27,8 @@ fn test_queue() {
 
     let result = run(1, |num| match num {
         1 => Ok(("one", vec![2])),
-        2 => Ok(("two", vec![])),
-        _ => Ok(("", vec![])),
+        2 => Ok(("two", vec![3])),
+        _ => Ok(("three", vec![])),
     });
     assert_eq!(result.unwrap().get(&1), Some(&"one"));
 

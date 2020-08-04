@@ -3,9 +3,8 @@ use paq::parser::{block, expression, get_deps, Node};
 #[test]
 fn text_fixtures() {
     fn assert_parses(path: &str) {
-        let fixtures = std::env::current_dir()
-            .unwrap()
-            .join("tests/fixtures/parser");
+        let cur_dir = std::env::current_dir().unwrap();
+        let fixtures = cur_dir.join("tests/fixtures/parser");
         let fullpath = &fixtures.join(path);
         let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
         let start = std::time::Instant::now();
@@ -28,10 +27,8 @@ fn text_fixtures() {
 #[test]
 fn test_parser_deps() {
     fn assert_dep(path: &str, substring: &str) {
-        let entry = std::env::current_dir()
-            .unwrap()
-            .join("tests/fixtures/parser_deps")
-            .join(path);
+        let cur_dir = std::env::current_dir().unwrap();
+        let entry = cur_dir.join("tests/fixtures/parser_deps").join(path);
         let source = std::fs::read_to_string(&entry).unwrap();
         let ast = block(&source);
         let result = get_deps(ast.unwrap().1);

@@ -3,16 +3,14 @@ use paq::bundle;
 #[test]
 fn test_bundler() {
     fn assert_bundle(path: &str, substring: &str) {
-        let fixtures = std::env::current_dir()
-            .unwrap()
-            .join("tests/fixtures/bundler");
+        let cur_dir = std::env::current_dir().unwrap();
+        let fixtures = cur_dir.join("tests/fixtures/bundler");
         let result = bundle(&fixtures.join(path).join("index.js")).expect("Error");
         assert!(result.contains(substring))
     }
     fn assert_node(path: &str, value: &str) {
-        let fixtures = std::env::current_dir()
-            .unwrap()
-            .join("tests/fixtures/bundler");
+        let cur_dir = std::env::current_dir().unwrap();
+        let fixtures = cur_dir.join("tests/fixtures/bundler");
         let result = bundle(&fixtures.join(path).join("index.js")).expect("Error");
         let output = std::process::Command::new("node")
             .arg("-e")
