@@ -4,9 +4,8 @@ use std::path::{Path, PathBuf};
 #[test]
 fn test_resolve() {
     fn assert_resolves(name: &str, path: &str, expected: &str) {
-        let fixtures = std::env::current_dir()
-            .unwrap()
-            .join("tests/fixtures/resolve");
+        let cur_dir = std::env::current_dir().unwrap();
+        let fixtures = cur_dir.join("tests/fixtures/resolve");
         assert_eq!(
             resolve(name.to_string(), &fixtures.join(path).join("index.js")).unwrap(),
             normalize(&fixtures.join(path).join(expected.to_string())),
