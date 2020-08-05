@@ -369,7 +369,7 @@ pub enum ParserError {
     Reserved(String),
     Choice,
     Eof,
-    Tag,
+    Tag(String),
     TakeWhile,
     MapRes,
 }
@@ -401,7 +401,7 @@ pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
         if i.starts_with(tag) {
             Ok((&i[tag.len()..], &i[..tag.len()]))
         } else {
-            Err((i, ParserError::Tag))
+            Err((i, ParserError::Tag(tag.to_string())))
         }
     }
 }
@@ -411,7 +411,7 @@ pub fn chr(c: char) -> impl Fn(&str) -> ParseResult<&str> {
         if i.starts_with(c) {
             Ok((&i[1..], &i[..1]))
         } else {
-            Err((i, ParserError::Tag))
+            Err((i, ParserError::Tag(c.to_string())))
         }
     }
 }
