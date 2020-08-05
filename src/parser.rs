@@ -21,9 +21,9 @@ pub enum Node<'a> {
     List(Vec<Node<'a>>),
     Object(Vec<Node<'a>>),
     Paren(Box<Node<'a>>),
-    Closure((Vec<Node<'a>>, Box<Node<'a>>)),
-    Function((Option<Box<Node<'a>>>, Vec<Node<'a>>, Box<Node<'a>>)),
-    Generator((Option<Box<Node<'a>>>, Vec<Node<'a>>, Box<Node<'a>>)),
+    Closure((Box<Node<'a>>, Box<Node<'a>>)),
+    Function((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
+    Generator((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
     Unary(&'a str, Box<Node<'a>>),
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
     Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
@@ -31,6 +31,7 @@ pub enum Node<'a> {
     Args(Vec<Node<'a>>),
     Splat(Box<Node<'a>>),
     KeyValue((Box<Node<'a>>, Box<Node<'a>>)),
+    Params(Vec<Node<'a>>),
     Param((Box<Node<'a>>, Option<Box<Node<'a>>>)),
 }
 
@@ -229,18 +230,18 @@ fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn closure<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let closure = outer(params, ws(tag("=>")), boxed(expression));
+    let closure = outer(boxed(params), ws(tag("=>")), boxed(expression));
     ws(map(closure, Node::Closure::<'a>))(i)
 }
 
 fn function<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = trio(ws(opt(boxed(ident))), params, boxed(braces));
+    let inner = trio(ws(opt(boxed(ident))), boxed(params), boxed(braces));
     let func = ws(right(tag("function"), inner));
     map(func, Node::Function::<'a>)(i)
 }
 
 fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = trio(ws(opt(boxed(ident))), params, boxed(braces));
+    let inner = trio(ws(opt(boxed(ident))), boxed(params), boxed(braces));
     let func = ws(right(tag("function*"), inner));
     map(func, Node::Generator::<'a>)(i)
 }
@@ -249,12 +250,13 @@ fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(middle(tag("{"), block, ws(tag("}"))))(i)
 }
 
-fn params<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
+fn params<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let value = opt(right(ws(tag("=")), boxed(ws(expression))));
     let param = pair(boxed(ident), value);
     let exp = map(param, Node::Param::<'a>);
     let inner = chain(ws(tag(",")), choice((splat, exp)));
-    ws(middle(tag("("), inner, ws(tag(")"))))(i)
+    let params = middle(tag("("), inner, ws(tag(")")));
+    ws(map(params, Node::Params))(i)
 }
 
 fn args<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -354,6 +356,7 @@ where
         Node::Splat(_) => {}
         Node::KeyValue((_, a)) => walk(*a, visitor),
         Node::Param(_) => {}
+        Node::Params(_) => {}
     }
 }
 
