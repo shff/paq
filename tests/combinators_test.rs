@@ -133,11 +133,14 @@ fn test_capture() {
 }
 
 #[test]
-fn test_check() {
-    let parser = check(take_until("-"), |a| a.len() == 3);
+fn test_reserved() {
+    let parser = reserved(take_until("-"), &["if", "while"]);
 
-    assert_eq!(parser("yes-"), Ok(("-", "yes")));
-    assert_eq!(parser("no-"), Err(("no-", ParserError::Check)));
+    assert_eq!(parser("sum-"), Ok(("-", "sum")));
+    assert_eq!(
+        parser("if-"),
+        Err(("if-", ParserError::Reserved(String::from("if"))))
+    );
 }
 
 #[test]
