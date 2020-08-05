@@ -208,7 +208,7 @@ fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let words = take_while(|c| c.is_alphanumeric());
-    let ident = check(words, |s| !RESERVED.contains(s));
+    let ident = reserved(words, RESERVED);
     ws(map(map(ident, String::from), Node::Ident::<'a>))(i)
 }
 
@@ -366,10 +366,10 @@ pub type ParseResult<'a, T> = Result<(&'a str, T), (&'a str, ParserError)>;
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
-    Check,
+    Reserved(String),
     Choice,
     Eof,
-    Tag,
+    Tag(String),
     TakeWhile,
     MapRes,
 }
@@ -401,7 +401,7 @@ pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
         if i.starts_with(tag) {
             Ok((&i[tag.len()..], &i[..tag.len()]))
         } else {
-            Err((i, ParserError::Tag))
+            Err((i, ParserError::Tag(tag.to_string())))
         }
     }
 }
@@ -411,7 +411,7 @@ pub fn chr(c: char) -> impl Fn(&str) -> ParseResult<&str> {
         if i.starts_with(c) {
             Ok((&i[1..], &i[..1]))
         } else {
-            Err((i, ParserError::Tag))
+            Err((i, ParserError::Tag(c.to_string())))
         }
     }
 }
@@ -545,14 +545,14 @@ where
     move |i| p(i).map(|(i2, _)| (i2, &i[..(i2.as_ptr() as usize - i.as_ptr() as usize)]))
 }
 
-pub fn check<'a, P, R, F>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<R>
+pub fn reserved<'a, P>(p: P, words: &'a [&'a str]) -> impl Fn(&'a str) -> ParseResult<&'a str>
 where
-    P: Fn(&'a str) -> ParseResult<R>,
-    F: Fn(&R) -> bool,
+    P: Fn(&'a str) -> ParseResult<&'a str>,
 {
     move |i| match p(i) {
-        Ok((i, r)) if f(&r) => Ok((i, r)),
-        _ => Err((i, ParserError::Check)),
+        Ok((i, r)) if !words.contains(&r) => Ok((i, r)),
+        Ok((_, r)) => Err((i, ParserError::Reserved(r.to_string()))),
+        Err((i, r)) => Err((i, r)),
     }
 }
 
