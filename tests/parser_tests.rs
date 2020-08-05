@@ -800,10 +800,10 @@ fn test_closure() {
         Ok((
             "",
             Node::Closure((
-                vec![
+                Box::new(Node::Params(vec![
                     Node::Param((Box::new(Node::Ident(String::from("a"))), None)),
                     Node::Param((Box::new(Node::Ident(String::from("b"))), None))
-                ],
+                ])),
                 Box::new(Node::Binary(
                     "+",
                     Box::new(Node::Double(1.0)),
@@ -817,10 +817,10 @@ fn test_closure() {
         Ok((
             "",
             Node::Closure((
-                vec![Node::Param((
+                Box::new(Node::Params(vec![Node::Param((
                     Box::new(Node::Ident(String::from("a"))),
                     None
-                ))],
+                ))])),
                 Box::new(Node::Paren(Box::new(Node::Object(vec![]))))
             ))
         ))
@@ -833,7 +833,11 @@ fn test_function() {
         expression("function(){}"),
         Ok((
             "",
-            Node::Function((None, vec![], Box::new(Node::Block(vec![]))))
+            Node::Function((
+                None,
+                Box::new(Node::Params(vec![])),
+                Box::new(Node::Block(vec![]))
+            ))
         ))
     );
     assert_eq!(
@@ -842,10 +846,10 @@ fn test_function() {
             "",
             Node::Function((
                 Some(Box::new(Node::Ident(String::from("f")))),
-                vec![
+                Box::new(Node::Params(vec![
                     Node::Param((Box::new(Node::Ident(String::from("x"))), None)),
                     Node::Param((Box::new(Node::Ident(String::from("y"))), None))
-                ],
+                ])),
                 Box::new(Node::Block(vec![Node::Return(Some(Box::new(
                     Node::Ident(String::from("x"))
                 )))]))
@@ -858,10 +862,10 @@ fn test_function() {
             "",
             Node::Function((
                 Some(Box::new(Node::Ident(String::from("f")))),
-                vec![
+                Box::new(Node::Params(vec![
                     Node::Param((Box::new(Node::Ident(String::from("x"))), None)),
                     Node::Param((Box::new(Node::Ident(String::from("y"))), None))
-                ],
+                ])),
                 Box::new(Node::Block(vec![Node::Return(Some(Box::new(
                     Node::Ident(String::from("x"))
                 )))]))
@@ -876,7 +880,11 @@ fn test_generator() {
         expression("function*() {}"),
         Ok((
             "",
-            Node::Generator((None, vec![], Box::new(Node::Block(vec![]))))
+            Node::Generator((
+                None,
+                Box::new(Node::Params(vec![])),
+                Box::new(Node::Block(vec![]))
+            ))
         ))
     );
 }
