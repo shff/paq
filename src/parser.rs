@@ -52,11 +52,7 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let brk = map(tag("break"), |_| Node::Break);
     let ret = map(right(tag("return"), opt(boxed(expression))), Node::Return);
     let thrw = map(right(tag("throw"), boxed(expression)), Node::Throw);
-    left(choice((cont, brk, ret, thrw, assignment)), end)(i)
-}
-
-fn assignment<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    choice((declaration, expression))(i)
+    left(choice((cont, brk, ret, thrw, declaration, expression)), end)(i)
 }
 
 fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -77,7 +73,7 @@ fn while_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn for_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let assign = opt(boxed(assignment));
+    let assign = opt(boxed(choice((declaration, expression))));
     let expr1 = right(ws(tag(";")), opt(boxed(expression)));
     let expr2 = right(ws(tag(";")), opt(boxed(expression)));
     let trio = map(trio(assign, expr1, expr2), |(a, b, c)| vec![a, b, c]);
