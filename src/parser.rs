@@ -48,13 +48,10 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let brace = value(ws(peek(tag("}"))), "");
     let end = choice((ws(eoi), ws(tag(";")), eol, brace));
 
-    let cont = map(tag("continue"), |_| Node::Continue::<'a>);
-    let brk = map(tag("break"), |_| Node::Break::<'a>);
-    let ret = map(
-        right(tag("return"), opt(boxed(expression))),
-        Node::Return::<'a>,
-    );
-    let thrw = map(right(tag("throw"), boxed(expression)), Node::Throw::<'a>);
+    let cont = map(tag("continue"), |_| Node::Continue);
+    let brk = map(tag("break"), |_| Node::Break);
+    let ret = map(right(tag("return"), opt(boxed(expression))), Node::Return);
+    let thrw = map(right(tag("throw"), boxed(expression)), Node::Throw);
     left(choice((cont, brk, ret, thrw, assignment)), end)(i)
 }
 
@@ -65,7 +62,7 @@ fn assignment<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &["var", "let", "const"];
     let declaration = ws(pair(one_of(ops), chain(ws(tag(",")), mutation)));
-    map(declaration, Node::Declaration::<'a>)(i)
+    map(declaration, Node::Declaration)(i)
 }
 
 fn condition<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -183,12 +180,12 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let single_quote = map(string('"'), Node::Str::<'a>);
-    let double_quote = map(string('\''), Node::Str::<'a>);
-    let octal = map(right(tag("0o"), number(8)), Node::Octal::<'a>);
-    let hexa = map(right(tag("0x"), number(16)), Node::Hexadecimal::<'a>);
-    let binary = map(right(tag("0b"), number(2)), Node::BinaryNum::<'a>);
-    let double = map(double, Node::Double::<'a>);
+    let single_quote = map(string('"'), Node::Str);
+    let double_quote = map(string('\''), Node::Str);
+    let octal = map(right(tag("0o"), number(8)), Node::Octal);
+    let hexa = map(right(tag("0x"), number(16)), Node::Hexadecimal);
+    let binary = map(right(tag("0b"), number(2)), Node::BinaryNum);
+    let double = map(double, Node::Double);
     ws(choice((
         single_quote,
         double_quote,
@@ -209,41 +206,41 @@ fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let words = take_while(|c| c.is_alphanumeric());
     let ident = reserved(words, RESERVED);
-    ws(map(map(ident, String::from), Node::Ident::<'a>))(i)
+    ws(map(map(ident, String::from), Node::Ident))(i)
 }
 
 fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let item = choice((key_value, ident, splat));
     let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
-    ws(map(object, Node::Object::<'a>))(i)
+    ws(map(object, Node::Object))(i)
 }
 
 fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let paren = middle(tag("("), boxed(expression), ws(tag(")")));
-    ws(map(paren, Node::Paren::<'a>))(i)
+    ws(map(paren, Node::Paren))(i)
 }
 
 fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let items = chain(tag(","), choice((splat, expression)));
     let list = middle(tag("["), items, ws(tag("]")));
-    ws(map(list, Node::List::<'a>))(i)
+    ws(map(list, Node::List))(i)
 }
 
 fn closure<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let closure = outer(boxed(params), ws(tag("=>")), boxed(expression));
-    ws(map(closure, Node::Closure::<'a>))(i)
+    ws(map(closure, Node::Closure))(i)
 }
 
 fn function<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = trio(ws(opt(boxed(ident))), boxed(params), boxed(braces));
     let func = ws(right(tag("function"), inner));
-    map(func, Node::Function::<'a>)(i)
+    map(func, Node::Function)(i)
 }
 
 fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = trio(ws(opt(boxed(ident))), boxed(params), boxed(braces));
     let func = ws(right(tag("function*"), inner));
-    map(func, Node::Generator::<'a>)(i)
+    map(func, Node::Generator)(i)
 }
 
 fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -253,7 +250,7 @@ fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn params<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let value = opt(right(ws(tag("=")), boxed(ws(expression))));
     let param = pair(boxed(ident), value);
-    let exp = map(param, Node::Param::<'a>);
+    let exp = map(param, Node::Param);
     let inner = chain(ws(tag(",")), choice((splat, exp)));
     let params = middle(tag("("), inner, ws(tag(")")));
     ws(map(params, Node::Params))(i)
@@ -261,12 +258,12 @@ fn params<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn args<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let args = chain(tag(","), choice((splat, expression)));
-    ws(map(args, Node::Args::<'a>))(i)
+    ws(map(args, Node::Args))(i)
 }
 
 fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let exp = boxed(right(tag("..."), expression));
-    ws(map(exp, Node::Splat::<'a>))(i)
+    ws(map(exp, Node::Splat))(i)
 }
 
 fn comments<'a>(i: &'a str) -> ParseResult<Vec<&'a str>> {
@@ -280,12 +277,12 @@ fn ws<'a, T>(item: impl Fn(&'a str) -> ParseResult<T>) -> impl Fn(&'a str) -> Pa
 }
 
 fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let double_quote = map(string('"'), Node::Str::<'a>);
-    let single_quote = map(string('\''), Node::Str::<'a>);
+    let double_quote = map(string('"'), Node::Str);
+    let single_quote = map(string('\''), Node::Str);
     let computed = middle(tag("["), expression, tag("]"));
     let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
     let value = boxed(expression);
-    map(outer(key, ws(tag(":")), value), Node::KeyValue::<'a>)(i)
+    map(outer(key, ws(tag(":")), value), Node::KeyValue)(i)
 }
 
 // Tree walking
