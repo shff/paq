@@ -12,8 +12,8 @@ pub fn bundle(entry: &PathBuf) -> Result<String, queue::Error> {
         let source = read_to_string(&path)?;
 
         let mut deps = HashMap::new();
-        let ast = parser::block(&source).unwrap().1;
-        for dep in parser::get_deps(ast) {
+        let ast = parser::block(&source).expect("Parser error");
+        for dep in parser::get_deps(ast.1) {
             deps.insert(dep.clone(), resolve::resolve(dep, &path)?);
         }
         let paths = deps.values().cloned().collect();
