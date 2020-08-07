@@ -282,10 +282,3 @@ fn test_whitespace() {
     assert_eq!(parser2("hello    "), Ok(("", "hello")));
     assert_eq!(whitespace(" \t\r\n "), Ok(("", " \t\r\n ")));
 }
-
-#[test]
-fn test_w() {
-    let parser = w(tag("tag"));
-
-    assert_eq!(parser("    tag"), Ok(("", "tag")));
-}
