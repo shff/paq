@@ -268,10 +268,6 @@ fn comments<'a>(i: &'a str) -> ParseResult<Vec<&'a str>> {
     many(right(tag("/"), choice((single, multi))))(i)
 }
 
-fn ws<'a, T>(item: impl Fn(&'a str) -> ParseResult<T>) -> impl Fn(&'a str) -> ParseResult<T> {
-    right(whitespace, right(comments, item))
-}
-
 fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let double_quote = map(string('"'), Node::Str);
     let single_quote = map(string('\''), Node::Str);
@@ -592,7 +588,7 @@ where
     P: Fn(&'a str) -> ParseResult<R>,
     O: Fn(&'a str) -> ParseResult<S>,
 {
-    move |i| pair(&p, many(pair(w(&o), &p)))(i)
+    move |i| pair(&p, many(pair(ws(&o), &p)))(i)
 }
 
 pub fn prefix<'a, P, Q, X, Y>(p: P, q: Q) -> impl Fn(&'a str) -> ParseResult<(Vec<X>, Y)>
@@ -600,7 +596,7 @@ where
     P: Fn(&'a str) -> ParseResult<X>,
     Q: Fn(&'a str) -> ParseResult<Y>,
 {
-    move |i| pair(many(w(&p)), &q)(i)
+    move |i| pair(many(ws(&p)), &q)(i)
 }
 
 pub fn boxed<'a, P, R>(i: P) -> impl Fn(&'a str) -> ParseResult<Box<R>>
@@ -662,11 +658,8 @@ pub fn whitespace(i: &str) -> ParseResult<&str> {
     }
 }
 
-pub fn w<'a, P, R>(p: P) -> impl Fn(&'a str) -> ParseResult<R>
-where
-    P: Fn(&'a str) -> ParseResult<R>,
-{
-    right(whitespace, p)
+fn ws<'a, T>(item: impl Fn(&'a str) -> ParseResult<T>) -> impl Fn(&'a str) -> ParseResult<T> {
+    right(whitespace, right(comments, item))
 }
 
 pub trait Choice<'a, O> {
