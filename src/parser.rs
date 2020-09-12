@@ -280,73 +280,61 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 // Tree walking
 
 pub fn get_deps(root: Node) -> Vec<String> {
-    let deps = std::cell::RefCell::new(Vec::new());
     walk(root, |child| {
         if let Node::Binary("(", call, args) = child {
             if let Node::Ident(func_name) = *call.clone() {
                 if func_name.as_str() == "require" {
                     if let Node::Args(s) = *args {
                         if let Some(Node::Str(dep)) = s.first() {
-                            deps.borrow_mut().push(dep.clone());
+                            return Some(dep.clone());
                         }
                     }
                 }
             }
-        }
-    });
-    deps.replace(vec![])
+        };
+        None
+    })
 }
 
-fn walk<V>(node: Node, mut visitor: V)
+fn walk<V, S>(node: Node, mut visit: V) -> Vec<S>
 where
-    V: Copy + FnMut(Node),
+    V: Copy + FnMut(Node) -> Option<S>,
 {
-    visitor(node.clone());
-    match node {
-        Node::Block(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
-        Node::If((a, b, c)) => {
-            walk(*a, visitor);
-            walk(*b, visitor);
-            if let Some(c) = c {
-                walk(*c, visitor);
-            }
-        }
-        Node::While((_, a)) => walk(*a, visitor),
-        Node::For((_, a)) => walk(*a, visitor),
-        Node::Declaration((_, a)) => a.iter().for_each(|n| walk(n.clone(), visitor)),
-        Node::Return(Some(a)) => walk(*a, visitor),
-        Node::Return(None) => {}
-        Node::Throw(a) => walk(*a, visitor),
-        Node::Continue => {}
-        Node::Break => {}
-        Node::Str(_) => {}
-        Node::Ident(_) => {}
-        Node::Double(_) => {}
-        Node::Octal(_) => {}
-        Node::Hexadecimal(_) => {}
-        Node::BinaryNum(_) => {}
-        Node::List(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
-        Node::Object(a) => a.iter().for_each(|n| walk(n.clone(), visitor)),
-        Node::Paren(a) => walk(*a, visitor),
-        Node::Closure((_, a)) => walk(*a, visitor),
-        Node::Function((_, _, a)) => walk(*a, visitor),
-        Node::Generator((_, _, a)) => walk(*a, visitor),
-        Node::Unary(_, a) => walk(*a, visitor),
-        Node::Binary(_, a, b) => {
-            walk(*a, visitor);
-            walk(*b, visitor);
-        }
-        Node::Ternary(a, b, c) => {
-            walk(*a, visitor);
-            walk(*b, visitor);
-            walk(*c, visitor);
-        }
-        Node::Args(_) => {}
-        Node::Splat(_) => {}
-        Node::KeyValue((_, a)) => walk(*a, visitor),
-        Node::Param(_) => {}
-        Node::Params(_) => {}
+    if let Some(ret) = visit(node.clone()) {
+        return vec![ret];
     }
+    let children = match node {
+        Node::If((a, b, Some(c))) | Node::Ternary(a, b, c) => vec![*a, *b, *c],
+        Node::If((a, b, None)) | Node::Binary(_, a, b) => vec![*a, *b],
+        Node::Block(a) | Node::List(a) | Node::Object(a) | Node::Declaration((_, a)) => a,
+        Node::While((_, a))
+        | Node::For((_, a))
+        | Node::Return(Some(a))
+        | Node::Throw(a)
+        | Node::Paren(a)
+        | Node::Closure((_, a))
+        | Node::Function((_, _, a))
+        | Node::Generator((_, _, a))
+        | Node::KeyValue((_, a))
+        | Node::Unary(_, a) => vec![*a],
+        Node::Return(None)
+        | Node::Continue
+        | Node::Break
+        | Node::Str(_)
+        | Node::Ident(_)
+        | Node::Double(_)
+        | Node::Octal(_)
+        | Node::Hexadecimal(_)
+        | Node::BinaryNum(_)
+        | Node::Args(_)
+        | Node::Splat(_)
+        | Node::Param(_)
+        | Node::Params(_) => vec![],
+    };
+    children
+        .iter()
+        .flat_map(|n| walk(n.clone(), visit))
+        .collect()
 }
 
 // Utilities
@@ -643,7 +631,7 @@ pub fn double(i: &str) -> ParseResult<f64> {
     mapr(capture(trio(sign, choice((num, frac)), exp)), |s| s.parse())(i)
 }
 
-pub fn eoi(i: &str) -> ParseResult<&str> {
+pub const fn eoi(i: &str) -> ParseResult<&str> {
     if i.is_empty() {
         Ok((i, ""))
     } else {
