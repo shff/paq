@@ -303,20 +303,32 @@ where
     if let Some(ret) = visit(node.clone()) {
         return vec![ret];
     }
-    let children = match node {
-        Node::If((a, b, Some(c))) | Node::Ternary(a, b, c) => vec![*a, *b, *c],
-        Node::If((a, b, None)) | Node::Binary(_, a, b) => vec![*a, *b],
-        Node::Block(a) | Node::List(a) | Node::Object(a) | Node::Declaration((_, a)) => a,
-        Node::While((_, a))
-        | Node::For((_, a))
+    match node {
+        Node::If((a, b, Some(c)))
+        | Node::Ternary(a, b, c)
+        | Node::Function((Some(a), b, c))
+        | Node::Generator((Some(a), b, c)) => vec![*a, *b, *c],
+        Node::If((a, b, None))
+        | Node::Binary(_, a, b)
+        | Node::While((a, b))
+        | Node::Closure((a, b))
+        | Node::Function((None, a, b))
+        | Node::Generator((None, a, b))
+        | Node::KeyValue((a, b))
+        | Node::Param((a, Some(b))) => vec![*a, *b],
+        Node::Block(a)
+        | Node::List(a)
+        | Node::Object(a)
+        | Node::Declaration((_, a))
+        | Node::Args(a)
+        | Node::Params(a) => a,
+        Node::For((_, a))
         | Node::Return(Some(a))
         | Node::Throw(a)
         | Node::Paren(a)
-        | Node::Closure((_, a))
-        | Node::Function((_, _, a))
-        | Node::Generator((_, _, a))
-        | Node::KeyValue((_, a))
-        | Node::Unary(_, a) => vec![*a],
+        | Node::Splat(a)
+        | Node::Unary(_, a)
+        | Node::Param((a, None)) => vec![*a],
         Node::Return(None)
         | Node::Continue
         | Node::Break
@@ -325,16 +337,11 @@ where
         | Node::Double(_)
         | Node::Octal(_)
         | Node::Hexadecimal(_)
-        | Node::BinaryNum(_)
-        | Node::Args(_)
-        | Node::Splat(_)
-        | Node::Param(_)
-        | Node::Params(_) => vec![],
-    };
-    children
-        .iter()
-        .flat_map(|n| walk(n.clone(), visit))
-        .collect()
+        | Node::BinaryNum(_) => vec![],
+    }
+    .iter()
+    .flat_map(|n| walk(n.clone(), visit))
+    .collect()
 }
 
 // Utilities
