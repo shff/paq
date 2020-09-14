@@ -46,6 +46,8 @@ fn test_parser_deps() {
     assert_dep("deps-if.js", "lodash");
     assert_dep("deps-else.js", "lodash");
     assert_dep("deps-for.js", "lodash");
+    assert_dep("deps-for-in.js", "lodash");
+    assert_dep("deps-for-of.js", "lodash");
     assert_dep("deps-while.js", "lodash");
     assert_dep("deps-walker-all.js", "lodash");
     assert_dep("deps-walker-all.js", "underscore");
@@ -410,11 +412,11 @@ fn test_statement() {
         Ok((
             "",
             Node::Block(vec![Node::For((
-                vec![
-                    Some(Box::new(Node::Double(0.0))),
-                    Some(Box::new(Node::Double(0.0))),
-                    Some(Box::new(Node::Double(0.0))),
-                ],
+                Box::new(Node::ForTrio(vec![
+                    Some(Node::Double(0.0)),
+                    Some(Node::Double(0.0)),
+                    Some(Node::Double(0.0)),
+                ])),
                 Box::new(Node::Block(vec![Node::Return(None)]))
             ))])
         ))
@@ -424,11 +426,11 @@ fn test_statement() {
         Ok((
             " ",
             Node::Block(vec![Node::For((
-                vec![
-                    Some(Box::new(Node::Double(0.0))),
-                    Some(Box::new(Node::Double(0.0))),
-                    Some(Box::new(Node::Double(0.0)))
-                ],
+                Box::new(Node::ForTrio(vec![
+                    Some(Node::Double(0.0)),
+                    Some(Node::Double(0.0)),
+                    Some(Node::Double(0.0))
+                ])),
                 Box::new(Node::Return(None))
             ))])
         ))
@@ -438,7 +440,64 @@ fn test_statement() {
         Ok((
             " ",
             Node::Block(vec![Node::For((
-                vec![None, None, None],
+                Box::new(Node::ForTrio(vec![None, None, None])),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (let x = 1 ; x < 1 ; x++ ) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForTrio(vec![
+                    Some(Node::Declaration((
+                        "let",
+                        vec![Node::Binary(
+                            "=",
+                            Box::new(Node::Ident(String::from("x"))),
+                            Box::new(Node::Double(1.0))
+                        )]
+                    ))),
+                    Some(Node::Binary(
+                        "<",
+                        Box::new(Node::Ident(String::from("x"))),
+                        Box::new(Node::Double(1.0))
+                    )),
+                    Some(Node::Unary("++", Box::new(Node::Ident(String::from("x")))))
+                ])),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (let x in y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForIn((
+                    Box::new(Node::Variable((
+                        "let",
+                        Box::new(Node::Ident(String::from("x")))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (let x of y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForOf((
+                    Box::new(Node::Variable((
+                        "let",
+                        Box::new(Node::Ident(String::from("x")))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
                 Box::new(Node::Return(None))
             ))])
         ))
