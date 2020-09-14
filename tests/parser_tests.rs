@@ -51,6 +51,7 @@ fn test_parser_deps() {
     assert_dep("deps-walker-all.js", "underscore");
     assert_dep("deps-walker-all.js", "debounce");
     assert_dep("deps-walker-all.js", "assert");
+    assert_dep("deps-lazy.js", "lazily-loaded");
 }
 
 #[test]
