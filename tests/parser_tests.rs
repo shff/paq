@@ -1,4 +1,4 @@
-use paq::parser::{block, expression, get_deps, Node};
+use paq::parser::{block, expression, get_deps, transform, Node};
 
 #[test]
 fn text_fixtures() {
@@ -118,7 +118,39 @@ fn test_comments() {
 }
 
 #[test]
+fn test_transform() {
+    assert_eq!(
+        transform(block("import 'y';").unwrap().1),
+        vec![Node::Binary(
+            "(",
+            Box::new(Node::Ident(String::from("require"))),
+            Box::new(Node::Args(vec![Node::Str(String::from("y"))]))
+        )]
+    );
+}
+
+#[test]
 fn test_statement() {
+    assert_eq!(
+        block("import 'y';"),
+        Ok((
+            ";",
+            Node::Block(vec![Node::Import((
+                None,
+                Box::new(Node::Str(String::from("y")))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("import x from 'y';"),
+        Ok((
+            ";",
+            Node::Block(vec![Node::Import((
+                Some(Box::new(Node::Ident(String::from("x")))),
+                Box::new(Node::Str(String::from("y")))
+            ))])
+        ))
+    );
     assert_eq!(
         block("continue}"),
         Ok(("}", Node::Block(vec![Node::Continue])))

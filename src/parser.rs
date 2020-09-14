@@ -27,6 +27,7 @@ pub enum Node<'a> {
     Unary(&'a str, Box<Node<'a>>),
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
     Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
+    Import((Option<Box<Node<'a>>>, Box<Node<'a>>)),
 
     Args(Vec<Node<'a>>),
     Splat(Box<Node<'a>>),
@@ -44,7 +45,17 @@ pub fn block(i: &str) -> ParseResult<Node> {
 }
 
 fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    ws(choice((braces, condition, while_loop, for_loop, gotos)))(i)
+    ws(choice((
+        imports, braces, condition, while_loop, for_loop, gotos,
+    )))(i)
+}
+
+fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let from = opt(left(boxed(ws(ident)), ws(tag("from"))));
+    map(
+        right(ws(tag("import")), pair(from, boxed(ws(quote)))),
+        Node::Import,
+    )(i)
 }
 
 fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -205,27 +216,20 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let single_quote = map(string('"'), Node::Str);
-    let double_quote = map(string('\''), Node::Str);
     let octal = map(right(tag("0o"), number(8)), Node::Octal);
     let hexa = map(right(tag("0x"), number(16)), Node::Hexadecimal);
     let binary = map(right(tag("0b"), number(2)), Node::BinaryNum);
     let double = map(double, Node::Double);
     ws(choice((
-        single_quote,
-        double_quote,
-        octal,
-        hexa,
-        binary,
-        double,
-        generator,
-        function,
-        ident,
-        object,
-        closure,
-        paren,
+        quote, octal, hexa, binary, double, generator, function, ident, object, closure, paren,
         list,
     )))(i)
+}
+
+fn quote<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let single_quote = map(string('"'), Node::Str);
+    let double_quote = map(string('\''), Node::Str);
+    ws(choice((single_quote, double_quote)))(i)
 }
 
 fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -308,6 +312,21 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 // Tree walking
 
+pub fn transform(root: Node) -> Vec<Node> {
+    walk(root, |child| {
+        if let Node::Import((_, path)) = child {
+            if let Node::Str(path) = *path {
+                return Some(Node::Binary(
+                    "(",
+                    Box::new(Node::Ident(String::from("require"))),
+                    Box::new(Node::Args(vec![Node::Str(path)])),
+                ));
+            }
+        }
+        None
+    })
+}
+
 pub fn get_deps(root: Node) -> Vec<String> {
     walk(root, |child| {
         if let Node::Binary("(", call, args) = child {
@@ -369,7 +388,8 @@ where
         | Node::Double(_)
         | Node::Octal(_)
         | Node::Hexadecimal(_)
-        | Node::BinaryNum(_) => vec![],
+        | Node::BinaryNum(_)
+        | Node::Import(_) => vec![],
         Node::ForTrio(_) => vec![],
     }
     .iter()
