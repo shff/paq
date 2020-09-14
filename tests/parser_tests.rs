@@ -1542,6 +1542,28 @@ fn test_action() {
         ))
     );
     assert_eq!(
+        expression(" a?.(a)"),
+        Ok((
+            "",
+            Node::Binary(
+                "?.(",
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Args(vec![Node::Ident(String::from("a"))]))
+            )
+        ))
+    );
+    assert_eq!(
+        expression(" a?.[a]"),
+        Ok((
+            "",
+            Node::Binary(
+                "?.[",
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Ident(String::from("a")))
+            )
+        ))
+    );
+    assert_eq!(
         expression(" a[a]"),
         Ok((
             "",

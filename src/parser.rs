@@ -195,10 +195,12 @@ fn creation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let array = pair(tag("["), left(expression, ws(tag("]"))));
-    let elvis = pair(tag("?."), ident);
+    let opt = pair(tag("?."), ident);
     let dot = pair(tag("."), ident);
     let call = pair(tag("("), left(args, ws(tag(")"))));
-    let action = pair(primitive, many(ws(choice((array, elvis, dot, call)))));
+    let ea = pair(tag("?.["), left(expression, ws(tag("]"))));
+    let ec = pair(tag("?.("), left(args, ws(tag(")"))));
+    let action = pair(primitive, many(ws(choice((array, opt, dot, call, ea, ec)))));
     map(action, makechain2)(i)
 }
 
