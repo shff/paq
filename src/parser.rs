@@ -5,7 +5,7 @@ pub enum Node<'a> {
     Block(Vec<Node<'a>>),
     If((Box<Node<'a>>, Box<Node<'a>>, Option<Box<Node<'a>>>)),
     While((Box<Node<'a>>, Box<Node<'a>>)),
-    For((Vec<Option<Box<Node<'a>>>>, Box<Node<'a>>)),
+    For((Box<Node<'a>>, Box<Node<'a>>)),
     Declaration((&'a str, Vec<Node<'a>>)),
     Return(Option<Box<Node<'a>>>),
     Throw(Box<Node<'a>>),
@@ -33,6 +33,10 @@ pub enum Node<'a> {
     KeyValue((Box<Node<'a>>, Box<Node<'a>>)),
     Params(Vec<Node<'a>>),
     Param((Box<Node<'a>>, Option<Box<Node<'a>>>)),
+    ForTrio(Vec<Option<Node<'a>>>),
+    ForOf((Box<Node<'a>>, Box<Node<'a>>)),
+    ForIn((Box<Node<'a>>, Box<Node<'a>>)),
+    Variable((&'a str, Box<Node<'a>>)),
 }
 
 pub fn block(i: &str) -> ParseResult<Node> {
@@ -73,12 +77,35 @@ fn while_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn for_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let assign = opt(boxed(choice((declaration, expression))));
-    let expr1 = right(ws(tag(";")), opt(boxed(expression)));
-    let expr2 = right(ws(tag(";")), opt(boxed(expression)));
-    let trio = map(trio(assign, expr1, expr2), |(a, b, c)| vec![a, b, c]);
-    let inner = pair(middle(ws(tag("(")), trio, ws(tag(")"))), boxed(statement));
+    let iter = boxed(choice((for_of, for_in, for_trio)));
+    let inner = pair(middle(ws(tag("(")), iter, ws(tag(")"))), boxed(statement));
     map(ws(right(tag("for"), inner)), Node::For)(i)
+}
+
+fn for_trio<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let expr1 = opt(choice((declaration, expression)));
+    let expr2 = right(ws(tag(";")), opt(expression));
+    let expr3 = right(ws(tag(";")), opt(expression));
+    map(trio(expr1, expr2, expr3), |(a, b, c)| {
+        Node::ForTrio(vec![a, b, c])
+    })(i)
+}
+
+fn for_of<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let expr1 = boxed(choice((variable, ident)));
+    let expr2 = boxed(expression);
+    map(outer(expr1, ws(tag("of")), expr2), Node::ForOf)(i)
+}
+
+fn for_in<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let expr1 = boxed(choice((variable, ident)));
+    let expr2 = boxed(expression);
+    map(outer(expr1, ws(tag("in")), expr2), Node::ForIn)(i)
+}
+
+fn variable<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let ops = &["var", "let", "const"];
+    map(ws(pair(one_of(ops), boxed(ident))), Node::Variable)(i)
 }
 
 pub fn expression<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -311,6 +338,9 @@ where
         Node::If((a, b, None))
         | Node::Binary(_, a, b)
         | Node::While((a, b))
+        | Node::For((a, b))
+        | Node::ForOf((a, b))
+        | Node::ForIn((a, b))
         | Node::Closure((a, b))
         | Node::Function((None, a, b))
         | Node::Generator((None, a, b))
@@ -322,13 +352,13 @@ where
         | Node::Declaration((_, a))
         | Node::Args(a)
         | Node::Params(a) => a,
-        Node::For((_, a))
-        | Node::Return(Some(a))
+        Node::Return(Some(a))
         | Node::Throw(a)
         | Node::Paren(a)
         | Node::Splat(a)
         | Node::Unary(_, a)
-        | Node::Param((a, None)) => vec![*a],
+        | Node::Param((a, None))
+        | Node::Variable((_, a)) => vec![*a],
         Node::Return(None)
         | Node::Continue
         | Node::Break
@@ -338,6 +368,7 @@ where
         | Node::Octal(_)
         | Node::Hexadecimal(_)
         | Node::BinaryNum(_) => vec![],
+        Node::ForTrio(_) => vec![],
     }
     .iter()
     .flat_map(|n| walk(n.clone(), visit))
