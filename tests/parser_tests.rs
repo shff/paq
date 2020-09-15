@@ -121,11 +121,11 @@ fn test_comments() {
 fn test_transform() {
     assert_eq!(
         transform(block("import 'y';").unwrap().1),
-        vec![Node::Binary(
+        Node::Block(vec![Node::Binary(
             "(",
             Box::new(Node::Ident(String::from("require"))),
             Box::new(Node::Args(vec![Node::Str(String::from("y"))]))
-        )]
+        )])
     );
 }
 

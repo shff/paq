@@ -312,9 +312,9 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 // Tree walking
 
-pub fn transform(root: Node) -> Vec<Node> {
+pub fn transform(root: Node) -> Node {
     walk(root, |child| {
-        if let Node::Import((_, path)) = child {
+        if let Node::Import((None, path)) = child {
             if let Node::Str(path) = *path {
                 return Some(Node::Binary(
                     "(",
@@ -328,73 +328,127 @@ pub fn transform(root: Node) -> Vec<Node> {
 }
 
 pub fn get_deps(root: Node) -> Vec<String> {
+    let deps = std::cell::RefCell::new(Vec::new());
     walk(root, |child| {
         if let Node::Binary("(", call, args) = child {
             if let Node::Ident(func_name) = *call.clone() {
                 if func_name.as_str() == "require" {
                     if let Node::Args(s) = *args {
                         if let Some(Node::Str(dep)) = s.first() {
-                            return Some(dep.clone());
+                            deps.borrow_mut().push(dep.clone())
                         }
                     }
                 }
             }
         };
         None
-    })
+    });
+    deps.replace(vec![])
 }
 
-fn walk<V, S>(node: Node, mut visit: V) -> Vec<S>
+fn walk<V>(node: Node, mut visit: V) -> Node
 where
-    V: Copy + FnMut(Node) -> Option<S>,
+    V: Copy + FnMut(Node) -> Option<Node>,
 {
     if let Some(ret) = visit(node.clone()) {
-        return vec![ret];
+        return ret;
     }
-    match node {
-        Node::If((a, b, Some(c)))
-        | Node::Ternary(a, b, c)
-        | Node::Function((Some(a), b, c))
-        | Node::Generator((Some(a), b, c)) => vec![*a, *b, *c],
-        Node::If((a, b, None))
-        | Node::Binary(_, a, b)
-        | Node::While((a, b))
-        | Node::For((a, b))
-        | Node::ForOf((a, b))
-        | Node::ForIn((a, b))
-        | Node::Closure((a, b))
-        | Node::Function((None, a, b))
-        | Node::Generator((None, a, b))
-        | Node::KeyValue((a, b))
-        | Node::Param((a, Some(b))) => vec![*a, *b],
-        Node::Block(a)
-        | Node::List(a)
-        | Node::Object(a)
-        | Node::Declaration((_, a))
-        | Node::Args(a)
-        | Node::Params(a) => a,
-        Node::Return(Some(a))
-        | Node::Throw(a)
-        | Node::Paren(a)
-        | Node::Splat(a)
-        | Node::Unary(_, a)
-        | Node::Param((a, None))
-        | Node::Variable((_, a)) => vec![*a],
-        Node::Return(None)
-        | Node::Continue
-        | Node::Break
-        | Node::Str(_)
-        | Node::Ident(_)
-        | Node::Double(_)
-        | Node::Octal(_)
-        | Node::Hexadecimal(_)
-        | Node::BinaryNum(_)
-        | Node::Import(_) => vec![],
-        Node::ForTrio(_) => vec![],
+    match node.clone() {
+        Node::Continue => Node::Continue,
+        Node::Break => Node::Break,
+        Node::Return(None) => Node::Return(None),
+        Node::Str(a) => Node::Str(a),
+        Node::Ident(a) => Node::Ident(a),
+        Node::Double(a) => Node::Double(a),
+        Node::Octal(a) => Node::Octal(a),
+        Node::Hexadecimal(a) => Node::Hexadecimal(a),
+        Node::BinaryNum(a) => Node::BinaryNum(a),
+        Node::Import(a) => Node::Import(a),
+        Node::Return(Some(a)) => Node::Return(Some(Box::new(walk(*a.clone(), visit)))),
+        Node::Throw(a) => Node::Throw(Box::new(walk(*a.clone(), visit))),
+        Node::Paren(a) => Node::Paren(Box::new(walk(*a.clone(), visit))),
+        Node::Splat(a) => Node::Splat(Box::new(walk(*a.clone(), visit))),
+        Node::Unary(a, b) => Node::Unary(a, Box::new(walk(*b.clone(), visit))),
+        Node::Param((a, None)) => Node::Param((Box::new(walk(*a.clone(), visit)), None)),
+        Node::Variable((a, b)) => Node::Variable((a, Box::new(walk(*b.clone(), visit)))),
+        Node::Block(a) => Node::Block(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::List(a) => Node::List(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::Object(a) => Node::Object(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::Args(a) => Node::Args(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::Params(a) => Node::Params(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::Declaration((a, b)) => {
+            Node::Declaration((a, b.iter().map(|n| walk(n.clone(), visit)).collect()))
+        }
+        Node::While((a, b)) => Node::While((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::For((a, b)) => Node::For((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::ForOf((a, b)) => Node::ForOf((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::ForIn((a, b)) => Node::ForIn((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Closure((a, b)) => Node::Closure((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::KeyValue((a, b)) => Node::KeyValue((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Param((a, Some(b))) => Node::Param((
+            Box::new(walk(*a.clone(), visit)),
+            Some(Box::new(walk(*b.clone(), visit))),
+        )),
+        Node::Function((None, a, b)) => Node::Function((
+            None,
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Generator((None, a, b)) => Node::Generator((
+            None,
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::If((a, b, None)) => Node::If((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+            None,
+        )),
+        Node::Binary(a, b, c) => Node::Binary(
+            a,
+            Box::new(walk(*b.clone(), visit)),
+            Box::new(walk(*c.clone(), visit)),
+        ),
+        Node::Ternary(a, b, c) => Node::Ternary(
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+            Box::new(walk(*c.clone(), visit)),
+        ),
+        Node::If((a, b, Some(c))) => Node::If((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+            Some(Box::new(walk(*c.clone(), visit))),
+        )),
+        Node::Function((Some(a), b, c)) => Node::Function((
+            Some(Box::new(walk(*a.clone(), visit))),
+            Box::new(walk(*b.clone(), visit)),
+            Box::new(walk(*c.clone(), visit)),
+        )),
+        Node::Generator((Some(a), b, c)) => Node::Generator((
+            Some(Box::new(walk(*a.clone(), visit))),
+            Box::new(walk(*b.clone(), visit)),
+            Box::new(walk(*c.clone(), visit)),
+        )),
+        Node::ForTrio(_) => node,
     }
-    .iter()
-    .flat_map(|n| walk(n.clone(), visit))
-    .collect()
 }
 
 // Utilities
