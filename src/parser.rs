@@ -219,9 +219,18 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let octal = map(right(tag("0o"), number(8)), Node::Octal);
-    let hexa = map(right(tag("0x"), number(16)), Node::Hexadecimal);
-    let binary = map(right(tag("0b"), number(2)), Node::BinaryNum);
+    let octal = map(
+        right(choice((tag("0o"), tag("0O"))), number(8)),
+        Node::Octal,
+    );
+    let hexa = map(
+        right(choice((tag("0x"), tag("0X"))), number(16)),
+        Node::Hexadecimal,
+    );
+    let binary = map(
+        right(choice((tag("0b"), tag("0B"))), number(2)),
+        Node::BinaryNum,
+    );
     let double = map(double, Node::Double);
     ws(choice((
         quote, octal, hexa, binary, double, generator, function, ident, object, closure, paren,
