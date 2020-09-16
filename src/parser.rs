@@ -47,7 +47,9 @@ pub fn block(i: &str) -> ParseResult<Node> {
 }
 
 fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    ws(choice((braces, condition, while_loop, for_loop, gotos)))(i)
+    ws(choice((
+        braces, condition, while_loop, for_loop, gotos, function,
+    )))(i)
 }
 
 fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
