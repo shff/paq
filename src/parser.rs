@@ -19,7 +19,7 @@ pub enum Node<'a> {
     Hexadecimal(u64),
     BinaryNum(u64),
     Regex((&'a str, Option<&'a str>)),
-    List(Vec<Node<'a>>),
+    List(Vec<Option<Node<'a>>>),
     Object(Vec<Node<'a>>),
     Paren(Box<Node<'a>>),
     Closure((Box<Node<'a>>, Box<Node<'a>>)),
@@ -283,7 +283,7 @@ fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let items = chain(tag(","), choice((splat, yield1)));
+    let items = chain(tag(","), ws(opt(choice((splat, yield1)))));
     let list = middle(tag("["), items, ws(tag("]")));
     ws(map(list, Node::List))(i)
 }
@@ -406,7 +406,11 @@ where
         Node::Param((a, None)) => Node::Param((Box::new(walk(*a.clone(), visit)), None)),
         Node::Variable((a, b)) => Node::Variable((a, Box::new(walk(*b.clone(), visit)))),
         Node::Block(a) => Node::Block(a.iter().map(|n| walk(n.clone(), visit)).collect()),
-        Node::List(a) => Node::List(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::List(a) => Node::List(
+            a.iter()
+                .map(|n| n.as_ref().map(|m| walk(m.clone(), visit)))
+                .collect(),
+        ),
         Node::Object(a) => Node::Object(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Args(a) => Node::Args(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Params(a) => Node::Params(a.iter().map(|n| walk(n.clone(), visit)).collect()),

@@ -316,7 +316,7 @@ fn test_statement() {
                 vec![Node::Binary(
                     "=",
                     Box::new(Node::Ident(String::from("x"))),
-                    Box::new(Node::List(vec![]))
+                    Box::new(Node::List(vec![None]))
                 )]
             ))])
         ))
@@ -755,25 +755,31 @@ fn test_identifier() {
 
 #[test]
 fn test_list() {
-    assert_eq!(expression(" [ ] "), Ok((" ", Node::List(vec![]))));
+    assert_eq!(expression(" [ ] "), Ok((" ", Node::List(vec![None]))));
     assert_eq!(
         expression("[[]]"),
-        Ok(("", Node::List(vec![Node::List(vec![])])))
+        Ok(("", Node::List(vec![Some(Node::List(vec![None]))])))
     );
-    assert_eq!(expression("[]"), Ok(("", Node::List(vec![]))));
+    assert_eq!(expression("[]"), Ok(("", Node::List(vec![None]))));
     assert_eq!(
         expression("[ 1 ]"),
-        Ok(("", Node::List(vec![Node::Double(1.0)])))
+        Ok(("", Node::List(vec![Some(Node::Double(1.0))])))
     );
     assert_eq!(
         expression("[ 1, 2 ]"),
-        Ok(("", Node::List(vec![Node::Double(1.0), Node::Double(2.0)])))
+        Ok((
+            "",
+            Node::List(vec![Some(Node::Double(1.0)), Some(Node::Double(2.0))])
+        ))
     );
     assert_eq!(
         expression("[ 1, \"2\" ]"),
         Ok((
             "",
-            Node::List(vec![Node::Double(1.0), Node::Str(String::from("2"))])
+            Node::List(vec![
+                Some(Node::Double(1.0)),
+                Some(Node::Str(String::from("2")))
+            ])
         ))
     );
     assert_eq!(
@@ -781,8 +787,8 @@ fn test_list() {
         Ok((
             "",
             Node::List(vec![
-                Node::Splat(Box::new(Node::Ident(String::from("a")))),
-                Node::Double(1.0)
+                Some(Node::Splat(Box::new(Node::Ident(String::from("a"))))),
+                Some(Node::Double(1.0))
             ])
         ))
     );
@@ -791,10 +797,14 @@ fn test_list() {
         Ok((
             "",
             Node::List(vec![
-                Node::Splat(Box::new(Node::List(vec![]))),
-                Node::Double(1.0)
+                Some(Node::Splat(Box::new(Node::List(vec![None])))),
+                Some(Node::Double(1.0))
             ])
         ))
+    );
+    assert_eq!(
+        expression("[ ,,, ]"),
+        Ok(("", Node::List(vec![None, None, None, None])))
     );
 }
 
@@ -860,7 +870,7 @@ fn test_object() {
         expression("{ ...[] }"),
         Ok((
             "",
-            Node::Object(vec![Node::Splat(Box::new(Node::List(vec![])))])
+            Node::Object(vec![Node::Splat(Box::new(Node::List(vec![None])))])
         ))
     );
     assert_eq!(
@@ -916,7 +926,7 @@ fn test_parenthesis() {
     );
     assert_eq!(
         expression("([])"),
-        Ok(("", Node::Paren(Box::new(Node::List(vec![])))))
+        Ok(("", Node::Paren(Box::new(Node::List(vec![None])))))
     );
     assert_eq!(
         expression(" ( 1 ) "),
@@ -924,7 +934,7 @@ fn test_parenthesis() {
     );
     assert_eq!(
         expression(" ( [ ] ) "),
-        Ok((" ", Node::Paren(Box::new(Node::List(vec![])))))
+        Ok((" ", Node::Paren(Box::new(Node::List(vec![None])))))
     );
 }
 
