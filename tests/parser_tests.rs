@@ -1577,6 +1577,13 @@ fn test_prefix() {
         ))
     );
     assert_eq!(
+        expression("yield  *   a"),
+        Ok((
+            "",
+            Node::Unary("yield*", Box::new(Node::Ident(String::from("a"))))
+        ))
+    );
+    assert_eq!(
         expression("new a"),
         Ok((
             "",
