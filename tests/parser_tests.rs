@@ -1604,6 +1604,25 @@ fn test_postfix() {
 }
 
 #[test]
+fn test_comma() {
+    assert_eq!(
+        expression("a,b,c"),
+        Ok((
+            "",
+            Node::Binary(
+                ",",
+                Box::new(Node::Binary(
+                    ",",
+                    Box::new(Node::Ident(String::from("a"))),
+                    Box::new(Node::Ident(String::from("b")))
+                )),
+                Box::new(Node::Ident(String::from("c")))
+            )
+        ))
+    );
+}
+
+#[test]
 fn test_action() {
     assert_eq!(
         expression(" a?.a"),
