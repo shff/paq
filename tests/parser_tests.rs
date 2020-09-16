@@ -57,6 +57,27 @@ fn test_parser_deps() {
 }
 
 #[test]
+fn test_automatic() {
+    let cur_dir = std::env::current_dir().unwrap();
+    let pass = cur_dir.join("tests/fixtures/test262/pass");
+    let mut failures = 0;
+    let mut total = 0;
+    for entry in std::fs::read_dir(pass).unwrap() {
+        let fullpath = entry.unwrap().path();
+        let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
+        let ast = block(&source);
+        assert!(ast.is_ok(), "Failure to parse file {:?}", fullpath);
+        let rest = ast.unwrap().0.trim();
+        if rest != "" {
+            println!(" * Can't parse: {:?}", rest);
+            failures += 1;
+        }
+        total += 1;
+    }
+    println!("Number of failures: {} of {}", failures, total);
+}
+
+#[test]
 fn test_complex() {
     fn assert_complete(i: &str) {
         assert!(block(i).is_ok());
