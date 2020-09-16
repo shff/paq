@@ -123,11 +123,16 @@ fn variable<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 pub fn expression<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    map(infix(yields, tag(",")), makechain2)(i)
+    map(infix(yield1, tag(",")), makechain2)(i)
 }
 
-fn yields<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    map(prefix(one_of(&["yield*", "yield"]), mutation), makechain)(i)
+fn yield1<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let yield_star = value(pair(tag("yield"), ws(tag("*"))), "yield*");
+    map(prefix(yield_star, yield2), makechain)(i)
+}
+
+fn yield2<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    map(prefix(tag("yield"), mutation), makechain)(i)
 }
 
 fn mutation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -278,7 +283,7 @@ fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let items = chain(tag(","), choice((splat, yields)));
+    let items = chain(tag(","), choice((splat, yield1)));
     let list = middle(tag("["), items, ws(tag("]")));
     ws(map(list, Node::List))(i)
 }
@@ -296,7 +301,7 @@ fn function<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = trio(ws(opt(boxed(ident))), boxed(params), boxed(braces));
-    let func = ws(right(tag("function*"), inner));
+    let func = ws(right(pair(tag("function"), ws(tag("*"))), inner));
     map(func, Node::Generator)(i)
 }
 
@@ -319,7 +324,7 @@ fn args<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let exp = boxed(right(tag("..."), yields));
+    let exp = boxed(right(tag("..."), yield1));
     ws(map(exp, Node::Splat))(i)
 }
 
@@ -334,7 +339,7 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let single_quote = map(string('\''), Node::Str);
     let computed = middle(tag("["), expression, tag("]"));
     let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
-    let value = boxed(yields);
+    let value = boxed(yield1);
     map(outer(key, ws(tag(":")), value), Node::KeyValue)(i)
 }
 
