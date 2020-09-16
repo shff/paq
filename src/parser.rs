@@ -123,6 +123,10 @@ fn variable<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 pub fn expression<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    map(infix(yields, tag(",")), makechain2)(i)
+}
+
+fn yields<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(prefix(one_of(&["yield*", "yield"]), mutation), makechain)(i)
 }
 
@@ -274,7 +278,7 @@ fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let items = chain(tag(","), choice((splat, expression)));
+    let items = chain(tag(","), choice((splat, yields)));
     let list = middle(tag("["), items, ws(tag("]")));
     ws(map(list, Node::List))(i)
 }
@@ -315,7 +319,7 @@ fn args<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let exp = boxed(right(tag("..."), expression));
+    let exp = boxed(right(tag("..."), yields));
     ws(map(exp, Node::Splat))(i)
 }
 
@@ -330,7 +334,7 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let single_quote = map(string('\''), Node::Str);
     let computed = middle(tag("["), expression, tag("]"));
     let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
-    let value = boxed(expression);
+    let value = boxed(yields);
     map(outer(key, ws(tag(":")), value), Node::KeyValue)(i)
 }
 
