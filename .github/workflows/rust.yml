@@ -8,20 +8,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Coverage
+    - name: Get Tarpaulin
       run: |
         curl https://api.github.com/repos/xd009642/tarpaulin/releases/latest |\
           jq -r '.assets[0].browser_download_url' |\
           xargs curl -L |\
           tar zxv -C /usr/share/rust/.cargo/bin
-        cargo tarpaulin --coveralls ${{ secrets.COVERALLS_TOKEN }}
+    - name: Get Test262
+      run: git clone --depth 1 https://github.com/tc39/test262-parser-tests ../test262-parser-tests
     - name: Format
       run: cargo fmt -- --check
+    - name: Test
+      run: cargo tarpaulin --coveralls ${{ secrets.COVERALLS_TOKEN }}
     - name: Lint
       run: cargo clippy -- -D warnings -D clippy::all -D clippy::nursery
-    - name: Build
-      run: cargo build --verbose
-    - name: Test
-      run: cargo test --verbose
-    - name: Bench
-      run: cargo bench
