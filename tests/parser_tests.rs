@@ -872,6 +872,39 @@ fn test_object() {
             ])
         ))
     );
+    assert_eq!(
+        expression("{ a() { b } }"),
+        Ok((
+            "",
+            Node::Object(vec![Node::Shorthand((
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Params(vec![])),
+                Box::new(Node::Block(vec![Node::Ident(String::from("b"))]))
+            ))])
+        ))
+    );
+    assert_eq!(
+        expression("{ \"a\"() { b } }"),
+        Ok((
+            "",
+            Node::Object(vec![Node::Shorthand((
+                Box::new(Node::Str(String::from("a"))),
+                Box::new(Node::Params(vec![])),
+                Box::new(Node::Block(vec![Node::Ident(String::from("b"))]))
+            ))])
+        ))
+    );
+    assert_eq!(
+        expression("{ [a]() { b } }"),
+        Ok((
+            "",
+            Node::Object(vec![Node::Shorthand((
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Params(vec![])),
+                Box::new(Node::Block(vec![Node::Ident(String::from("b"))]))
+            ))])
+        ))
+    );
 }
 
 #[test]
