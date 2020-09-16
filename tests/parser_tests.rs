@@ -604,6 +604,15 @@ fn test_string() {
         expression("\"\\\'\""),
         Ok(("", Node::Str(String::from("'"))))
     );
+    assert_eq!(expression("/foo/"), Ok(("", Node::Regex(("/foo/", None)))));
+    assert_eq!(
+        expression("/[a-z]+/"),
+        Ok(("", Node::Regex(("/[a-z]+/", None))))
+    );
+    assert_eq!(
+        expression("/[a-z]+/gi"),
+        Ok(("", Node::Regex(("/[a-z]+/", Some("gi")))))
+    );
 }
 
 #[test]

@@ -18,6 +18,7 @@ pub enum Node<'a> {
     Octal(u64),
     Hexadecimal(u64),
     BinaryNum(u64),
+    Regex((&'a str, Option<&'a str>)),
     List(Vec<Node<'a>>),
     Object(Vec<Node<'a>>),
     Paren(Box<Node<'a>>),
@@ -222,8 +223,13 @@ fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let double = map(double, Node::Double);
     ws(choice((
         quote, octal, hexa, binary, double, generator, function, ident, object, closure, paren,
-        list,
+        list, regex,
     )))(i)
+}
+
+fn regex<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = pair(capture(string('/')), opt(take_while(|c| c.is_alphabetic())));
+    ws(map(inner, Node::Regex))(i)
 }
 
 fn quote<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -358,6 +364,7 @@ where
         Node::Break => Node::Break,
         Node::Return(None) => Node::Return(None),
         Node::Str(a) => Node::Str(a),
+        Node::Regex(a) => Node::Regex(a),
         Node::Ident(a) => Node::Ident(a),
         Node::Double(a) => Node::Double(a),
         Node::Octal(a) => Node::Octal(a),
