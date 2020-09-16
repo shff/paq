@@ -24,6 +24,7 @@ pub enum Node<'a> {
     Paren(Box<Node<'a>>),
     Closure((Box<Node<'a>>, Box<Node<'a>>)),
     Function((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
+    Shorthand((Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>)),
     Generator((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
     Unary(&'a str, Box<Node<'a>>),
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
@@ -245,9 +246,16 @@ fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let item = choice((key_value, ident, splat));
+    let item = choice((shorthand, key_value, ident, splat));
     let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
     ws(map(object, Node::Object))(i)
+}
+
+fn shorthand<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let computed = middle(tag("["), expression, tag("]"));
+    let title = choice((quote, ident, computed));
+    let inner = trio(ws(boxed(title)), boxed(params), boxed(braces));
+    map(inner, Node::Shorthand)(i)
 }
 
 fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -439,6 +447,11 @@ where
             Box::new(walk(*b.clone(), visit)),
             Box::new(walk(*c.clone(), visit)),
         ),
+        Node::Shorthand((a, b, c)) => Node::Shorthand((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+            Box::new(walk(*c.clone(), visit)),
+        )),
         Node::If((a, b, Some(c))) => Node::If((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
