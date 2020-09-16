@@ -47,17 +47,7 @@ pub fn block(i: &str) -> ParseResult<Node> {
 }
 
 fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    ws(choice((
-        imports, braces, condition, while_loop, for_loop, gotos,
-    )))(i)
-}
-
-fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let from = opt(left(boxed(ws(ident)), ws(tag("from"))));
-    map(
-        right(ws(tag("import")), pair(from, boxed(ws(quote)))),
-        Node::Import,
-    )(i)
+    ws(choice((braces, condition, while_loop, for_loop, gotos)))(i)
 }
 
 fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -69,7 +59,18 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let brk = map(tag("break"), |_| Node::Break);
     let ret = map(right(tag("return"), opt(boxed(expression))), Node::Return);
     let thrw = map(right(tag("throw"), boxed(expression)), Node::Throw);
-    left(choice((cont, brk, ret, thrw, declaration, expression)), end)(i)
+    left(
+        choice((imports, cont, brk, ret, thrw, declaration, expression)),
+        end,
+    )(i)
+}
+
+fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let from = opt(left(boxed(ws(ident)), ws(tag("from"))));
+    map(
+        right(ws(tag("import")), pair(from, boxed(ws(quote)))),
+        Node::Import,
+    )(i)
 }
 
 fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {

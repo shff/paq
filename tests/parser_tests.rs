@@ -31,6 +31,7 @@ fn test_parser_deps() {
         let entry = cur_dir.join("tests/fixtures/parser_deps").join(path);
         let source = std::fs::read_to_string(&entry).unwrap();
         let ast = block(&source);
+        println!("{:?}", ast);
         let result = get_deps(ast.unwrap().1);
         assert!(result.contains(&String::from(substring)))
     }
@@ -134,7 +135,7 @@ fn test_statement() {
     assert_eq!(
         block("import 'y';"),
         Ok((
-            ";",
+            "",
             Node::Block(vec![Node::Import((
                 None,
                 Box::new(Node::Str(String::from("y")))
@@ -144,7 +145,7 @@ fn test_statement() {
     assert_eq!(
         block("import x from 'y';"),
         Ok((
-            ";",
+            "",
             Node::Block(vec![Node::Import((
                 Some(Box::new(Node::Ident(String::from("x")))),
                 Box::new(Node::Str(String::from("y")))
