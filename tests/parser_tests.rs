@@ -69,7 +69,7 @@ fn test_automatic() {
         assert!(ast.is_ok(), "Failure to parse file {:?}", fullpath);
         let rest = ast.unwrap().0.trim();
         if rest != "" {
-            println!(" * Can't parse: {:?}", rest);
+            // println!(" * Can't parse: {:?}", rest);
             failures += 1;
         }
         total += 1;
@@ -624,6 +624,15 @@ fn test_string() {
     assert_eq!(
         expression("\"\\\'\""),
         Ok(("", Node::Str(String::from("'"))))
+    );
+    assert_eq!(expression("/foo/"), Ok(("", Node::Regex(("/foo/", None)))));
+    assert_eq!(
+        expression("/[a-z]+/"),
+        Ok(("", Node::Regex(("/[a-z]+/", None))))
+    );
+    assert_eq!(
+        expression("/[a-z]+/gi"),
+        Ok(("", Node::Regex(("/[a-z]+/", Some("gi")))))
     );
 }
 
