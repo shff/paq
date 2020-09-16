@@ -31,7 +31,6 @@ fn test_parser_deps() {
         let entry = cur_dir.join("tests/fixtures/parser_deps").join(path);
         let source = std::fs::read_to_string(&entry).unwrap();
         let ast = block(&source);
-        println!("{:?}", ast);
         let result = get_deps(ast.unwrap().1);
         assert!(result.contains(&String::from(substring)))
     }
@@ -1740,4 +1739,26 @@ fn test_action() {
             )
         ))
     );
+}
+
+#[test]
+fn test_automatic() {
+    let cur_dir = std::env::current_dir().unwrap();
+    let pass = cur_dir.join("../test262-parser-tests/pass");
+    let mut failures = 0;
+    let mut total = 0;
+    if let Ok(files) = std::fs::read_dir(pass) {
+        for entry in files {
+            let fullpath = entry.unwrap().path();
+            let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
+            let ast = block(&source);
+            let rest = ast.unwrap().0.trim();
+            if rest != "" {
+                println!(" * Can't parse: {:?}", rest);
+                failures += 1;
+            }
+            total += 1;
+        }
+    }
+    println!("Number of failures: {} of {}", failures, total);
 }
