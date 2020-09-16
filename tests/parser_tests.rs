@@ -1016,6 +1016,24 @@ fn test_function() {
             ))
         ))
     );
+    assert_eq!(
+        block("function a(){} function b(){}"),
+        Ok((
+            "",
+            Node::Block(vec![
+                Node::Function((
+                    Some(Box::new(Node::Ident(String::from("a")))),
+                    Box::new(Node::Params(vec![])),
+                    Box::new(Node::Block(vec![]))
+                )),
+                Node::Function((
+                    Some(Box::new(Node::Ident(String::from("b")))),
+                    Box::new(Node::Params(vec![])),
+                    Box::new(Node::Block(vec![]))
+                ))
+            ])
+        ))
+    );
 }
 
 #[test]
