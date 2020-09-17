@@ -294,6 +294,7 @@ fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn closure<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let params = ws(choice((ident, params)));
     let closure = outer(boxed(params), ws(tag("=>")), boxed(expression));
     ws(map(closure, Node::Closure))(i)
 }

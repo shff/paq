@@ -92,6 +92,7 @@ fn test_complex() {
     assert_complete("(a) => [ 1 + 1 ]");
     assert_complete("(a) => ({a: 1})");
     assert_complete("((a) => a + 1)(1)");
+    assert_complete("a => a");
     assert_complete("if (1 + 1 == 2) { return true; }");
     assert_complete("if ( true ) \n { \n return ; \n }");
     assert_complete("if (true) break; else continue;");
