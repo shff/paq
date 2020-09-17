@@ -13,6 +13,7 @@ pub enum Node<'a> {
     Break,
 
     Str(String),
+    Interpolation(String),
     Ident(String),
     Double(f64),
     Octal(u64),
@@ -243,9 +244,10 @@ fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
         Node::BinaryNum,
     );
     let double = map(double, Node::Double);
+    let intepolate = map(string('`'), Node::Interpolation);
     ws(choice((
-        quote, octal, hexa, binary, double, generator, function, ident, object, closure, paren,
-        list, regex,
+        quote, octal, hexa, binary, double, generator, function, object, closure, paren, list,
+        regex, ident, intepolate,
     )))(i)
 }
 
@@ -393,6 +395,7 @@ where
         Node::Break => Node::Break,
         Node::Return(None) => Node::Return(None),
         Node::Str(a) => Node::Str(a),
+        Node::Interpolation(a) => Node::Interpolation(a),
         Node::Regex(a) => Node::Regex(a),
         Node::Ident(a) => Node::Ident(a),
         Node::Double(a) => Node::Double(a),
@@ -834,3 +837,4 @@ choice!(A B C D E F G H I J, 0 1 2 3 4 5 6 7 8 9);
 choice!(A B C D E F G H I J K, 0 1 2 3 4 5 6 7 8 9 10);
 choice!(A B C D E F G H I J K L, 0 1 2 3 4 5 6 7 8 9 10 11);
 choice!(A B C D E F G H I J K L M, 0 1 2 3 4 5 6 7 8 9 10 11 12);
+choice!(A B C D E F G H I J K L M N, 0 1 2 3 4 5 6 7 8 9 10 11 12 13);
