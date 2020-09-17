@@ -1555,6 +1555,10 @@ fn test_prefix() {
         Ok((" ", Node::Unary("!", Box::new(Node::Double(2.0)))))
     );
     assert_eq!(
+        expression(" ~ 2 "),
+        Ok((" ", Node::Unary("~", Box::new(Node::Double(2.0)))))
+    );
+    assert_eq!(
         expression(" !!2 "),
         Ok((
             " ",

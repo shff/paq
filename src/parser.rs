@@ -202,7 +202,8 @@ fn power<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn negation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    map(prefix(tag("!"), prefixes), makechain)(i)
+    let ops = &["!", "~"];
+    map(prefix(one_of(ops), prefixes), makechain)(i)
 }
 
 fn prefixes<'a>(i: &'a str) -> ParseResult<Node<'a>> {
