@@ -10,6 +10,7 @@ const lazy = function*() {
   (function* gen() { yield 1; })();
 }
 with(b) for(;;);
+do{}while(0);
 for (var x in [1,2,3]) {
   if (x == 1) continue
   break;
