@@ -9,7 +9,7 @@ const lazy = function*() {
   throw new Error("Code should be unreachable");
   (function* gen() { yield 1; })();
 }
-for(;;);
+with(b) for(;;);
 for (var x in [1,2,3]) {
   if (x == 1) continue
   break;
