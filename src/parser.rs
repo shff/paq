@@ -30,6 +30,8 @@ pub enum Node<'a> {
     Function((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
     Shorthand((Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>)),
     Generator((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
+    Class((Option<Box<Node<'a>>>, Vec<Node<'a>>)),
+    Field((Box<Node<'a>>, Box<Node<'a>>)),
     Unary(&'a str, Box<Node<'a>>),
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
     Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
@@ -57,10 +59,6 @@ fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let eol = take_while(|c| c == '\n' || c == '\r');
-    let brace = value(ws(peek(tag("}"))), "");
-    let end = choice((ws(eoi), ws(tag(";")), eol, brace));
-
     let empty = map(peek(tag(";")), |_| Node::Blank);
     let cont = value(tag("continue"), Node::Continue);
     let brk = value(tag("break"), Node::Break);
@@ -275,7 +273,7 @@ fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let intepolate = map(string('`'), Node::Interpolation);
     ws(choice((
         quote, octal, hexa, binary, double, generator, function, object, closure, paren, list,
-        regex, ident, intepolate,
+        regex, class, ident, intepolate,
     )))(i)
 }
 
@@ -338,6 +336,17 @@ fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(func, Node::Generator)(i)
 }
 
+fn class<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let field = ws(map(
+        outer(boxed(ident), ws(tag("=")), boxed(expression)),
+        Node::Field,
+    ));
+    let inner = many(left(choice((field, shorthand)), end));
+    let inner = ws(middle(tag("{"), inner, ws(tag("}"))));
+    let title = ws(right(tag("class"), opt(boxed(ident))));
+    map(pair(title, inner), Node::Class)(i)
+}
+
 fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(middle(tag("{"), block, ws(tag("}"))))(i)
 }
@@ -374,6 +383,12 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
     let value = boxed(yield1);
     map(outer(key, ws(tag(":")), value), Node::KeyValue)(i)
+}
+
+fn end<'a>(i: &'a str) -> ParseResult<&'a str> {
+    let eol = take_while(|c| c == '\n' || c == '\r');
+    let brace = value(ws(peek(tag("}"))), "");
+    choice((ws(eoi), ws(tag(";")), eol, brace))(i)
 }
 
 // Tree walking
@@ -451,6 +466,9 @@ where
         Node::Declaration((a, b)) => {
             Node::Declaration((a, b.iter().map(|n| walk(n.clone(), visit)).collect()))
         }
+        Node::Class((None, a)) => {
+            Node::Class((None, a.iter().map(|n| walk(n.clone(), visit)).collect()))
+        }
         Node::While((a, b)) => Node::While((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
@@ -476,6 +494,14 @@ where
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::Closure((a, b)) => Node::Closure((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Class((Some(a), b)) => Node::Class((
+            Some(Box::new(walk(*a.clone(), visit))),
+            b.iter().map(|n| walk(n.clone(), visit)).collect(),
+        )),
+        Node::Field((a, b)) => Node::Field((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),
@@ -855,9 +881,9 @@ pub trait Choice<'a, O> {
 }
 macro_rules! choice(
     ($($id:ident)+ , $($num:tt)+) => (
-        impl<'a, O, $($id: Fn(&'a str) -> ParseResult<'a, O>),+>
-            Choice<'a, O> for ( $($id),+ ) {
-            fn choice(&self, i: &'a str) -> ParseResult<'a, O> {
+        impl<'a, OUT, $($id: Fn(&'a str) -> ParseResult<'a, OUT>),+>
+            Choice<'a, OUT> for ( $($id),+ ) {
+            fn choice(&self, i: &'a str) -> ParseResult<'a, OUT> {
                 Err(("", ""))$(.or_else(|_| self.$num(i)))*
             }
         }
@@ -876,3 +902,4 @@ choice!(A B C D E F G H I J K, 0 1 2 3 4 5 6 7 8 9 10);
 choice!(A B C D E F G H I J K L, 0 1 2 3 4 5 6 7 8 9 10 11);
 choice!(A B C D E F G H I J K L M, 0 1 2 3 4 5 6 7 8 9 10 11 12);
 choice!(A B C D E F G H I J K L M N, 0 1 2 3 4 5 6 7 8 9 10 11 12 13);
+choice!(A B C D E F G H I J K L M N O, 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14);

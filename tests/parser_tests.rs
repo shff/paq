@@ -54,6 +54,8 @@ fn test_parser_deps() {
     assert_dep("deps-walker-all.js", "debounce");
     assert_dep("deps-walker-all.js", "assert");
     assert_dep("deps-lazy.js", "lazily-loaded");
+    assert_dep("deps-class.js", "lodash");
+    assert_dep("deps-class.js", "ramda");
 }
 
 #[test]
@@ -1825,6 +1827,65 @@ fn test_action() {
             )
         ))
     );
+}
+
+#[test]
+fn test_classes() {
+    assert_eq!(
+        expression(" class a { }"),
+        Ok((
+            "",
+            Node::Class((Some(Box::new(Node::Ident(String::from("a")))), vec![]))
+        ))
+    );
+    assert_eq!(
+        expression(" class a {  b () { }  }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                vec![Node::Shorthand((
+                    Box::new(Node::Ident(String::from("b"))),
+                    Box::new(Node::Params(vec![])),
+                    Box::new(Node::Block(vec![]))
+                ))]
+            ))
+        ))
+    );
+    assert_eq!(
+        expression(" class a {   c = 1 }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                vec![Node::Field((
+                    Box::new(Node::Ident(String::from("c"))),
+                    Box::new(Node::Double(1.0))
+                ))]
+            ))
+        ))
+    );
+    assert_eq!(
+        expression(" class a {  b () { } ; c  =  1 }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                vec![
+                    Node::Shorthand((
+                        Box::new(Node::Ident(String::from("b"))),
+                        Box::new(Node::Params(vec![])),
+                        Box::new(Node::Block(vec![]))
+                    )),
+                    Node::Field((
+                        Box::new(Node::Ident(String::from("c"))),
+                        Box::new(Node::Double(1.0))
+                    ))
+                ]
+            ))
+        ))
+    );
+    assert_eq!(expression("class{}"), Ok(("", Node::Class((None, vec![])))))
 }
 
 #[test]
