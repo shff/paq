@@ -6,6 +6,7 @@ pub enum Node<'a> {
     If((Box<Node<'a>>, Box<Node<'a>>, Option<Box<Node<'a>>>)),
     While((Box<Node<'a>>, Box<Node<'a>>)),
     For((Box<Node<'a>>, Box<Node<'a>>)),
+    With((Box<Node<'a>>, Box<Node<'a>>)),
     Declaration((&'a str, Vec<Node<'a>>)),
     Return(Option<Box<Node<'a>>>),
     Throw(Box<Node<'a>>),
@@ -50,7 +51,7 @@ pub fn block(i: &str) -> ParseResult<Node> {
 
 fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(choice((
-        braces, condition, while_loop, for_loop, gotos, function,
+        braces, condition, while_loop, for_loop, with, gotos, function,
     )))(i)
 }
 
@@ -129,6 +130,11 @@ fn for_in<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let expr1 = boxed(choice((variable, ident)));
     let expr2 = boxed(expression);
     map(outer(expr1, ws(tag("in")), expr2), Node::ForIn)(i)
+}
+
+fn with<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = pair(boxed(paren), boxed(statement));
+    map(ws(right(tag("with"), inner)), Node::With)(i)
 }
 
 fn variable<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -448,6 +454,10 @@ where
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::ForIn((a, b)) => Node::ForIn((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::With((a, b)) => Node::With((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),

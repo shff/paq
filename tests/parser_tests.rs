@@ -451,6 +451,16 @@ fn test_statement() {
         ))
     );
     assert_eq!(
+        block("with (a) b ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::With((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("a"))))),
+                Box::new(Node::Ident(String::from("b")))
+            ))])
+        ))
+    );
+    assert_eq!(
         block("for(0;0;0){return;}"),
         Ok((
             "",
