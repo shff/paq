@@ -5,6 +5,7 @@ pub enum Node<'a> {
     Block(Vec<Node<'a>>),
     If((Box<Node<'a>>, Box<Node<'a>>, Option<Box<Node<'a>>>)),
     While((Box<Node<'a>>, Box<Node<'a>>)),
+    Do((Box<Node<'a>>, Box<Node<'a>>)),
     For((Box<Node<'a>>, Box<Node<'a>>)),
     With((Box<Node<'a>>, Box<Node<'a>>)),
     Declaration((&'a str, Vec<Node<'a>>)),
@@ -51,7 +52,7 @@ pub fn block(i: &str) -> ParseResult<Node> {
 
 fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(choice((
-        braces, condition, while_loop, for_loop, with, gotos, function,
+        braces, condition, while_loop, do_loop, for_loop, with, gotos, function,
     )))(i)
 }
 
@@ -103,6 +104,11 @@ fn condition<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn while_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = pair(boxed(paren), boxed(statement));
     map(ws(right(tag("while"), inner)), Node::While)(i)
+}
+
+fn do_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = right(tag("do"), boxed(statement));
+    map(ws(outer(inner, ws(tag("while")), boxed(paren))), Node::Do)(i)
 }
 
 fn for_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -446,6 +452,10 @@ where
             Node::Declaration((a, b.iter().map(|n| walk(n.clone(), visit)).collect()))
         }
         Node::While((a, b)) => Node::While((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Do((a, b)) => Node::Do((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),
