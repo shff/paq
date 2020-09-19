@@ -431,6 +431,16 @@ fn test_statement() {
         ))
     );
     assert_eq!(
+        block("while(true)  ;"),
+        Ok((
+            "",
+            Node::Block(vec![Node::While((
+                Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
+                Box::new(Node::Blank)
+            ))])
+        ))
+    );
+    assert_eq!(
         block(" while ( true ) return ; "),
         Ok((
             " ",
@@ -451,6 +461,20 @@ fn test_statement() {
                     Some(Node::Double(0.0)),
                 ])),
                 Box::new(Node::Block(vec![Node::Return(None)]))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for(0;0;0) ;"),
+        Ok((
+            "",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForTrio(vec![
+                    Some(Node::Double(0.0)),
+                    Some(Node::Double(0.0)),
+                    Some(Node::Double(0.0)),
+                ])),
+                Box::new(Node::Blank)
             ))])
         ))
     );

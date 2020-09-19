@@ -11,6 +11,7 @@ pub enum Node<'a> {
     Throw(Box<Node<'a>>),
     Continue,
     Break,
+    Blank,
 
     Str(String),
     Interpolation(String),
@@ -58,12 +59,22 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let brace = value(ws(peek(tag("}"))), "");
     let end = choice((ws(eoi), ws(tag(";")), eol, brace));
 
-    let cont = map(tag("continue"), |_| Node::Continue);
-    let brk = map(tag("break"), |_| Node::Break);
+    let empty = map(peek(tag(";")), |_| Node::Blank);
+    let cont = value(tag("continue"), Node::Continue);
+    let brk = value(tag("break"), Node::Break);
     let ret = map(right(tag("return"), opt(boxed(expression))), Node::Return);
     let thrw = map(right(tag("throw"), boxed(expression)), Node::Throw);
     left(
-        choice((imports, cont, brk, ret, thrw, declaration, expression)),
+        choice((
+            imports,
+            cont,
+            brk,
+            ret,
+            thrw,
+            declaration,
+            expression,
+            empty,
+        )),
         end,
     )(i)
 }
@@ -498,6 +509,7 @@ where
             Box::new(walk(*c.clone(), visit)),
         )),
         Node::ForTrio(_) => node,
+        Node::Blank => node,
     }
 }
 
@@ -560,9 +572,9 @@ pub fn chr(c: char) -> impl Fn(&str) -> ParseResult<&str> {
 pub fn value<'a, P, R, V>(p: P, v: V) -> impl Fn(&'a str) -> ParseResult<V>
 where
     P: Fn(&'a str) -> ParseResult<R>,
-    V: Copy,
+    V: Clone,
 {
-    move |i| p(i).map(|(i, _)| (i, v))
+    move |i| p(i).map(|(i, _)| (i, v.clone()))
 }
 
 pub fn map<'a, P, F, A, B>(p: P, f: F) -> impl Fn(&'a str) -> ParseResult<B>
