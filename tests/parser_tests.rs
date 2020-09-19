@@ -1804,6 +1804,17 @@ fn test_action() {
             )
         ))
     );
+    assert_eq!(
+        expression("a``"),
+        Ok((
+            "",
+            Node::Binary(
+                "`",
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Interpolation(String::from("")))
+            )
+        ))
+    );
 }
 
 #[test]

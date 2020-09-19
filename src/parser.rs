@@ -238,13 +238,17 @@ fn creation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let interp = pair(peek(tag("`")), map(string('`'), Node::Interpolation));
     let array = pair(tag("["), left(expression, ws(tag("]"))));
     let opt = pair(tag("?."), ident);
     let dot = pair(tag("."), ident);
     let call = pair(tag("("), left(args, ws(tag(")"))));
     let ea = pair(tag("?.["), left(expression, ws(tag("]"))));
     let ec = pair(tag("?.("), left(args, ws(tag(")"))));
-    let action = pair(primitive, many(ws(choice((array, opt, dot, call, ea, ec)))));
+    let action = pair(
+        primitive,
+        many(ws(choice((array, opt, dot, call, ea, ec, interp)))),
+    );
     map(action, makechain2)(i)
 }
 
