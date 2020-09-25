@@ -38,6 +38,8 @@ pub enum Node<'a> {
     Import((Option<Box<Node<'a>>>, Box<Node<'a>>)),
 
     Args(Vec<Node<'a>>),
+    ListPattern(Vec<Option<Node<'a>>>),
+    ObjPattern(Vec<Node<'a>>),
     Splat(Box<Node<'a>>),
     KeyValue((Box<Node<'a>>, Box<Node<'a>>)),
     Params(Vec<Node<'a>>),
@@ -125,13 +127,13 @@ fn for_trio<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn for_of<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let expr1 = boxed(choice((variable, ident)));
+    let expr1 = boxed(choice((variable, pattern)));
     let expr2 = boxed(expression);
     map(outer(expr1, ws(tag("of")), expr2), Node::ForOf)(i)
 }
 
 fn for_in<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let expr1 = boxed(choice((variable, ident)));
+    let expr1 = boxed(choice((variable, pattern)));
     let expr2 = boxed(expression);
     map(outer(expr1, ws(tag("in")), expr2), Node::ForIn)(i)
 }
@@ -143,7 +145,7 @@ fn with<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn variable<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let ops = &["var", "let", "const"];
-    map(ws(pair(one_of(ops), boxed(ident))), Node::Variable)(i)
+    map(ws(pair(one_of(ops), boxed(pattern))), Node::Variable)(i)
 }
 
 pub fn expression<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -353,7 +355,7 @@ fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn params<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let value = opt(right(ws(tag("=")), boxed(ws(expression))));
-    let param = pair(boxed(ident), value);
+    let param = pair(boxed(pattern), value);
     let exp = map(param, Node::Param);
     let inner = chain(ws(tag(",")), choice((splat, exp)));
     let params = middle(tag("("), inner, ws(tag(")")));
@@ -368,6 +370,14 @@ fn args<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let exp = boxed(right(tag("..."), yield1));
     ws(map(exp, Node::Splat))(i)
+}
+
+fn pattern<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let items = chain(tag(","), ws(opt(choice((splat, pattern)))));
+    let list = map(middle(tag("["), items, ws(tag("]"))), Node::ListPattern);
+    let items = chain(tag(","), ws(choice((splat, pattern))));
+    let object = map(middle(tag("{"), items, ws(tag("}"))), Node::ObjPattern);
+    ws(choice((list, object, ident)))(i)
 }
 
 fn comments<'a>(i: &'a str) -> ParseResult<Vec<&'a str>> {
@@ -460,7 +470,13 @@ where
                 .map(|n| n.as_ref().map(|m| walk(m.clone(), visit)))
                 .collect(),
         ),
+        Node::ListPattern(a) => Node::ListPattern(
+            a.iter()
+                .map(|n| n.as_ref().map(|m| walk(m.clone(), visit)))
+                .collect(),
+        ),
         Node::Object(a) => Node::Object(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::ObjPattern(a) => Node::ObjPattern(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Args(a) => Node::Args(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Params(a) => Node::Params(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Declaration((a, b)) => {
