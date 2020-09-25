@@ -19,6 +19,6 @@ for (var x in [1,2,3]) {
   set a(v) {}
   get a() {}
 })
-const { x: { y: [[a]] } } = { x: { y: [ [1,2,3], [4,5,6] ] } };
+for ([{x}] of y) {}
 export let x = 1;
 try{} catch(x) {} finally{}
