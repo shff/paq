@@ -598,7 +598,7 @@ fn test_statement() {
             Node::Block(vec![Node::For((
                 Box::new(Node::ForIn((
                     Box::new(Node::Variable((
-                        "let",
+                        Some("let"),
                         Box::new(Node::Ident(String::from("x")))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
@@ -614,8 +614,112 @@ fn test_statement() {
             Node::Block(vec![Node::For((
                 Box::new(Node::ForOf((
                     Box::new(Node::Variable((
-                        "let",
+                        Some("let"),
                         Box::new(Node::Ident(String::from("x")))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (x of y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForOf((
+                    Box::new(Node::Variable((
+                        None,
+                        Box::new(Node::Ident(String::from("x")))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (x in y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForIn((
+                    Box::new(Node::Variable((
+                        None,
+                        Box::new(Node::Ident(String::from("x")))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (let [] of y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForOf((
+                    Box::new(Node::Variable((
+                        Some("let"),
+                        Box::new(Node::ListPattern(vec![None]))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (let [x,y,z] of y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForOf((
+                    Box::new(Node::Variable((
+                        Some("let"),
+                        Box::new(Node::ListPattern(vec![
+                            Some(Node::Ident(String::from("x"))),
+                            Some(Node::Ident(String::from("y"))),
+                            Some(Node::Ident(String::from("z")))
+                        ]))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (let {} of y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForOf((
+                    Box::new(Node::Variable((
+                        Some("let"),
+                        Box::new(Node::ObjPattern(vec![]))
+                    ))),
+                    Box::new(Node::Ident(String::from("y")))
+                ))),
+                Box::new(Node::Return(None))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("for (let {x,y,z} of y) return ; "),
+        Ok((
+            " ",
+            Node::Block(vec![Node::For((
+                Box::new(Node::ForOf((
+                    Box::new(Node::Variable((
+                        Some("let"),
+                        Box::new(Node::ObjPattern(vec![
+                            Node::Ident(String::from("x")),
+                            Node::Ident(String::from("y")),
+                            Node::Ident(String::from("z"))
+                        ]))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
