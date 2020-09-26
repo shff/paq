@@ -39,6 +39,8 @@ pub enum Node<'a> {
     Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
     Import((Option<Box<Node<'a>>>, Box<Node<'a>>)),
     Export(Box<Node<'a>>),
+    Try((Box<Node<'a>>, Option<Box<Node<'a>>>, Option<Box<Node<'a>>>)),
+    Catch((Option<Box<Node<'a>>>, Box<Node<'a>>)),
 
     Args(Vec<Node<'a>>),
     Splat(Box<Node<'a>>),
@@ -71,6 +73,7 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
         choice((
             imports,
             exports,
+            try_catch,
             cont,
             brk,
             ret,
@@ -92,6 +95,18 @@ fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn exports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = right(ws(tag("export")), boxed(declaration));
     map(inner, Node::Export)(i)
+}
+
+fn try_catch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let tryb = right(ws(tag("try")), boxed(braces));
+    let finally = right(ws(tag("finally")), boxed(braces));
+    map(trio(tryb, opt(boxed(catch)), opt(finally)), Node::Try)(i)
+}
+
+fn catch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let exception = middle(ws(tag("(")), boxed(ident), ws(tag(")")));
+    let inner = right(tag("catch"), pair(opt(exception), boxed(braces)));
+    ws(map(inner, Node::Catch))(i)
 }
 
 fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -529,6 +544,27 @@ where
             Box::new(walk(*a.clone(), visit)),
             Some(Box::new(walk(*b.clone(), visit))),
         )),
+        Node::Try((a, Some(b), Some(c))) => Node::Try((
+            Box::new(walk(*a.clone(), visit)),
+            Some(Box::new(walk(*b.clone(), visit))),
+            Some(Box::new(walk(*c.clone(), visit))),
+        )),
+        Node::Try((a, None, Some(c))) => Node::Try((
+            Box::new(walk(*a.clone(), visit)),
+            None,
+            Some(Box::new(walk(*c.clone(), visit))),
+        )),
+        Node::Try((a, Some(b), None)) => Node::Try((
+            Box::new(walk(*a.clone(), visit)),
+            Some(Box::new(walk(*b.clone(), visit))),
+            None,
+        )),
+        Node::Try((a, None, None)) => Node::Try((Box::new(walk(*a.clone(), visit)), None, None)),
+        Node::Catch((Some(a), b)) => Node::Catch((
+            Some(Box::new(walk(*a.clone(), visit))),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Catch((None, b)) => Node::Catch((None, Box::new(walk(*b.clone(), visit)))),
         Node::Function((None, a, b)) => Node::Function((
             None,
             Box::new(walk(*a.clone(), visit)),

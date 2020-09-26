@@ -623,6 +623,67 @@ fn test_statement() {
             ))])
         ))
     );
+    assert_eq!(
+        block("try {} catch {} "),
+        Ok((
+            "",
+            Node::Block(vec![Node::Try((
+                Box::new(Node::Block(vec![])),
+                Some(Box::new(Node::Catch((None, Box::new(Node::Block(vec![])))))),
+                None
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("try {} finally {} "),
+        Ok((
+            "",
+            Node::Block(vec![Node::Try((
+                Box::new(Node::Block(vec![])),
+                None,
+                Some(Box::new(Node::Block(vec![])))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("try {} catch(x) {} "),
+        Ok((
+            "",
+            Node::Block(vec![Node::Try((
+                Box::new(Node::Block(vec![])),
+                Some(Box::new(Node::Catch((
+                    Some(Box::new(Node::Ident(String::from("x")))),
+                    Box::new(Node::Block(vec![]))
+                )))),
+                None
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("try {} catch {} finally {}"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Try((
+                Box::new(Node::Block(vec![])),
+                Some(Box::new(Node::Catch((None, Box::new(Node::Block(vec![])))))),
+                Some(Box::new(Node::Block(vec![])))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("try {} catch(x) {} finally {}"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Try((
+                Box::new(Node::Block(vec![])),
+                Some(Box::new(Node::Catch((
+                    Some(Box::new(Node::Ident(String::from("x")))),
+                    Box::new(Node::Block(vec![]))
+                )))),
+                Some(Box::new(Node::Block(vec![])))
+            ))])
+        ))
+    );
 }
 
 #[test]

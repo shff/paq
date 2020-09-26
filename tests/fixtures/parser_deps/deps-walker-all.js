@@ -21,3 +21,4 @@ for (var x in [1,2,3]) {
 })
 const { x: { y: [[a]] } } = { x: { y: [ [1,2,3], [4,5,6] ] } };
 export let x = 1;
+try{} catch(x) {} finally{}
