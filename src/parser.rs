@@ -38,6 +38,7 @@ pub enum Node<'a> {
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
     Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
     Import((Option<Box<Node<'a>>>, Box<Node<'a>>)),
+    Export(Box<Node<'a>>),
 
     Args(Vec<Node<'a>>),
     Splat(Box<Node<'a>>),
@@ -69,6 +70,7 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     left(
         choice((
             imports,
+            exports,
             cont,
             brk,
             ret,
@@ -83,10 +85,13 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let from = opt(left(boxed(ws(ident)), ws(tag("from"))));
-    map(
-        right(ws(tag("import")), pair(from, boxed(ws(quote)))),
-        Node::Import,
-    )(i)
+    let inner = right(ws(tag("import")), pair(from, boxed(ws(quote))));
+    map(inner, Node::Import)(i)
+}
+
+fn exports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = right(ws(tag("export")), boxed(declaration));
+    map(inner, Node::Export)(i)
 }
 
 fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -457,6 +462,7 @@ where
         Node::Import(a) => Node::Import(a),
         Node::Getter(a) => Node::Getter(a),
         Node::Setter(a) => Node::Setter(a),
+        Node::Export(a) => Node::Export(a),
         Node::Return(Some(a)) => Node::Return(Some(Box::new(walk(*a.clone(), visit)))),
         Node::Throw(a) => Node::Throw(Box::new(walk(*a.clone(), visit))),
         Node::Paren(a) => Node::Paren(Box::new(walk(*a.clone(), visit))),

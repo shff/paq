@@ -155,6 +155,48 @@ fn test_statement() {
         ))
     );
     assert_eq!(
+        block("export let x = 'y';"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Declaration((
+                "let",
+                vec![Node::Binary(
+                    "=",
+                    Box::new(Node::Ident(String::from("x"))),
+                    Box::new(Node::Str(String::from("y")))
+                )]
+            ))))])
+        ))
+    );
+    assert_eq!(
+        block("export const z = 1;"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Declaration((
+                "const",
+                vec![Node::Binary(
+                    "=",
+                    Box::new(Node::Ident(String::from("z"))),
+                    Box::new(Node::Double(1.0))
+                )]
+            ))))])
+        ))
+    );
+    assert_eq!(
+        block("export var x = 'y';"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Declaration((
+                "var",
+                vec![Node::Binary(
+                    "=",
+                    Box::new(Node::Ident(String::from("x"))),
+                    Box::new(Node::Str(String::from("y")))
+                )]
+            ))))])
+        ))
+    );
+    assert_eq!(
         block("continue}"),
         Ok(("}", Node::Block(vec![Node::Continue])))
     );
