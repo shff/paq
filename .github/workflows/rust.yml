@@ -14,8 +14,8 @@ jobs:
           jq -r '.assets[0].browser_download_url' |\
           xargs curl -L |\
           tar zxv -C /usr/share/rust/.cargo/bin
-    - name: Get Test262
-      run: git clone --depth 1 https://github.com/tc39/test262-parser-tests ../test262-parser-tests
+    - name: Submodules
+      run: git submodule update --init
     - name: Format
       run: cargo fmt -- --check
     - name: Test
