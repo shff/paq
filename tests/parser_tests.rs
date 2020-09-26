@@ -1891,7 +1891,7 @@ fn test_classes() {
 #[test]
 fn test_automatic() {
     let cur_dir = std::env::current_dir().unwrap();
-    let pass = cur_dir.join("../test262-parser-tests/pass");
+    let pass = cur_dir.join("tests/fixtures/test262-parser-tests/pass");
     let mut failures = 0;
     let mut total = 0;
     if let Ok(files) = std::fs::read_dir(pass) {
