@@ -15,4 +15,7 @@ for (var x in [1,2,3]) {
   if (x == 1) continue
   break;
 }
-(class {})
+(class {
+  set a(v) {}
+  get a() {}
+})

@@ -1885,7 +1885,35 @@ fn test_classes() {
             ))
         ))
     );
-    assert_eq!(expression("class{}"), Ok(("", Node::Class((None, vec![])))))
+    assert_eq!(expression("class{}"), Ok(("", Node::Class((None, vec![])))));
+    assert_eq!(
+        expression("  class  a { set  b  ( ) {   }  }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                vec![Node::Setter(Box::new(Node::Shorthand((
+                    Box::new(Node::Ident(String::from("b"))),
+                    Box::new(Node::Params(vec![])),
+                    Box::new(Node::Block(vec![]))
+                ))))]
+            ))
+        ))
+    );
+    assert_eq!(
+        expression(" class a {  get b () { }  }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                vec![Node::Getter(Box::new(Node::Shorthand((
+                    Box::new(Node::Ident(String::from("b"))),
+                    Box::new(Node::Params(vec![])),
+                    Box::new(Node::Block(vec![]))
+                ))))]
+            ))
+        ))
+    );
 }
 
 #[test]
