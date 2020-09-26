@@ -29,6 +29,8 @@ pub enum Node<'a> {
     Closure((Box<Node<'a>>, Box<Node<'a>>)),
     Function((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
     Shorthand((Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>)),
+    Setter(Box<Node<'a>>),
+    Getter(Box<Node<'a>>),
     Generator((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
     Class((Option<Box<Node<'a>>>, Vec<Node<'a>>)),
     Field((Box<Node<'a>>, Box<Node<'a>>)),
@@ -297,9 +299,15 @@ fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let item = choice((shorthand, key_value, ident, splat));
+    let item = choice((methods, key_value, ident, splat));
     let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
     ws(map(object, Node::Object))(i)
+}
+
+fn methods<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let getter = map(right(tag("get"), boxed(shorthand)), Node::Getter);
+    let setter = map(right(tag("set"), boxed(shorthand)), Node::Setter);
+    ws(choice((getter, setter, shorthand)))(i)
 }
 
 fn shorthand<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -457,6 +465,8 @@ where
         Node::Hexadecimal(a) => Node::Hexadecimal(a),
         Node::BinaryNum(a) => Node::BinaryNum(a),
         Node::Import(a) => Node::Import(a),
+        Node::Getter(a) => Node::Getter(a),
+        Node::Setter(a) => Node::Setter(a),
         Node::Return(Some(a)) => Node::Return(Some(Box::new(walk(*a.clone(), visit)))),
         Node::Throw(a) => Node::Throw(Box::new(walk(*a.clone(), visit))),
         Node::Paren(a) => Node::Paren(Box::new(walk(*a.clone(), visit))),
