@@ -2121,6 +2121,36 @@ fn test_classes() {
             ))
         ))
     );
+    assert_eq!(
+        expression(" class a {  static a() {}  }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                vec![Node::Static(Box::new(Node::Shorthand((
+                    Box::new(Node::Ident(String::from("a"))),
+                    Box::new(Node::Params(vec![])),
+                    Box::new(Node::Block(vec![]))
+                ))))]
+            ))
+        ))
+    );
+    assert_eq!(
+        expression(" class a {  static get a() {}  }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                vec![Node::Static(Box::new(Node::Getter(Box::new(
+                    Node::Shorthand((
+                        Box::new(Node::Ident(String::from("a"))),
+                        Box::new(Node::Params(vec![])),
+                        Box::new(Node::Block(vec![]))
+                    ))
+                ))))]
+            ))
+        ))
+    );
 }
 
 #[test]

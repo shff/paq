@@ -18,6 +18,7 @@ for (var x in [1,2,3]) {
 (class {
   set a(v) {}
   get a() {}
+  static x() {}
 })
 for ([{x}] of y) {}
 export let x = 1;
