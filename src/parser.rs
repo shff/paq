@@ -31,6 +31,7 @@ pub enum Node<'a> {
     Shorthand((Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>)),
     Setter(Box<Node<'a>>),
     Getter(Box<Node<'a>>),
+    Static(Box<Node<'a>>),
     Generator((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
     Class((Option<Box<Node<'a>>>, Vec<Node<'a>>)),
     Field((Box<Node<'a>>, Box<Node<'a>>)),
@@ -323,9 +324,20 @@ fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn methods<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let getter = map(right(tag("get"), boxed(shorthand)), Node::Getter);
-    let setter = map(right(tag("set"), boxed(shorthand)), Node::Setter);
-    ws(choice((getter, setter, shorthand)))(i)
+    ws(choice((statik, getter, setter, shorthand)))(i)
+}
+
+fn statik<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = boxed(choice((getter, setter, shorthand)));
+    ws(map(right(tag("static"), inner), Node::Static))(i)
+}
+
+fn getter<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    ws(map(right(tag("get"), boxed(shorthand)), Node::Getter))(i)
+}
+
+fn setter<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    ws(map(right(tag("set"), boxed(shorthand)), Node::Setter))(i)
 }
 
 fn shorthand<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -484,6 +496,7 @@ where
         Node::Import(a) => Node::Import(a),
         Node::Getter(a) => Node::Getter(a),
         Node::Setter(a) => Node::Setter(a),
+        Node::Static(a) => Node::Static(a),
         Node::Export(a) => Node::Export(a),
         Node::Return(a) => Node::Return(a.map(|a| Box::new(walk(*a.clone(), visit)))),
         Node::Throw(a) => Node::Throw(Box::new(walk(*a.clone(), visit))),
