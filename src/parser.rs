@@ -465,7 +465,6 @@ where
     match node.clone() {
         Node::Continue => Node::Continue,
         Node::Break => Node::Break,
-        Node::Return(None) => Node::Return(None),
         Node::Str(a) => Node::Str(a),
         Node::Interpolation(a) => Node::Interpolation(a),
         Node::Regex(a) => Node::Regex(a),
@@ -478,12 +477,11 @@ where
         Node::Getter(a) => Node::Getter(a),
         Node::Setter(a) => Node::Setter(a),
         Node::Export(a) => Node::Export(a),
-        Node::Return(Some(a)) => Node::Return(Some(Box::new(walk(*a.clone(), visit)))),
+        Node::Return(a) => Node::Return(a.map(|a| Box::new(walk(*a.clone(), visit)))),
         Node::Throw(a) => Node::Throw(Box::new(walk(*a.clone(), visit))),
         Node::Paren(a) => Node::Paren(Box::new(walk(*a.clone(), visit))),
         Node::Splat(a) => Node::Splat(Box::new(walk(*a.clone(), visit))),
         Node::Unary(a, b) => Node::Unary(a, Box::new(walk(*b.clone(), visit))),
-        Node::Param((a, None)) => Node::Param((Box::new(walk(*a.clone(), visit)), None)),
         Node::Variable((a, b)) => Node::Variable((a, Box::new(walk(*b.clone(), visit)))),
         Node::Block(a) => Node::Block(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::List(a) => Node::List(
@@ -496,9 +494,6 @@ where
         Node::Params(a) => Node::Params(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Declaration((a, b)) => {
             Node::Declaration((a, b.iter().map(|n| walk(n.clone(), visit)).collect()))
-        }
-        Node::Class((None, a)) => {
-            Node::Class((None, a.iter().map(|n| walk(n.clone(), visit)).collect()))
         }
         Node::While((a, b)) => Node::While((
             Box::new(walk(*a.clone(), visit)),
@@ -528,8 +523,8 @@ where
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),
-        Node::Class((Some(a), b)) => Node::Class((
-            Some(Box::new(walk(*a.clone(), visit))),
+        Node::Class((a, b)) => Node::Class((
+            a.map(|a| Box::new(walk(*a.clone(), visit))),
             b.iter().map(|n| walk(n.clone(), visit)).collect(),
         )),
         Node::Field((a, b)) => Node::Field((
@@ -540,45 +535,33 @@ where
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),
-        Node::Param((a, Some(b))) => Node::Param((
+        Node::Param((a, b)) => Node::Param((
             Box::new(walk(*a.clone(), visit)),
-            Some(Box::new(walk(*b.clone(), visit))),
+            b.map(|b| Box::new(walk(*b.clone(), visit))),
         )),
-        Node::Try((a, Some(b), Some(c))) => Node::Try((
+        Node::Try((a, b, c)) => Node::Try((
             Box::new(walk(*a.clone(), visit)),
-            Some(Box::new(walk(*b.clone(), visit))),
-            Some(Box::new(walk(*c.clone(), visit))),
+            b.map(|b| Box::new(walk(*b.clone(), visit))),
+            c.map(|c| Box::new(walk(*c.clone(), visit))),
         )),
-        Node::Try((a, None, Some(c))) => Node::Try((
-            Box::new(walk(*a.clone(), visit)),
-            None,
-            Some(Box::new(walk(*c.clone(), visit))),
-        )),
-        Node::Try((a, Some(b), None)) => Node::Try((
-            Box::new(walk(*a.clone(), visit)),
-            Some(Box::new(walk(*b.clone(), visit))),
-            None,
-        )),
-        Node::Try((a, None, None)) => Node::Try((Box::new(walk(*a.clone(), visit)), None, None)),
-        Node::Catch((Some(a), b)) => Node::Catch((
-            Some(Box::new(walk(*a.clone(), visit))),
+        Node::Catch((a, b)) => Node::Catch((
+            a.map(|a| Box::new(walk(*a.clone(), visit))),
             Box::new(walk(*b.clone(), visit)),
         )),
-        Node::Catch((None, b)) => Node::Catch((None, Box::new(walk(*b.clone(), visit)))),
-        Node::Function((None, a, b)) => Node::Function((
-            None,
-            Box::new(walk(*a.clone(), visit)),
+        Node::Function((a, b, c)) => Node::Function((
+            a.map(|a| Box::new(walk(*a.clone(), visit))),
             Box::new(walk(*b.clone(), visit)),
+            Box::new(walk(*c.clone(), visit)),
         )),
-        Node::Generator((None, a, b)) => Node::Generator((
-            None,
-            Box::new(walk(*a.clone(), visit)),
+        Node::Generator((a, b, c)) => Node::Generator((
+            a.map(|a| Box::new(walk(*a.clone(), visit))),
             Box::new(walk(*b.clone(), visit)),
+            Box::new(walk(*c.clone(), visit)),
         )),
-        Node::If((a, b, None)) => Node::If((
+        Node::If((a, b, c)) => Node::If((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
-            None,
+            c.map(|c| Box::new(walk(*c.clone(), visit))),
         )),
         Node::Binary(a, b, c) => Node::Binary(
             a,
@@ -592,21 +575,6 @@ where
         ),
         Node::Shorthand((a, b, c)) => Node::Shorthand((
             Box::new(walk(*a.clone(), visit)),
-            Box::new(walk(*b.clone(), visit)),
-            Box::new(walk(*c.clone(), visit)),
-        )),
-        Node::If((a, b, Some(c))) => Node::If((
-            Box::new(walk(*a.clone(), visit)),
-            Box::new(walk(*b.clone(), visit)),
-            Some(Box::new(walk(*c.clone(), visit))),
-        )),
-        Node::Function((Some(a), b, c)) => Node::Function((
-            Some(Box::new(walk(*a.clone(), visit))),
-            Box::new(walk(*b.clone(), visit)),
-            Box::new(walk(*c.clone(), visit)),
-        )),
-        Node::Generator((Some(a), b, c)) => Node::Generator((
-            Some(Box::new(walk(*a.clone(), visit))),
             Box::new(walk(*b.clone(), visit)),
             Box::new(walk(*c.clone(), visit)),
         )),
