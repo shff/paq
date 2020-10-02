@@ -197,6 +197,30 @@ fn test_statement() {
         ))
     );
     assert_eq!(
+        block("export default 3;"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Default(Box::new(
+                Node::Double(3.0)
+            ))))])
+        ))
+    );
+    assert_eq!(
+        block("export default function () { return 1; };"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Default(Box::new(
+                Node::Function((
+                    None,
+                    Box::new(Node::Params(vec![])),
+                    Box::new(Node::Block(vec![Node::Return(Some(Box::new(
+                        Node::Double(1.0)
+                    )))]))
+                ))
+            ))))])
+        ))
+    );
+    assert_eq!(
         block("continue}"),
         Ok(("}", Node::Block(vec![Node::Continue])))
     );
