@@ -40,6 +40,7 @@ pub enum Node<'a> {
     Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
     Import((Option<Box<Node<'a>>>, Box<Node<'a>>)),
     Export(Box<Node<'a>>),
+    Default(Box<Node<'a>>),
     Try((Box<Node<'a>>, Option<Box<Node<'a>>>, Option<Box<Node<'a>>>)),
     Catch((Option<Box<Node<'a>>>, Box<Node<'a>>)),
 
@@ -96,7 +97,8 @@ fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn exports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = right(ws(tag("export")), boxed(declaration));
+    let default = map(right(ws(tag("default")), boxed(expression)), Node::Default);
+    let inner = right(ws(tag("export")), boxed(choice((declaration, default))));
     map(inner, Node::Export)(i)
 }
 
@@ -498,6 +500,7 @@ where
         Node::Setter(a) => Node::Setter(a),
         Node::Static(a) => Node::Static(a),
         Node::Export(a) => Node::Export(a),
+        Node::Default(a) => Node::Default(a),
         Node::Return(a) => Node::Return(a.map(|a| Box::new(walk(*a.clone(), visit)))),
         Node::Throw(a) => Node::Throw(Box::new(walk(*a.clone(), visit))),
         Node::Paren(a) => Node::Paren(Box::new(walk(*a.clone(), visit))),

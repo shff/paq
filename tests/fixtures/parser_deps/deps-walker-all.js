@@ -22,4 +22,5 @@ for (var x in [1,2,3]) {
 })
 for ([{x}] of y) {}
 export let x = 1;
+export default function() {};
 try{} catch(x) {} finally{}
