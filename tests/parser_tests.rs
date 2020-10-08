@@ -222,38 +222,81 @@ fn test_statement() {
     );
     assert_eq!(
         block("continue}"),
-        Ok(("}", Node::Block(vec![Node::Continue])))
+        Ok(("}", Node::Block(vec![Node::Continue(None)])))
     );
     assert_eq!(
         block("{continue}"),
-        Ok(("", Node::Block(vec![Node::Block(vec![Node::Continue])])))
+        Ok((
+            "",
+            Node::Block(vec![Node::Block(vec![Node::Continue(None)])])
+        ))
     );
     assert_eq!(
         block("continue;continue;"),
-        Ok(("", Node::Block(vec![Node::Continue, Node::Continue])))
+        Ok((
+            "",
+            Node::Block(vec![Node::Continue(None), Node::Continue(None)])
+        ))
     );
     assert_eq!(
         block(" continue ; continue ; "),
-        Ok((" ", Node::Block(vec![Node::Continue, Node::Continue])))
+        Ok((
+            " ",
+            Node::Block(vec![Node::Continue(None), Node::Continue(None)])
+        ))
     );
     assert_eq!(
         block("continue"),
-        Ok(("", Node::Block(vec![Node::Continue])))
+        Ok(("", Node::Block(vec![Node::Continue(None)])))
     );
     assert_eq!(
-        block("continue\n1"),
-        Ok(("", Node::Block(vec![Node::Continue, Node::Double(1.0)])))
+        block("continue a"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Continue(Some(Box::new(Node::Ident(
+                String::from("a")
+            ))))])
+        ))
     );
     assert_eq!(
         block("continue; 1"),
-        Ok(("", Node::Block(vec![Node::Continue, Node::Double(1.0)])))
+        Ok((
+            "",
+            Node::Block(vec![Node::Continue(None), Node::Double(1.0)])
+        ))
     );
-    assert_eq!(block("break;"), Ok(("", Node::Block(vec![Node::Break]))));
+    assert_eq!(
+        block("break;"),
+        Ok(("", Node::Block(vec![Node::Break(None)])))
+    );
     assert_eq!(
         block(" break ; break ; "),
-        Ok((" ", Node::Block(vec![Node::Break, Node::Break])))
+        Ok((" ", Node::Block(vec![Node::Break(None), Node::Break(None)])))
     );
-    assert_eq!(block("break\n"), Ok(("", Node::Block(vec![Node::Break]))));
+    assert_eq!(
+        block("break\n"),
+        Ok(("", Node::Block(vec![Node::Break(None)])))
+    );
+    assert_eq!(
+        block("continue;\n  break a;"),
+        Ok((
+            "",
+            Node::Block(vec![
+                Node::Continue(None),
+                Node::Break(Some(Box::new(Node::Ident(String::from("a")))))
+            ])
+        ))
+    );
+    assert_eq!(
+        block("break;\n  continue a;"),
+        Ok((
+            "",
+            Node::Block(vec![
+                Node::Break(None),
+                Node::Continue(Some(Box::new(Node::Ident(String::from("a")))))
+            ])
+        ))
+    );
     assert_eq!(
         block("return 1;"),
         Ok((
@@ -473,7 +516,7 @@ fn test_statement() {
             Node::Block(vec![Node::If((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Return(None)),
-                Some(Box::new(Node::Break))
+                Some(Box::new(Node::Break(None)))
             ))])
         ))
     );
@@ -484,7 +527,7 @@ fn test_statement() {
             Node::Block(vec![Node::If((
                 Box::new(Node::Paren(Box::new(Node::Ident(String::from("true"))))),
                 Box::new(Node::Block(vec![Node::Return(None)])),
-                Some(Box::new(Node::Block(vec![Node::Break])))
+                Some(Box::new(Node::Block(vec![Node::Break(None)])))
             ))])
         ))
     );

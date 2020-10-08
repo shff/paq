@@ -11,8 +11,8 @@ pub enum Node<'a> {
     Declaration((&'a str, Vec<Node<'a>>)),
     Return(Option<Box<Node<'a>>>),
     Throw(Box<Node<'a>>),
-    Continue,
-    Break,
+    Continue(Option<Box<Node<'a>>>),
+    Break(Option<Box<Node<'a>>>),
     Blank,
 
     Str(String),
@@ -69,8 +69,8 @@ fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let empty = map(peek(tag(";")), |_| Node::Blank);
-    let cont = value(tag("continue"), Node::Continue);
-    let brk = value(tag("break"), Node::Break);
+    let cont = map(right(tag("continue"), opt(boxed(ident))), Node::Continue);
+    let brk = map(right(tag("break"), opt(boxed(ident))), Node::Break);
     let ret = map(right(tag("return"), opt(boxed(expression))), Node::Return);
     let thrw = map(right(tag("throw"), boxed(expression)), Node::Throw);
     left(
@@ -485,8 +485,6 @@ where
         return ret;
     }
     match node.clone() {
-        Node::Continue => Node::Continue,
-        Node::Break => Node::Break,
         Node::Str(a) => Node::Str(a),
         Node::Interpolation(a) => Node::Interpolation(a),
         Node::Regex(a) => Node::Regex(a),
@@ -501,6 +499,8 @@ where
         Node::Export(a) => Node::Export(Box::new(walk(*a.clone(), visit))),
         Node::Default(a) => Node::Default(Box::new(walk(*a.clone(), visit))),
         Node::Return(a) => Node::Return(a.map(|a| Box::new(walk(*a.clone(), visit)))),
+        Node::Continue(a) => Node::Continue(a.map(|a| Box::new(walk(*a.clone(), visit)))),
+        Node::Break(a) => Node::Break(a.map(|a| Box::new(walk(*a.clone(), visit)))),
         Node::Throw(a) => Node::Throw(Box::new(walk(*a.clone(), visit))),
         Node::Paren(a) => Node::Paren(Box::new(walk(*a.clone(), visit))),
         Node::Splat(a) => Node::Splat(Box::new(walk(*a.clone(), visit))),
