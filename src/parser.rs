@@ -1,4 +1,4 @@
-const RESERVED: &[&str] = &["const", "for"];
+const RESERVED: &[&str] = &["const", "for", "extends"];
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node<'a> {
@@ -22,6 +22,7 @@ pub enum Node<'a> {
     Octal(u64),
     Hexadecimal(u64),
     BinaryNum(u64),
+    Idents(Vec<Node<'a>>),
     Regex((&'a str, Option<&'a str>)),
     List(Vec<Option<Node<'a>>>),
     Object(Vec<Node<'a>>),
@@ -33,7 +34,7 @@ pub enum Node<'a> {
     Getter(Box<Node<'a>>),
     Static(Box<Node<'a>>),
     Generator((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
-    Class((Option<Box<Node<'a>>>, Vec<Node<'a>>)),
+    Class((Option<Box<Node<'a>>>, Option<Box<Node<'a>>>, Vec<Node<'a>>)),
     Field((Box<Node<'a>>, Box<Node<'a>>)),
     Unary(&'a str, Box<Node<'a>>),
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
@@ -98,7 +99,8 @@ fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn exports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let default = map(right(ws(tag("default")), boxed(expression)), Node::Default);
-    let inner = right(ws(tag("export")), boxed(choice((declaration, default))));
+    let opts = choice((declaration, function, class, object));
+    let inner = right(ws(tag("export")), boxed(choice((opts, default))));
     map(inner, Node::Export)(i)
 }
 
@@ -109,7 +111,7 @@ fn try_catch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn catch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let exception = middle(ws(tag("(")), boxed(ident), ws(tag(")")));
+    let exception = middle(ws(tag("(")), boxed(pattern), ws(tag(")")));
     let inner = right(tag("catch"), pair(opt(exception), boxed(braces)));
     ws(map(inner, Node::Catch))(i)
 }
@@ -319,6 +321,11 @@ fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(map(map(ident, String::from), Node::Ident))(i)
 }
 
+fn idents<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = middle(tag("("), chain(ws(tag(",")), ident), ws(tag(")")));
+    ws(map(inner, Node::Idents))(i)
+}
+
 fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let item = choice((methods, key_value, ident, splat));
     let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
@@ -385,8 +392,9 @@ fn class<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ));
     let inner = many(left(choice((field, methods)), end));
     let inner = ws(middle(tag("{"), inner, ws(tag("}"))));
+    let extend = ws(opt(right(tag("extends"), boxed(choice((ident, idents))))));
     let title = ws(right(tag("class"), opt(boxed(ident))));
-    map(pair(title, inner), Node::Class)(i)
+    map(trio(title, extend, inner), Node::Class)(i)
 }
 
 fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -394,10 +402,7 @@ fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn params<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let value = opt(right(ws(tag("=")), boxed(ws(expression))));
-    let param = pair(boxed(pattern), value);
-    let exp = map(param, Node::Param);
-    let inner = chain(ws(tag(",")), choice((splat, exp)));
+    let inner = chain(ws(tag(",")), choice((splat, pattern)));
     let params = middle(tag("("), inner, ws(tag(")")));
     ws(map(params, Node::Params))(i)
 }
@@ -417,7 +422,9 @@ fn pattern<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let list = map(middle(tag("["), items, ws(tag("]"))), Node::ListPattern);
     let items = chain(tag(","), ws(choice((splat, pattern))));
     let object = map(middle(tag("{"), items, ws(tag("}"))), Node::ObjPattern);
-    ws(choice((list, object, ident)))(i)
+    let default = opt(right(ws(tag("=")), boxed(ws(expression))));
+    let param = pair(boxed(choice((list, object, ident))), default);
+    ws(map(param, Node::Param))(i)
 }
 
 fn comments<'a>(i: &'a str) -> ParseResult<&'a str> {
@@ -537,6 +544,7 @@ where
                 .collect(),
         ),
         Node::Object(a) => Node::Object(a.iter().map(|n| walk(n.clone(), visit)).collect()),
+        Node::Idents(a) => Node::Idents(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::ObjPattern(a) => Node::ObjPattern(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Args(a) => Node::Args(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Params(a) => Node::Params(a.iter().map(|n| walk(n.clone(), visit)).collect()),
@@ -575,9 +583,10 @@ where
             a.map(|b| Box::new(walk(*b.clone(), visit))),
             Box::new(walk(*b.clone(), visit)),
         )),
-        Node::Class((a, b)) => Node::Class((
+        Node::Class((a, b, c)) => Node::Class((
             a.map(|a| Box::new(walk(*a.clone(), visit))),
-            b.iter().map(|n| walk(n.clone(), visit)).collect(),
+            b.map(|b| Box::new(walk(*b.clone(), visit))),
+            c.iter().map(|n| walk(n.clone(), visit)).collect(),
         )),
         Node::Field((a, b)) => Node::Field((
             Box::new(walk(*a.clone(), visit)),
