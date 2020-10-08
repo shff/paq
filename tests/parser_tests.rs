@@ -2181,20 +2181,22 @@ fn test_classes() {
 fn test_automatic() {
     let cur_dir = std::env::current_dir().unwrap();
     let pass = cur_dir.join("tests/fixtures/test262-parser-tests/pass");
-    let mut failures = 0;
-    let mut total = 0;
     if let Ok(files) = std::fs::read_dir(pass) {
-        for entry in files {
-            let fullpath = entry.unwrap().path();
-            let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
-            let ast = block(&source);
-            let rest = ast.unwrap().0.trim();
-            if rest != "" {
-                println!(" * Can't parse: {:?}", rest);
-                failures += 1;
-            }
-            total += 1;
-        }
+        let mut files = files
+            .into_iter()
+            .filter_map(|file| {
+                let fullpath = file.unwrap().path();
+                let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
+                let ast = block(&source);
+                let rest = ast.unwrap().0.trim();
+                if rest == "" {
+                    return None;
+                }
+                Some(format!("{:?}", rest))
+            })
+            .collect::<Vec<String>>();
+        files.sort();
+        println!("{}", files.join("\n"));
+        println!("--- {} failures ---", files.len());
     }
-    println!("Number of failures: {} of {}", failures, total);
 }
