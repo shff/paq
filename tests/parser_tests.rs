@@ -312,6 +312,16 @@ fn test_statement() {
         ))
     );
     assert_eq!(
+        block("{ throw 1// hello\n a; }"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Block(vec![
+                Node::Throw(Box::new(Node::Double(1.0))),
+                Node::Ident(String::from("a"))
+            ])])
+        ))
+    );
+    assert_eq!(
         block("return 1\n"),
         Ok((
             "",
