@@ -420,10 +420,22 @@ fn pattern<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(choice((list, object, ident)))(i)
 }
 
-fn comments<'a>(i: &'a str) -> ParseResult<Vec<&'a str>> {
-    let single = right(tag("/"), left(take_until("\n"), tag("\n")));
-    let multi = right(tag("*"), left(take_until("*/"), tag("*/")));
-    many(right(tag("/"), choice((single, multi))))(i)
+fn comments<'a>(i: &'a str) -> ParseResult<&'a str> {
+    let space = opt(take_while(|c| c == ' ' || c == '\t'));
+    let multi = capture(trio(tag("/*"), take_until("*/"), tag("*/")));
+    capture(many(right(choice((single_comment, multi)), space)))(i)
+}
+
+fn single_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
+    capture(trio(tag("//"), take_until("\n"), tag("\n")))(i)
+}
+
+fn multi_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
+    capture(trio(
+        tag("/*"),
+        right(take_until("\n"), tag("\n")),
+        right(take_until("*/"), tag("*/")),
+    ))(i)
 }
 
 fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -437,8 +449,15 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn end<'a>(i: &'a str) -> ParseResult<&'a str> {
     let eol = take_while(|c| c == '\n' || c == '\r');
-    let brace = value(ws(peek(tag("}"))), "");
-    choice((ws(eoi), ws(tag(";")), eol, brace))(i)
+    let brace = value(peek(tag("}")), "");
+    choice((
+        ws(eoi),
+        ws(tag(";")),
+        eol,
+        single_comment,
+        multi_comment,
+        ws(brace),
+    ))(i)
 }
 
 // Tree walking
