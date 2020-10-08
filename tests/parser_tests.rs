@@ -206,6 +206,19 @@ fn test_statement() {
         ))
     );
     assert_eq!(
+        block("export function x() { return 1; };"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Function((
+                Some(Box::new(Node::Ident(String::from("x")))),
+                Box::new(Node::Params(vec![])),
+                Box::new(Node::Block(vec![Node::Return(Some(Box::new(
+                    Node::Double(1.0)
+                )))]))
+            ))))])
+        ))
+    );
+    assert_eq!(
         block("export default function () { return 1; };"),
         Ok((
             "",
@@ -217,6 +230,26 @@ fn test_statement() {
                         Node::Double(1.0)
                     )))]))
                 ))
+            ))))])
+        ))
+    );
+    assert_eq!(
+        block("export class x { };"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Class((
+                Some(Box::new(Node::Ident(String::from("x")))),
+                None,
+                vec![]
+            ))))])
+        ))
+    );
+    assert_eq!(
+        block("export default class { };"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Export(Box::new(Node::Default(Box::new(
+                Node::Class((None, None, vec![]))
             ))))])
         ))
     );
@@ -676,7 +709,10 @@ fn test_statement() {
                 Box::new(Node::ForIn((
                     Box::new(Node::Variable((
                         Some("let"),
-                        Box::new(Node::Ident(String::from("x")))
+                        Box::new(Node::Param((
+                            Box::new(Node::Ident(String::from("x"))),
+                            None
+                        )))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -692,7 +728,10 @@ fn test_statement() {
                 Box::new(Node::ForOf((
                     Box::new(Node::Variable((
                         Some("let"),
-                        Box::new(Node::Ident(String::from("x")))
+                        Box::new(Node::Param((
+                            Box::new(Node::Ident(String::from("x"))),
+                            None
+                        )))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -708,7 +747,10 @@ fn test_statement() {
                 Box::new(Node::ForOf((
                     Box::new(Node::Variable((
                         None,
-                        Box::new(Node::Ident(String::from("x")))
+                        Box::new(Node::Param((
+                            Box::new(Node::Ident(String::from("x"))),
+                            None
+                        )))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -724,7 +766,10 @@ fn test_statement() {
                 Box::new(Node::ForIn((
                     Box::new(Node::Variable((
                         None,
-                        Box::new(Node::Ident(String::from("x")))
+                        Box::new(Node::Param((
+                            Box::new(Node::Ident(String::from("x"))),
+                            None
+                        )))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -740,7 +785,7 @@ fn test_statement() {
                 Box::new(Node::ForOf((
                     Box::new(Node::Variable((
                         Some("let"),
-                        Box::new(Node::ListPattern(vec![None]))
+                        Box::new(Node::Param((Box::new(Node::ListPattern(vec![None])), None)))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -756,11 +801,23 @@ fn test_statement() {
                 Box::new(Node::ForOf((
                     Box::new(Node::Variable((
                         Some("let"),
-                        Box::new(Node::ListPattern(vec![
-                            Some(Node::Ident(String::from("x"))),
-                            Some(Node::Ident(String::from("y"))),
-                            Some(Node::Ident(String::from("z")))
-                        ]))
+                        Box::new(Node::Param((
+                            Box::new(Node::ListPattern(vec![
+                                Some(Node::Param((
+                                    Box::new(Node::Ident(String::from("x"))),
+                                    None
+                                ))),
+                                Some(Node::Param((
+                                    Box::new(Node::Ident(String::from("y"))),
+                                    None
+                                ))),
+                                Some(Node::Param((
+                                    Box::new(Node::Ident(String::from("z"))),
+                                    None
+                                ))),
+                            ])),
+                            None
+                        )))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -776,7 +833,7 @@ fn test_statement() {
                 Box::new(Node::ForOf((
                     Box::new(Node::Variable((
                         Some("let"),
-                        Box::new(Node::ObjPattern(vec![]))
+                        Box::new(Node::Param((Box::new(Node::ObjPattern(vec![])), None)))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -792,11 +849,14 @@ fn test_statement() {
                 Box::new(Node::ForOf((
                     Box::new(Node::Variable((
                         Some("let"),
-                        Box::new(Node::ObjPattern(vec![
-                            Node::Ident(String::from("x")),
-                            Node::Ident(String::from("y")),
-                            Node::Ident(String::from("z"))
-                        ]))
+                        Box::new(Node::Param((
+                            Box::new(Node::ObjPattern(vec![
+                                Node::Param((Box::new(Node::Ident(String::from("x"))), None)),
+                                Node::Param((Box::new(Node::Ident(String::from("y"))), None)),
+                                Node::Param((Box::new(Node::Ident(String::from("z"))), None)),
+                            ])),
+                            None
+                        )))
                     ))),
                     Box::new(Node::Ident(String::from("y")))
                 ))),
@@ -833,7 +893,10 @@ fn test_statement() {
             Node::Block(vec![Node::Try((
                 Box::new(Node::Block(vec![])),
                 Some(Box::new(Node::Catch((
-                    Some(Box::new(Node::Ident(String::from("x")))),
+                    Some(Box::new(Node::Param((
+                        Box::new(Node::Ident(String::from("x"))),
+                        None
+                    )))),
                     Box::new(Node::Block(vec![]))
                 )))),
                 None
@@ -858,7 +921,30 @@ fn test_statement() {
             Node::Block(vec![Node::Try((
                 Box::new(Node::Block(vec![])),
                 Some(Box::new(Node::Catch((
-                    Some(Box::new(Node::Ident(String::from("x")))),
+                    Some(Box::new(Node::Param((
+                        Box::new(Node::Ident(String::from("x"))),
+                        None
+                    )))),
+                    Box::new(Node::Block(vec![]))
+                )))),
+                Some(Box::new(Node::Block(vec![])))
+            ))])
+        ))
+    );
+    assert_eq!(
+        block("try {} catch({x}) {} finally {}"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Try((
+                Box::new(Node::Block(vec![])),
+                Some(Box::new(Node::Catch((
+                    Some(Box::new(Node::Param((
+                        Box::new(Node::ObjPattern(vec![Node::Param((
+                            Box::new(Node::Ident(String::from("x"))),
+                            None
+                        ))])),
+                        None
+                    )))),
                     Box::new(Node::Block(vec![]))
                 )))),
                 Some(Box::new(Node::Block(vec![])))
@@ -2119,7 +2205,25 @@ fn test_classes() {
         expression(" class a { }"),
         Ok((
             "",
-            Node::Class((Some(Box::new(Node::Ident(String::from("a")))), vec![]))
+            Node::Class((Some(Box::new(Node::Ident(String::from("a")))), None, vec![]))
+        ))
+    );
+    assert_eq!(
+        expression(" class a extends b { }"),
+        Ok((
+            "",
+            Node::Class((
+                Some(Box::new(Node::Ident(String::from("a")))),
+                Some(Box::new(Node::Ident(String::from("b")))),
+                vec![]
+            ))
+        ))
+    );
+    assert_eq!(
+        expression(" class extends b {}"),
+        Ok((
+            "",
+            Node::Class((None, Some(Box::new(Node::Ident(String::from("b")))), vec![]))
         ))
     );
     assert_eq!(
@@ -2128,6 +2232,7 @@ fn test_classes() {
             "",
             Node::Class((
                 Some(Box::new(Node::Ident(String::from("a")))),
+                None,
                 vec![Node::Shorthand((
                     Box::new(Node::Ident(String::from("b"))),
                     Box::new(Node::Params(vec![])),
@@ -2142,6 +2247,7 @@ fn test_classes() {
             "",
             Node::Class((
                 Some(Box::new(Node::Ident(String::from("a")))),
+                None,
                 vec![Node::Field((
                     Box::new(Node::Ident(String::from("c"))),
                     Box::new(Node::Double(1.0))
@@ -2155,6 +2261,7 @@ fn test_classes() {
             "",
             Node::Class((
                 Some(Box::new(Node::Ident(String::from("a")))),
+                None,
                 vec![
                     Node::Shorthand((
                         Box::new(Node::Ident(String::from("b"))),
@@ -2169,13 +2276,17 @@ fn test_classes() {
             ))
         ))
     );
-    assert_eq!(expression("class{}"), Ok(("", Node::Class((None, vec![])))));
+    assert_eq!(
+        expression("class{}"),
+        Ok(("", Node::Class((None, None, vec![]))))
+    );
     assert_eq!(
         expression("  class  a { set  b  ( ) {   }  }"),
         Ok((
             "",
             Node::Class((
                 Some(Box::new(Node::Ident(String::from("a")))),
+                None,
                 vec![Node::Setter(Box::new(Node::Shorthand((
                     Box::new(Node::Ident(String::from("b"))),
                     Box::new(Node::Params(vec![])),
@@ -2190,6 +2301,7 @@ fn test_classes() {
             "",
             Node::Class((
                 Some(Box::new(Node::Ident(String::from("a")))),
+                None,
                 vec![Node::Getter(Box::new(Node::Shorthand((
                     Box::new(Node::Ident(String::from("b"))),
                     Box::new(Node::Params(vec![])),
@@ -2204,6 +2316,7 @@ fn test_classes() {
             "",
             Node::Class((
                 Some(Box::new(Node::Ident(String::from("a")))),
+                None,
                 vec![Node::Static(Box::new(Node::Shorthand((
                     Box::new(Node::Ident(String::from("a"))),
                     Box::new(Node::Params(vec![])),
@@ -2218,6 +2331,7 @@ fn test_classes() {
             "",
             Node::Class((
                 Some(Box::new(Node::Ident(String::from("a")))),
+                None,
                 vec![Node::Static(Box::new(Node::Getter(Box::new(
                     Node::Shorthand((
                         Box::new(Node::Ident(String::from("a"))),
