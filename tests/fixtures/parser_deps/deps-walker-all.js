@@ -12,8 +12,8 @@ const lazy = function*() {
 with(b) for(;;);
 do{}while(0);
 for (var x in [1,2,3]) {
-  if (x == 1) continue
-  break;
+  if (x == 1) continue;
+  break a;
 }
 (class {
   set a(v) {}
