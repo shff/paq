@@ -17,7 +17,7 @@ pub enum Node<'a> {
 
     Str(String),
     Interpolation(String),
-    Ident(String),
+    Ident(&'a str),
     Double(f64),
     Octal(u64),
     Hexadecimal(u64),
@@ -325,7 +325,7 @@ fn quote<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let words = take_while(|c| c.is_alphanumeric());
     let ident = reserved(words, RESERVED);
-    ws(map(map(ident, String::from), Node::Ident))(i)
+    ws(map(ident, Node::Ident))(i)
 }
 
 fn idents<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -482,7 +482,7 @@ pub fn transform(root: Node) -> Node {
             if let Node::Str(path) = *path {
                 return Some(Node::Binary(
                     "(",
-                    Box::new(Node::Ident(String::from("require"))),
+                    Box::new(Node::Ident("require")),
                     Box::new(Node::Args(vec![Node::Str(path)])),
                 ));
             }
@@ -496,7 +496,7 @@ pub fn get_deps(root: Node) -> Vec<String> {
     walk(root, |child| {
         if let Node::Binary("(", call, args) = child {
             if let Node::Ident(func_name) = *call.clone() {
-                if func_name.as_str() == "require" {
+                if func_name == "require" {
                     if let Node::Args(s) = *args {
                         if let Some(Node::Str(dep)) = s.first() {
                             deps.borrow_mut().push(dep.clone())
