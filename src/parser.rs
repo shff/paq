@@ -44,6 +44,7 @@ pub enum Node<'a> {
     Default(Box<Node<'a>>),
     Try((Box<Node<'a>>, Option<Box<Node<'a>>>, Option<Box<Node<'a>>>)),
     Catch((Option<Box<Node<'a>>>, Box<Node<'a>>)),
+    Label((Box<Node<'a>>, Box<Node<'a>>)),
 
     Args(Vec<Node<'a>>),
     ListPattern(Vec<Option<Node<'a>>>),
@@ -59,13 +60,19 @@ pub enum Node<'a> {
 }
 
 pub fn block(i: &str) -> ParseResult<Node> {
-    ws(map(many(statement), Node::Block))(i)
+    ws(map(many(labeled), Node::Block))(i)
+}
+
+fn labeled<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let label = left(ws(ident), ws(tag(":")));
+    let inner = map(pair(boxed(label), boxed(labeled)), Node::Label);
+    ws(choice((inner, statement)))(i)
 }
 
 fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    ws(choice((
+    choice((
         braces, condition, while_loop, do_loop, for_loop, with, gotos, function,
-    )))(i)
+    ))(i)
 }
 
 fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -123,24 +130,24 @@ fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn condition<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let else_block = ws(right(tag("else"), boxed(statement)));
-    let inner = trio(boxed(paren), boxed(statement), opt(else_block));
+    let else_block = ws(right(tag("else"), boxed(labeled)));
+    let inner = trio(boxed(paren), boxed(labeled), opt(else_block));
     map(ws(right(tag("if"), inner)), Node::If)(i)
 }
 
 fn while_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = pair(boxed(paren), boxed(statement));
+    let inner = pair(boxed(paren), boxed(labeled));
     map(ws(right(tag("while"), inner)), Node::While)(i)
 }
 
 fn do_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = right(tag("do"), boxed(statement));
+    let inner = right(tag("do"), boxed(labeled));
     map(ws(outer(inner, ws(tag("while")), boxed(paren))), Node::Do)(i)
 }
 
 fn for_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let iter = boxed(choice((for_of, for_in, for_trio)));
-    let inner = pair(middle(ws(tag("(")), iter, ws(tag(")"))), boxed(statement));
+    let inner = pair(middle(ws(tag("(")), iter, ws(tag(")"))), boxed(labeled));
     map(ws(right(tag("for"), inner)), Node::For)(i)
 }
 
@@ -164,7 +171,7 @@ fn for_in<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn with<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = pair(boxed(paren), boxed(statement));
+    let inner = pair(boxed(paren), boxed(labeled));
     map(ws(right(tag("with"), inner)), Node::With)(i)
 }
 
@@ -593,6 +600,10 @@ where
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::KeyValue((a, b)) => Node::KeyValue((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Label((a, b)) => Node::Label((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),

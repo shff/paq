@@ -254,6 +254,16 @@ fn test_statement() {
         ))
     );
     assert_eq!(
+        block("a: continue;"),
+        Ok((
+            "",
+            Node::Block(vec![Node::Label((
+                Box::new(Node::Ident(String::from("a"))),
+                Box::new(Node::Continue(None))
+            ))])
+        ))
+    );
+    assert_eq!(
         block("continue}"),
         Ok(("}", Node::Block(vec![Node::Continue(None)])))
     );
