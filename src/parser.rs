@@ -27,13 +27,13 @@ pub enum Node<'a> {
     List(Vec<Option<Node<'a>>>),
     Object(Vec<Node<'a>>),
     Paren(Box<Node<'a>>),
-    Closure((Box<Node<'a>>, Box<Node<'a>>)),
-    Function((Option<&'a str>, Box<Node<'a>>, Box<Node<'a>>)),
-    Shorthand((Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>)),
+    Closure((Vec<Node<'a>>, Box<Node<'a>>)),
+    Function((Option<&'a str>, Vec<Node<'a>>, Box<Node<'a>>)),
+    Shorthand((Box<Node<'a>>, Vec<Node<'a>>, Box<Node<'a>>)),
     Setter(Box<Node<'a>>),
     Getter(Box<Node<'a>>),
     Static(Box<Node<'a>>),
-    Generator((Option<&'a str>, Box<Node<'a>>, Box<Node<'a>>)),
+    Generator((Option<&'a str>, Vec<Node<'a>>, Box<Node<'a>>)),
     Class((Option<&'a str>, Option<Box<Node<'a>>>, Vec<Node<'a>>)),
     Field((Box<Node<'a>>, Box<Node<'a>>)),
     Unary(&'a str, Box<Node<'a>>),
@@ -51,7 +51,6 @@ pub enum Node<'a> {
     ObjPattern(Vec<Node<'a>>),
     Splat(Box<Node<'a>>),
     KeyValue((Box<Node<'a>>, Box<Node<'a>>)),
-    Params(Vec<Node<'a>>),
     Param((Box<Node<'a>>, Option<Box<Node<'a>>>)),
     ForTrio(Vec<Option<Node<'a>>>),
     ForOf((Box<Node<'a>>, Box<Node<'a>>)),
@@ -280,9 +279,9 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let array = pair(tag("["), left(expression, ws(tag("]"))));
     let opt = pair(tag("?."), ident);
     let dot = pair(tag("."), ident);
-    let call = pair(tag("("), left(args, ws(tag(")"))));
+    let call = pair(tag("("), left(map(args, Node::Args), ws(tag(")"))));
     let ea = pair(tag("?.["), left(expression, ws(tag("]"))));
-    let ec = pair(tag("?.("), left(args, ws(tag(")"))));
+    let ec = pair(tag("?.("), left(map(args, Node::Args), ws(tag(")"))));
     let action = pair(
         primitive,
         many(ws(choice((array, opt, dot, call, ea, ec, interp)))),
@@ -291,24 +290,27 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let octal = map(
-        right(choice((tag("0o"), tag("0O"))), number(8)),
-        Node::Octal,
-    );
-    let hexa = map(
-        right(choice((tag("0x"), tag("0X"))), number(16)),
-        Node::Hexadecimal,
-    );
-    let binary = map(
-        right(choice((tag("0b"), tag("0B"))), number(2)),
-        Node::BinaryNum,
-    );
     let double = map(double, Node::Double);
     let intepolate = map(string('`'), Node::Interpolation);
     ws(choice((
         quote, octal, hexa, binary, double, generator, function, object, closure, paren, list,
         regex, class, ident, intepolate,
     )))(i)
+}
+
+fn octal<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = right(choice((tag("0o"), tag("0O"))), number(8));
+    ws(map(inner, Node::Octal))(i)
+}
+
+fn hexa<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = right(choice((tag("0x"), tag("0X"))), number(16));
+    ws(map(inner, Node::Hexadecimal))(i)
+}
+
+fn binary<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = right(choice((tag("0b"), tag("0B"))), number(2));
+    ws(map(inner, Node::BinaryNum))(i)
 }
 
 fn regex<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -361,7 +363,7 @@ fn setter<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 fn shorthand<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let computed = middle(tag("["), expression, tag("]"));
     let title = choice((quote, ident, computed));
-    let inner = trio(ws(boxed(title)), boxed(params), boxed(braces));
+    let inner = trio(ws(boxed(title)), params, boxed(braces));
     map(inner, Node::Shorthand)(i)
 }
 
@@ -377,19 +379,19 @@ fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn closure<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let params = ws(choice((ident, params)));
-    let closure = outer(boxed(params), ws(tag("=>")), boxed(expression));
+    let params = ws(choice((map(ident, |a| vec![a]), params)));
+    let closure = outer(params, ws(tag("=>")), boxed(expression));
     ws(map(closure, Node::Closure))(i)
 }
 
 fn function<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = trio(ws(opt(identifier)), boxed(params), boxed(braces));
+    let inner = trio(ws(opt(identifier)), params, boxed(braces));
     let func = ws(right(tag("function"), inner));
     map(func, Node::Function)(i)
 }
 
 fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = trio(ws(opt(identifier)), boxed(params), boxed(braces));
+    let inner = trio(ws(opt(identifier)), params, boxed(braces));
     let func = ws(right(pair(tag("function"), ws(tag("*"))), inner));
     map(func, Node::Generator)(i)
 }
@@ -410,15 +412,13 @@ fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(middle(tag("{"), block, ws(tag("}"))))(i)
 }
 
-fn params<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn params<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
     let inner = chain(ws(tag(",")), choice((splat, pattern)));
-    let params = middle(tag("("), inner, ws(tag(")")));
-    ws(map(params, Node::Params))(i)
+    ws(middle(tag("("), inner, ws(tag(")"))))(i)
 }
 
-fn args<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let args = chain(tag(","), choice((splat, expression)));
-    ws(map(args, Node::Args))(i)
+fn args<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
+    ws(chain(tag(","), choice((splat, expression))))(i)
 }
 
 fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -556,7 +556,6 @@ where
         Node::Object(a) => Node::Object(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::ObjPattern(a) => Node::ObjPattern(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Args(a) => Node::Args(a.iter().map(|n| walk(n.clone(), visit)).collect()),
-        Node::Params(a) => Node::Params(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Declaration((a, b)) => {
             Node::Declaration((a, b.iter().map(|n| walk(n.clone(), visit)).collect()))
         }
@@ -585,7 +584,7 @@ where
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::Closure((a, b)) => Node::Closure((
-            Box::new(walk(*a.clone(), visit)),
+            a.iter().map(|n| walk(n.clone(), visit)).collect(),
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::Import((a, b)) => Node::Import((
@@ -624,12 +623,12 @@ where
         )),
         Node::Function((a, b, c)) => Node::Function((
             a,
-            Box::new(walk(*b.clone(), visit)),
+            b.iter().map(|n| walk(n.clone(), visit)).collect(),
             Box::new(walk(*c.clone(), visit)),
         )),
         Node::Generator((a, b, c)) => Node::Generator((
             a,
-            Box::new(walk(*b.clone(), visit)),
+            b.iter().map(|n| walk(n.clone(), visit)).collect(),
             Box::new(walk(*c.clone(), visit)),
         )),
         Node::If((a, b, c)) => Node::If((
@@ -649,7 +648,7 @@ where
         ),
         Node::Shorthand((a, b, c)) => Node::Shorthand((
             Box::new(walk(*a.clone(), visit)),
-            Box::new(walk(*b.clone(), visit)),
+            b.iter().map(|n| walk(n.clone(), visit)).collect(),
             Box::new(walk(*c.clone(), visit)),
         )),
         Node::ForTrio(_) => node,
