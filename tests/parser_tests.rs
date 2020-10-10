@@ -210,7 +210,7 @@ fn test_statement() {
         Ok((
             "",
             Node::Block(vec![Node::Export(Box::new(Node::Function((
-                Some(Box::new(Node::Ident("x"))),
+                Some("x"),
                 Box::new(Node::Params(vec![])),
                 Box::new(Node::Block(vec![Node::Return(Some(Box::new(
                     Node::Double(1.0)
@@ -238,7 +238,7 @@ fn test_statement() {
         Ok((
             "",
             Node::Block(vec![Node::Export(Box::new(Node::Class((
-                Some(Box::new(Node::Ident("x"))),
+                Some("x"),
                 None,
                 vec![]
             ))))])
@@ -1361,7 +1361,7 @@ fn test_function() {
         Ok((
             "",
             Node::Function((
-                Some(Box::new(Node::Ident("f"))),
+                Some("f"),
                 Box::new(Node::Params(vec![
                     Node::Param((Box::new(Node::Ident("x")), None)),
                     Node::Param((Box::new(Node::Ident("y")), None))
@@ -1377,7 +1377,7 @@ fn test_function() {
         Ok((
             "",
             Node::Function((
-                Some(Box::new(Node::Ident("f"))),
+                Some("f"),
                 Box::new(Node::Params(vec![
                     Node::Param((Box::new(Node::Ident("x")), None)),
                     Node::Param((Box::new(Node::Ident("y")), None))
@@ -1394,12 +1394,12 @@ fn test_function() {
             "",
             Node::Block(vec![
                 Node::Function((
-                    Some(Box::new(Node::Ident("a"))),
+                    Some("a"),
                     Box::new(Node::Params(vec![])),
                     Box::new(Node::Block(vec![]))
                 )),
                 Node::Function((
-                    Some(Box::new(Node::Ident("b"))),
+                    Some("b"),
                     Box::new(Node::Params(vec![])),
                     Box::new(Node::Block(vec![]))
                 ))
@@ -2104,20 +2104,13 @@ fn test_action() {
 fn test_classes() {
     assert_eq!(
         expression(" class a { }"),
-        Ok((
-            "",
-            Node::Class((Some(Box::new(Node::Ident("a"))), None, vec![]))
-        ))
+        Ok(("", Node::Class((Some("a"), None, vec![]))))
     );
     assert_eq!(
         expression(" class a extends b { }"),
         Ok((
             "",
-            Node::Class((
-                Some(Box::new(Node::Ident("a"))),
-                Some(Box::new(Node::Ident("b"))),
-                vec![]
-            ))
+            Node::Class((Some("a"), Some(Box::new(Node::Ident("b"))), vec![]))
         ))
     );
     assert_eq!(
@@ -2139,7 +2132,7 @@ fn test_classes() {
         Ok((
             "",
             Node::Class((
-                Some(Box::new(Node::Ident("a"))),
+                Some("a"),
                 None,
                 vec![Node::Shorthand((
                     Box::new(Node::Ident("b")),
@@ -2154,7 +2147,7 @@ fn test_classes() {
         Ok((
             "",
             Node::Class((
-                Some(Box::new(Node::Ident("a"))),
+                Some("a"),
                 None,
                 vec![Node::Field((
                     Box::new(Node::Ident("c")),
@@ -2168,7 +2161,7 @@ fn test_classes() {
         Ok((
             "",
             Node::Class((
-                Some(Box::new(Node::Ident("a"))),
+                Some("a"),
                 None,
                 vec![
                     Node::Shorthand((
@@ -2190,7 +2183,7 @@ fn test_classes() {
         Ok((
             "",
             Node::Class((
-                Some(Box::new(Node::Ident("a"))),
+                Some("a"),
                 None,
                 vec![Node::Setter(Box::new(Node::Shorthand((
                     Box::new(Node::Ident("b")),
@@ -2205,7 +2198,7 @@ fn test_classes() {
         Ok((
             "",
             Node::Class((
-                Some(Box::new(Node::Ident("a"))),
+                Some("a"),
                 None,
                 vec![Node::Getter(Box::new(Node::Shorthand((
                     Box::new(Node::Ident("b")),
@@ -2220,7 +2213,7 @@ fn test_classes() {
         Ok((
             "",
             Node::Class((
-                Some(Box::new(Node::Ident("a"))),
+                Some("a"),
                 None,
                 vec![Node::Static(Box::new(Node::Shorthand((
                     Box::new(Node::Ident("a")),
@@ -2235,7 +2228,7 @@ fn test_classes() {
         Ok((
             "",
             Node::Class((
-                Some(Box::new(Node::Ident("a"))),
+                Some("a"),
                 None,
                 vec![Node::Static(Box::new(Node::Getter(Box::new(
                     Node::Shorthand((

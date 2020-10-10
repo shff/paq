@@ -28,13 +28,13 @@ pub enum Node<'a> {
     Object(Vec<Node<'a>>),
     Paren(Box<Node<'a>>),
     Closure((Box<Node<'a>>, Box<Node<'a>>)),
-    Function((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
+    Function((Option<&'a str>, Box<Node<'a>>, Box<Node<'a>>)),
     Shorthand((Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>)),
     Setter(Box<Node<'a>>),
     Getter(Box<Node<'a>>),
     Static(Box<Node<'a>>),
-    Generator((Option<Box<Node<'a>>>, Box<Node<'a>>, Box<Node<'a>>)),
-    Class((Option<Box<Node<'a>>>, Option<Box<Node<'a>>>, Vec<Node<'a>>)),
+    Generator((Option<&'a str>, Box<Node<'a>>, Box<Node<'a>>)),
+    Class((Option<&'a str>, Option<Box<Node<'a>>>, Vec<Node<'a>>)),
     Field((Box<Node<'a>>, Box<Node<'a>>)),
     Unary(&'a str, Box<Node<'a>>),
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
@@ -323,14 +323,16 @@ fn quote<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let ident = reserved(take_while(|c| c.is_alphanumeric()), RESERVED);
-    ws(map(ident, Node::Ident))(i)
+    map(identifier, Node::Ident)(i)
 }
 
 fn idents<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let ident = reserved(take_while(|c| c.is_alphanumeric()), RESERVED);
-    let inner = middle(tag("("), chain(ws(tag(",")), ident), ws(tag(")")));
+    let inner = middle(tag("("), chain(ws(tag(",")), identifier), ws(tag(")")));
     ws(map(inner, Node::Idents))(i)
+}
+
+fn identifier<'a>(i: &'a str) -> ParseResult<&'a str> {
+    ws(reserved(take_while(|c| c.is_alphanumeric()), RESERVED))(i)
 }
 
 fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -381,13 +383,13 @@ fn closure<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn function<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = trio(ws(opt(boxed(ident))), boxed(params), boxed(braces));
+    let inner = trio(ws(opt(identifier)), boxed(params), boxed(braces));
     let func = ws(right(tag("function"), inner));
     map(func, Node::Function)(i)
 }
 
 fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = trio(ws(opt(boxed(ident))), boxed(params), boxed(braces));
+    let inner = trio(ws(opt(identifier)), boxed(params), boxed(braces));
     let func = ws(right(pair(tag("function"), ws(tag("*"))), inner));
     map(func, Node::Generator)(i)
 }
@@ -400,7 +402,7 @@ fn class<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let inner = many(left(choice((field, methods)), end));
     let inner = ws(middle(tag("{"), inner, ws(tag("}"))));
     let extend = ws(opt(right(tag("extends"), boxed(choice((ident, idents))))));
-    let title = ws(right(tag("class"), opt(boxed(ident))));
+    let title = ws(right(tag("class"), opt(identifier)));
     map(trio(title, extend, inner), Node::Class)(i)
 }
 
@@ -591,7 +593,7 @@ where
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::Class((a, b, c)) => Node::Class((
-            a.map(|a| Box::new(walk(*a.clone(), visit))),
+            a,
             b.map(|b| Box::new(walk(*b.clone(), visit))),
             c.iter().map(|n| walk(n.clone(), visit)).collect(),
         )),
@@ -621,12 +623,12 @@ where
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::Function((a, b, c)) => Node::Function((
-            a.map(|a| Box::new(walk(*a.clone(), visit))),
+            a,
             Box::new(walk(*b.clone(), visit)),
             Box::new(walk(*c.clone(), visit)),
         )),
         Node::Generator((a, b, c)) => Node::Generator((
-            a.map(|a| Box::new(walk(*a.clone(), visit))),
+            a,
             Box::new(walk(*b.clone(), visit)),
             Box::new(walk(*c.clone(), visit)),
         )),
