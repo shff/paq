@@ -2128,6 +2128,13 @@ fn test_classes() {
         ))
     );
     assert_eq!(
+        expression(" class extends (a,b) {}"),
+        Ok((
+            "",
+            Node::Class((None, Some(Box::new(Node::Idents(vec!["a", "b"]))), vec![]))
+        ))
+    );
+    assert_eq!(
         expression(" class a {  b () { }  }"),
         Ok((
             "",

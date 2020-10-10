@@ -22,7 +22,7 @@ pub enum Node<'a> {
     Octal(u64),
     Hexadecimal(u64),
     BinaryNum(u64),
-    Idents(Vec<Node<'a>>),
+    Idents(Vec<&'a str>),
     Regex((&'a str, Option<&'a str>)),
     List(Vec<Option<Node<'a>>>),
     Object(Vec<Node<'a>>),
@@ -323,12 +323,12 @@ fn quote<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let words = take_while(|c| c.is_alphanumeric());
-    let ident = reserved(words, RESERVED);
+    let ident = reserved(take_while(|c| c.is_alphanumeric()), RESERVED);
     ws(map(ident, Node::Ident))(i)
 }
 
 fn idents<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let ident = reserved(take_while(|c| c.is_alphanumeric()), RESERVED);
     let inner = middle(tag("("), chain(ws(tag(",")), ident), ws(tag(")")));
     ws(map(inner, Node::Idents))(i)
 }
@@ -522,6 +522,7 @@ where
         Node::Interpolation(a) => Node::Interpolation(a),
         Node::Regex(a) => Node::Regex(a),
         Node::Ident(a) => Node::Ident(a),
+        Node::Idents(a) => Node::Idents(a),
         Node::Double(a) => Node::Double(a),
         Node::Octal(a) => Node::Octal(a),
         Node::Hexadecimal(a) => Node::Hexadecimal(a),
@@ -551,7 +552,6 @@ where
                 .collect(),
         ),
         Node::Object(a) => Node::Object(a.iter().map(|n| walk(n.clone(), visit)).collect()),
-        Node::Idents(a) => Node::Idents(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::ObjPattern(a) => Node::ObjPattern(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Args(a) => Node::Args(a.iter().map(|n| walk(n.clone(), visit)).collect()),
         Node::Params(a) => Node::Params(a.iter().map(|n| walk(n.clone(), visit)).collect()),
