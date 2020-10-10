@@ -225,7 +225,7 @@ fn test_boxed() {
 
 #[test]
 fn test_string() {
-    let parser = string('"');
+    let parser = string("\"");
 
     assert_eq!(parser("\"a\""), Ok(("", String::from("a"))));
     assert_eq!(parser("\"abcd\""), Ok(("", String::from("abcd"))));

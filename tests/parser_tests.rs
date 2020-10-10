@@ -211,7 +211,7 @@ fn test_statement() {
             "",
             Node::Block(vec![Node::Export(Box::new(Node::Function((
                 Some("x"),
-                Box::new(Node::Params(vec![])),
+                vec![],
                 Box::new(Node::Block(vec![Node::Return(Some(Box::new(
                     Node::Double(1.0)
                 )))]))
@@ -225,7 +225,7 @@ fn test_statement() {
             Node::Block(vec![Node::Export(Box::new(Node::Default(Box::new(
                 Node::Function((
                     None,
-                    Box::new(Node::Params(vec![])),
+                    vec![],
                     Box::new(Node::Block(vec![Node::Return(Some(Box::new(
                         Node::Double(1.0)
                     )))]))
@@ -1260,7 +1260,7 @@ fn test_object() {
             "",
             Node::Object(vec![Node::Shorthand((
                 Box::new(Node::Ident("a")),
-                Box::new(Node::Params(vec![])),
+                vec![],
                 Box::new(Node::Block(vec![Node::Ident("b")]))
             ))])
         ))
@@ -1271,7 +1271,7 @@ fn test_object() {
             "",
             Node::Object(vec![Node::Shorthand((
                 Box::new(Node::Str(String::from("a"))),
-                Box::new(Node::Params(vec![])),
+                vec![],
                 Box::new(Node::Block(vec![Node::Ident("b")]))
             ))])
         ))
@@ -1282,7 +1282,7 @@ fn test_object() {
             "",
             Node::Object(vec![Node::Shorthand((
                 Box::new(Node::Ident("a")),
-                Box::new(Node::Params(vec![])),
+                vec![],
                 Box::new(Node::Block(vec![Node::Ident("b")]))
             ))])
         ))
@@ -1316,10 +1316,10 @@ fn test_closure() {
         Ok((
             "",
             Node::Closure((
-                Box::new(Node::Params(vec![
+                vec![
                     Node::Param((Box::new(Node::Ident("a")), None)),
                     Node::Param((Box::new(Node::Ident("b")), None))
-                ])),
+                ],
                 Box::new(Node::Binary(
                     "+",
                     Box::new(Node::Double(1.0)),
@@ -1333,10 +1333,7 @@ fn test_closure() {
         Ok((
             "",
             Node::Closure((
-                Box::new(Node::Params(vec![Node::Param((
-                    Box::new(Node::Ident("a")),
-                    None
-                ))])),
+                vec![Node::Param((Box::new(Node::Ident("a")), None))],
                 Box::new(Node::Paren(Box::new(Node::Object(vec![]))))
             ))
         ))
@@ -1349,11 +1346,7 @@ fn test_function() {
         expression("function(){}"),
         Ok((
             "",
-            Node::Function((
-                None,
-                Box::new(Node::Params(vec![])),
-                Box::new(Node::Block(vec![]))
-            ))
+            Node::Function((None, vec![], Box::new(Node::Block(vec![]))))
         ))
     );
     assert_eq!(
@@ -1362,10 +1355,10 @@ fn test_function() {
             "",
             Node::Function((
                 Some("f"),
-                Box::new(Node::Params(vec![
+                vec![
                     Node::Param((Box::new(Node::Ident("x")), None)),
                     Node::Param((Box::new(Node::Ident("y")), None))
-                ])),
+                ],
                 Box::new(Node::Block(vec![Node::Return(Some(Box::new(
                     Node::Ident("x")
                 )))]))
@@ -1378,10 +1371,10 @@ fn test_function() {
             "",
             Node::Function((
                 Some("f"),
-                Box::new(Node::Params(vec![
+                vec![
                     Node::Param((Box::new(Node::Ident("x")), None)),
                     Node::Param((Box::new(Node::Ident("y")), None))
-                ])),
+                ],
                 Box::new(Node::Block(vec![Node::Return(Some(Box::new(
                     Node::Ident("x")
                 )))]))
@@ -1393,16 +1386,8 @@ fn test_function() {
         Ok((
             "",
             Node::Block(vec![
-                Node::Function((
-                    Some("a"),
-                    Box::new(Node::Params(vec![])),
-                    Box::new(Node::Block(vec![]))
-                )),
-                Node::Function((
-                    Some("b"),
-                    Box::new(Node::Params(vec![])),
-                    Box::new(Node::Block(vec![]))
-                ))
+                Node::Function((Some("a"), vec![], Box::new(Node::Block(vec![])))),
+                Node::Function((Some("b"), vec![], Box::new(Node::Block(vec![]))))
             ])
         ))
     );
@@ -1414,11 +1399,7 @@ fn test_generator() {
         expression("function*() {}"),
         Ok((
             "",
-            Node::Generator((
-                None,
-                Box::new(Node::Params(vec![])),
-                Box::new(Node::Block(vec![]))
-            ))
+            Node::Generator((None, vec![], Box::new(Node::Block(vec![]))))
         ))
     );
 }
@@ -2136,7 +2117,7 @@ fn test_classes() {
                 None,
                 vec![Node::Shorthand((
                     Box::new(Node::Ident("b")),
-                    Box::new(Node::Params(vec![])),
+                    vec![],
                     Box::new(Node::Block(vec![]))
                 ))]
             ))
@@ -2166,7 +2147,7 @@ fn test_classes() {
                 vec![
                     Node::Shorthand((
                         Box::new(Node::Ident("b")),
-                        Box::new(Node::Params(vec![])),
+                        vec![],
                         Box::new(Node::Block(vec![]))
                     )),
                     Node::Field((Box::new(Node::Ident("c")), Box::new(Node::Double(1.0))))
@@ -2187,7 +2168,7 @@ fn test_classes() {
                 None,
                 vec![Node::Setter(Box::new(Node::Shorthand((
                     Box::new(Node::Ident("b")),
-                    Box::new(Node::Params(vec![])),
+                    vec![],
                     Box::new(Node::Block(vec![]))
                 ))))]
             ))
@@ -2202,7 +2183,7 @@ fn test_classes() {
                 None,
                 vec![Node::Getter(Box::new(Node::Shorthand((
                     Box::new(Node::Ident("b")),
-                    Box::new(Node::Params(vec![])),
+                    vec![],
                     Box::new(Node::Block(vec![]))
                 ))))]
             ))
@@ -2217,7 +2198,7 @@ fn test_classes() {
                 None,
                 vec![Node::Static(Box::new(Node::Shorthand((
                     Box::new(Node::Ident("a")),
-                    Box::new(Node::Params(vec![])),
+                    vec![],
                     Box::new(Node::Block(vec![]))
                 ))))]
             ))
@@ -2233,7 +2214,7 @@ fn test_classes() {
                 vec![Node::Static(Box::new(Node::Getter(Box::new(
                     Node::Shorthand((
                         Box::new(Node::Ident("a")),
-                        Box::new(Node::Params(vec![])),
+                        vec![],
                         Box::new(Node::Block(vec![]))
                     ))
                 ))))]
