@@ -275,7 +275,7 @@ fn creation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let interp = pair(peek(tag("`")), map(string('`'), Node::Interpolation));
+    let interp = pair(peek(tag("`")), map(string("`"), Node::Interpolation));
     let array = pair(tag("["), left(expression, ws(tag("]"))));
     let opt = pair(tag("?."), ident);
     let dot = pair(tag("."), ident);
@@ -291,7 +291,7 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 
 fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let double = map(double, Node::Double);
-    let intepolate = map(string('`'), Node::Interpolation);
+    let intepolate = map(string("`"), Node::Interpolation);
     ws(choice((
         quote, octal, hexa, binary, double, generator, function, object, closure, paren, list,
         regex, class, ident, intepolate,
@@ -314,13 +314,13 @@ fn binary<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn regex<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let inner = pair(capture(string('/')), opt(take_while(|c| c.is_alphabetic())));
+    let inner = pair(capture(string("/")), opt(take_while(|c| c.is_alphabetic())));
     ws(map(inner, Node::Regex))(i)
 }
 
 fn quote<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let single_quote = map(string('"'), Node::Str);
-    let double_quote = map(string('\''), Node::Str);
+    let single_quote = map(string("\""), Node::Str);
+    let double_quote = map(string("'"), Node::Str);
     ws(choice((single_quote, double_quote)))(i)
 }
 
@@ -455,8 +455,8 @@ fn multi_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
 }
 
 fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let double_quote = map(string('"'), Node::Str);
-    let single_quote = map(string('\''), Node::Str);
+    let double_quote = map(string("\""), Node::Str);
+    let single_quote = map(string("\'"), Node::Str);
     let computed = middle(tag("["), expression, tag("]"));
     let key = ws(boxed(choice((double_quote, single_quote, ident, computed))));
     let value = boxed(yield1);
@@ -702,16 +702,6 @@ pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
     }
 }
 
-pub fn chr(c: char) -> impl Fn(&str) -> ParseResult<&str> {
-    move |i| {
-        if i.starts_with(c) {
-            Ok((&i[1..], &i[..1]))
-        } else {
-            Err((i, ParserError::Tag(c.to_string())))
-        }
-    }
-}
-
 pub fn value<'a, P, R, V>(p: P, v: V) -> impl Fn(&'a str) -> ParseResult<V>
 where
     P: Fn(&'a str) -> ParseResult<R>,
@@ -913,7 +903,7 @@ where
     map(i, Box::new)
 }
 
-pub fn string<'a>(q: char) -> impl Fn(&'a str) -> ParseResult<String> {
+pub fn string<'a>(q: &'static str) -> impl Fn(&'a str) -> ParseResult<String> {
     move |i| {
         let escaped = right(
             tag("\\"),
@@ -931,9 +921,9 @@ pub fn string<'a>(q: char) -> impl Fn(&'a str) -> ParseResult<String> {
                 value(whitespace, ""),
             )),
         );
-        let chars = take_while(|c| c != q && c != '\\');
+        let chars = take_while(|c| c != q.chars().next().unwrap() && c != '\\');
         let inner = map(many(choice((chars, escaped))), |s| s.join(""));
-        middle(chr(q), inner, chr(q))(i)
+        middle(tag(q), inner, tag(q))(i)
     }
 }
 
