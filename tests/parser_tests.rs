@@ -127,7 +127,7 @@ fn test_transform() {
         Node::Block(vec![Node::Binary(
             "(",
             Box::new(Node::Ident("require")),
-            Box::new(Node::Args(vec![Node::Str(String::from("y"))]))
+            Box::new(Node::Args(vec![Node::Str("y")]))
         )])
     );
 }
@@ -138,10 +138,7 @@ fn test_statement() {
         block("import 'y';"),
         Ok((
             "",
-            Node::Block(vec![Node::Import((
-                None,
-                Box::new(Node::Str(String::from("y")))
-            ))])
+            Node::Block(vec![Node::Import((None, Box::new(Node::Str("y"))))])
         ))
     );
     assert_eq!(
@@ -150,7 +147,7 @@ fn test_statement() {
             "",
             Node::Block(vec![Node::Import((
                 Some(Box::new(Node::Ident("x"))),
-                Box::new(Node::Str(String::from("y")))
+                Box::new(Node::Str("y"))
             ))])
         ))
     );
@@ -163,7 +160,7 @@ fn test_statement() {
                 vec![Node::Binary(
                     "=",
                     Box::new(Node::Ident("x")),
-                    Box::new(Node::Str(String::from("y")))
+                    Box::new(Node::Str("y"))
                 )]
             ))))])
         ))
@@ -191,7 +188,7 @@ fn test_statement() {
                 vec![Node::Binary(
                     "=",
                     Box::new(Node::Ident("x")),
-                    Box::new(Node::Str(String::from("y")))
+                    Box::new(Node::Str("y"))
                 )]
             ))))])
         ))
@@ -917,80 +914,29 @@ fn test_statement() {
 
 #[test]
 fn test_string() {
-    assert_eq!(expression("\"\""), Ok(("", Node::Str(String::from("")))));
-    assert_eq!(expression(" \"\" "), Ok((" ", Node::Str(String::from("")))));
-    assert_eq!(
-        expression(" \"a\" "),
-        Ok((" ", Node::Str(String::from("a"))))
-    );
-    assert_eq!(
-        expression(" \"Example\" "),
-        Ok((" ", Node::Str(String::from("Example"))))
-    );
-    assert_eq!(
-        expression("\"\\     a\""),
-        Ok(("", Node::Str(String::from("a"))))
-    );
+    assert_eq!(expression("\"\""), Ok(("", Node::Str(""))));
+    assert_eq!(expression(" \"\" "), Ok((" ", Node::Str(""))));
+    assert_eq!(expression(" \"a\" "), Ok((" ", Node::Str("a"))));
+    assert_eq!(expression(" \"Example\" "), Ok((" ", Node::Str("Example"))));
+    assert_eq!(expression("\"\\     a\""), Ok(("", Node::Str("\\     a"))));
     assert_eq!(
         expression("\"\\   b  a\""),
-        Ok(("", Node::Str(String::from("b  a"))))
+        Ok(("", Node::Str("\\   b  a")))
     );
-    assert_eq!(
-        expression("\"\\n\\n\""),
-        Ok(("", Node::Str(String::from("\n\n"))))
-    );
-    assert_eq!(
-        expression("\"✅\""),
-        Ok(("", Node::Str(String::from("✅"))))
-    );
-    assert_eq!(
-        expression("\"\\n\""),
-        Ok(("", Node::Str(String::from("\n"))))
-    );
-    assert_eq!(
-        expression("\"\\r\""),
-        Ok(("", Node::Str(String::from("\r"))))
-    );
-    assert_eq!(
-        expression("\"\\t\""),
-        Ok(("", Node::Str(String::from("\t"))))
-    );
-    assert_eq!(
-        expression("\"\\b\""),
-        Ok(("", Node::Str(String::from("\u{08}"))))
-    );
-    assert_eq!(
-        expression("\"\\v\""),
-        Ok(("", Node::Str(String::from("\u{0B}"))))
-    );
-    assert_eq!(
-        expression("\"\\f\""),
-        Ok(("", Node::Str(String::from("\u{0C}"))))
-    );
-    assert_eq!(
-        expression("\"\\\\\""),
-        Ok(("", Node::Str(String::from("\\"))))
-    );
-    assert_eq!(
-        expression("\"\\/\""),
-        Ok(("", Node::Str(String::from("/"))))
-    );
-    assert_eq!(
-        expression("\"\\\"\""),
-        Ok(("", Node::Str(String::from("\""))))
-    );
-    assert_eq!(
-        expression("\"\\\'\""),
-        Ok(("", Node::Str(String::from("'"))))
-    );
-    assert_eq!(
-        expression("``"),
-        Ok(("", Node::Interpolation(String::from(""))))
-    );
-    assert_eq!(
-        expression("`x`"),
-        Ok(("", Node::Interpolation(String::from("x"))))
-    );
+    assert_eq!(expression("\"\\n\\n\""), Ok(("", Node::Str("\\n\\n"))));
+    assert_eq!(expression("\"✅\""), Ok(("", Node::Str("✅"))));
+    assert_eq!(expression("\"\\n\""), Ok(("", Node::Str("\\n"))));
+    assert_eq!(expression("\"\\r\""), Ok(("", Node::Str("\\r"))));
+    assert_eq!(expression("\"\\t\""), Ok(("", Node::Str("\\t"))));
+    assert_eq!(expression("\"\\b\""), Ok(("", Node::Str("\\b"))));
+    assert_eq!(expression("\"\\v\""), Ok(("", Node::Str("\\v"))));
+    assert_eq!(expression("\"\\f\""), Ok(("", Node::Str("\\f"))));
+    assert_eq!(expression("\"\\\\\""), Ok(("", Node::Str("\\\\"))));
+    assert_eq!(expression("\"\\/\""), Ok(("", Node::Str("\\/"))));
+    assert_eq!(expression("\"\\\"\""), Ok(("", Node::Str("\\\""))));
+    assert_eq!(expression("\"\\\'\""), Ok(("", Node::Str("\\\'"))));
+    assert_eq!(expression("``"), Ok(("", Node::Interpolation(""))));
+    assert_eq!(expression("`x`"), Ok(("", Node::Interpolation("x"))));
     assert_eq!(expression("/foo/"), Ok(("", Node::Regex(("/foo/", None)))));
     assert_eq!(
         expression("/[a-z]+/"),
@@ -1004,54 +950,24 @@ fn test_string() {
 
 #[test]
 fn test_single_quoted_string() {
-    assert_eq!(expression("''"), Ok(("", Node::Str(String::from("")))));
-    assert_eq!(expression(" '' "), Ok((" ", Node::Str(String::from("")))));
-    assert_eq!(expression(" 'a' "), Ok((" ", Node::Str(String::from("a")))));
-    assert_eq!(
-        expression(" 'Example' "),
-        Ok((" ", Node::Str(String::from("Example"))))
-    );
-    assert_eq!(
-        expression("'\\     a'"),
-        Ok(("", Node::Str(String::from("a"))))
-    );
-    assert_eq!(
-        expression("'\\   b  a'"),
-        Ok(("", Node::Str(String::from("b  a"))))
-    );
-    assert_eq!(
-        expression("'\\n\\n'"),
-        Ok(("", Node::Str(String::from("\n\n"))))
-    );
-    assert_eq!(
-        expression("\"✅\""),
-        Ok(("", Node::Str(String::from("✅"))))
-    );
-    assert_eq!(expression("'\\n'"), Ok(("", Node::Str(String::from("\n")))));
-    assert_eq!(expression("'\\r'"), Ok(("", Node::Str(String::from("\r")))));
-    assert_eq!(expression("'\\t'"), Ok(("", Node::Str(String::from("\t")))));
-    assert_eq!(
-        expression("'\\b'"),
-        Ok(("", Node::Str(String::from("\u{08}"))))
-    );
-    assert_eq!(
-        expression("'\\v'"),
-        Ok(("", Node::Str(String::from("\u{0B}"))))
-    );
-    assert_eq!(
-        expression("'\\f'"),
-        Ok(("", Node::Str(String::from("\u{0C}"))))
-    );
-    assert_eq!(
-        expression("'\\\\'"),
-        Ok(("", Node::Str(String::from("\\"))))
-    );
-    assert_eq!(expression("'\\/'"), Ok(("", Node::Str(String::from("/")))));
-    assert_eq!(
-        expression("'\\\"'"),
-        Ok(("", Node::Str(String::from("\""))))
-    );
-    assert_eq!(expression("'\\''"), Ok(("", Node::Str(String::from("'")))));
+    assert_eq!(expression("''"), Ok(("", Node::Str(""))));
+    assert_eq!(expression(" '' "), Ok((" ", Node::Str(""))));
+    assert_eq!(expression(" 'a' "), Ok((" ", Node::Str("a"))));
+    assert_eq!(expression(" 'Example' "), Ok((" ", Node::Str("Example"))));
+    assert_eq!(expression("'\\     a'"), Ok(("", Node::Str("\\     a"))));
+    assert_eq!(expression("'\\   b  a'"), Ok(("", Node::Str("\\   b  a"))));
+    assert_eq!(expression("'\\n\\n'"), Ok(("", Node::Str("\\n\\n"))));
+    assert_eq!(expression("\"✅\""), Ok(("", Node::Str("✅"))));
+    assert_eq!(expression("'\\n'"), Ok(("", Node::Str("\\n"))));
+    assert_eq!(expression("'\\r'"), Ok(("", Node::Str("\\r"))));
+    assert_eq!(expression("'\\t'"), Ok(("", Node::Str("\\t"))));
+    assert_eq!(expression("'\\b'"), Ok(("", Node::Str("\\b"))));
+    assert_eq!(expression("'\\v'"), Ok(("", Node::Str("\\v"))));
+    assert_eq!(expression("'\\f'"), Ok(("", Node::Str("\\f"))));
+    assert_eq!(expression("'\\\\'"), Ok(("", Node::Str("\\\\"))));
+    assert_eq!(expression("'\\/'"), Ok(("", Node::Str("\\/"))));
+    assert_eq!(expression("'\\\"'"), Ok(("", Node::Str("\\\""))));
+    assert_eq!(expression("'\\''"), Ok(("", Node::Str("\\\'"))));
 }
 
 #[test]
@@ -1159,10 +1075,7 @@ fn test_list() {
         expression("[ 1, \"2\" ]"),
         Ok((
             "",
-            Node::List(vec![
-                Some(Node::Double(1.0)),
-                Some(Node::Str(String::from("2")))
-            ])
+            Node::List(vec![Some(Node::Double(1.0)), Some(Node::Str("2"))])
         ))
     );
     assert_eq!(
@@ -1198,7 +1111,7 @@ fn test_object() {
         Ok((
             "",
             Node::Object(vec![Node::KeyValue((
-                Box::new(Node::Str(String::from("a"))),
+                Box::new(Node::Str("a")),
                 Box::new(Node::Double(1.0))
             ))])
         ))
@@ -1219,10 +1132,7 @@ fn test_object() {
             "",
             Node::Object(vec![
                 Node::KeyValue((Box::new(Node::Double(1.0)), Box::new(Node::Double(1.0)))),
-                Node::KeyValue((
-                    Box::new(Node::Str(String::from("a"))),
-                    Box::new(Node::Double(2.0))
-                )),
+                Node::KeyValue((Box::new(Node::Str("a")), Box::new(Node::Double(2.0)))),
             ])
         ))
     );
@@ -1270,7 +1180,7 @@ fn test_object() {
         Ok((
             "",
             Node::Object(vec![Node::Shorthand((
-                Box::new(Node::Str(String::from("a"))),
+                Box::new(Node::Str("a")),
                 vec![],
                 Box::new(Node::Block(vec![Node::Ident("b")]))
             ))])
@@ -2075,7 +1985,7 @@ fn test_action() {
             Node::Binary(
                 "`",
                 Box::new(Node::Ident("a")),
-                Box::new(Node::Interpolation(String::from("")))
+                Box::new(Node::Interpolation(""))
             )
         ))
     );

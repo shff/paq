@@ -2,21 +2,9 @@ const RESERVED: &[&str] = &["const", "for", "extends"];
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node<'a> {
-    Block(Vec<Node<'a>>),
-    If((Box<Node<'a>>, Box<Node<'a>>, Option<Box<Node<'a>>>)),
-    While((Box<Node<'a>>, Box<Node<'a>>)),
-    Do((Box<Node<'a>>, Box<Node<'a>>)),
-    For((Box<Node<'a>>, Box<Node<'a>>)),
-    With((Box<Node<'a>>, Box<Node<'a>>)),
-    Declaration((&'a str, Vec<Node<'a>>)),
-    Return(Option<Box<Node<'a>>>),
-    Throw(Box<Node<'a>>),
-    Continue(Option<Box<Node<'a>>>),
-    Break(Option<Box<Node<'a>>>),
     Blank,
-
-    Str(String),
-    Interpolation(String),
+    Str(&'a str),
+    Interpolation(&'a str),
     Ident(&'a str),
     Double(f64),
     Octal(u64),
@@ -26,36 +14,50 @@ pub enum Node<'a> {
     Regex((&'a str, Option<&'a str>)),
     List(Vec<Option<Node<'a>>>),
     Object(Vec<Node<'a>>),
-    Paren(Box<Node<'a>>),
     Closure((Vec<Node<'a>>, Box<Node<'a>>)),
     Function((Option<&'a str>, Vec<Node<'a>>, Box<Node<'a>>)),
-    Shorthand((Box<Node<'a>>, Vec<Node<'a>>, Box<Node<'a>>)),
-    Setter(Box<Node<'a>>),
-    Getter(Box<Node<'a>>),
-    Static(Box<Node<'a>>),
     Generator((Option<&'a str>, Vec<Node<'a>>, Box<Node<'a>>)),
     Class((Option<&'a str>, Option<Box<Node<'a>>>, Vec<Node<'a>>)),
-    Field((Box<Node<'a>>, Box<Node<'a>>)),
     Unary(&'a str, Box<Node<'a>>),
     Binary(&'a str, Box<Node<'a>>, Box<Node<'a>>),
     Ternary(Box<Node<'a>>, Box<Node<'a>>, Box<Node<'a>>),
-    Import((Option<Box<Node<'a>>>, Box<Node<'a>>)),
-    Export(Box<Node<'a>>),
-    Default(Box<Node<'a>>),
+
+    Block(Vec<Node<'a>>),
+    Paren(Box<Node<'a>>),
+    Declaration((&'a str, Vec<Node<'a>>)),
+    If((Box<Node<'a>>, Box<Node<'a>>, Option<Box<Node<'a>>>)),
+    While((Box<Node<'a>>, Box<Node<'a>>)),
+    Do((Box<Node<'a>>, Box<Node<'a>>)),
+    For((Box<Node<'a>>, Box<Node<'a>>)),
+    ForTrio(Vec<Option<Node<'a>>>),
+    ForOf((Box<Node<'a>>, Box<Node<'a>>)),
+    ForIn((Box<Node<'a>>, Box<Node<'a>>)),
+    With((Box<Node<'a>>, Box<Node<'a>>)),
+    Return(Option<Box<Node<'a>>>),
+    Throw(Box<Node<'a>>),
+    Continue(Option<Box<Node<'a>>>),
+    Break(Option<Box<Node<'a>>>),
     Try((Box<Node<'a>>, Option<Box<Node<'a>>>, Option<Box<Node<'a>>>)),
     Catch((Option<Box<Node<'a>>>, Box<Node<'a>>)),
+    Import((Option<Box<Node<'a>>>, Box<Node<'a>>)),
+    Export(Box<Node<'a>>),
+
+    Shorthand((Box<Node<'a>>, Vec<Node<'a>>, Box<Node<'a>>)),
+    Field((Box<Node<'a>>, Box<Node<'a>>)),
+    Setter(Box<Node<'a>>),
+    Getter(Box<Node<'a>>),
+    Static(Box<Node<'a>>),
+    Default(Box<Node<'a>>),
     Label((Box<Node<'a>>, Box<Node<'a>>)),
 
-    Args(Vec<Node<'a>>),
     ListPattern(Vec<Option<Node<'a>>>),
     ObjPattern(Vec<Node<'a>>),
     Splat(Box<Node<'a>>),
     KeyValue((Box<Node<'a>>, Box<Node<'a>>)),
-    Param((Box<Node<'a>>, Option<Box<Node<'a>>>)),
-    ForTrio(Vec<Option<Node<'a>>>),
-    ForOf((Box<Node<'a>>, Box<Node<'a>>)),
-    ForIn((Box<Node<'a>>, Box<Node<'a>>)),
     Variable((Option<&'a str>, Box<Node<'a>>)),
+
+    Args(Vec<Node<'a>>),
+    Param((Box<Node<'a>>, Option<Box<Node<'a>>>)),
 }
 
 pub fn block(i: &str) -> ParseResult<Node> {
@@ -343,6 +345,11 @@ fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(map(object, Node::Object))(i)
 }
 
+fn field<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let inner = outer(boxed(ident), ws(tag("=")), boxed(expression));
+    ws(map(inner, Node::Field))(i)
+}
+
 fn methods<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     ws(choice((statik, getter, setter, shorthand)))(i)
 }
@@ -397,10 +404,6 @@ fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
 }
 
 fn class<'a>(i: &'a str) -> ParseResult<Node<'a>> {
-    let field = ws(map(
-        outer(boxed(ident), ws(tag("=")), boxed(expression)),
-        Node::Field,
-    ));
     let inner = many(left(choice((field, methods)), end));
     let inner = ws(middle(tag("{"), inner, ws(tag("}"))));
     let extend = ws(opt(right(tag("extends"), boxed(choice((ident, idents))))));
@@ -501,7 +504,7 @@ pub fn get_deps(root: Node) -> Vec<String> {
                 if func_name == "require" {
                     if let Node::Args(s) = *args {
                         if let Some(Node::Str(dep)) = s.first() {
-                            deps.borrow_mut().push(dep.clone())
+                            deps.borrow_mut().push(dep.clone().to_string())
                         }
                     }
                 }
@@ -903,7 +906,7 @@ where
     map(i, Box::new)
 }
 
-pub fn string<'a>(q: &'static str) -> impl Fn(&'a str) -> ParseResult<String> {
+pub fn string<'a>(q: &'static str) -> impl Fn(&'a str) -> ParseResult<&'a str> {
     move |i| {
         let escaped = right(
             tag("\\"),
@@ -922,7 +925,7 @@ pub fn string<'a>(q: &'static str) -> impl Fn(&'a str) -> ParseResult<String> {
             )),
         );
         let chars = take_while(|c| c != q.chars().next().unwrap() && c != '\\');
-        let inner = map(many(choice((chars, escaped))), |s| s.join(""));
+        let inner = capture(many(choice((chars, escaped))));
         middle(tag(q), inner, tag(q))(i)
     }
 }

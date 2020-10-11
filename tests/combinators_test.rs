@@ -227,9 +227,9 @@ fn test_boxed() {
 fn test_string() {
     let parser = string("\"");
 
-    assert_eq!(parser("\"a\""), Ok(("", String::from("a"))));
-    assert_eq!(parser("\"abcd\""), Ok(("", String::from("abcd"))));
-    assert_eq!(parser("\"abc\"   "), Ok(("   ", String::from("abc"))));
+    assert_eq!(parser("\"a\""), Ok(("", "a")));
+    assert_eq!(parser("\"abcd\""), Ok(("", "abcd")));
+    assert_eq!(parser("\"abc\"   "), Ok(("   ", "abc")));
     assert_eq!(
         parser("abcd"),
         Err(("abcd", ParserError::Tag(String::from("\""))))
