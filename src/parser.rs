@@ -6,6 +6,7 @@ pub enum Node<'a> {
     If((Box<Node<'a>>, Box<Node<'a>>, Option<Box<Node<'a>>>)),
     While((Box<Node<'a>>, Box<Node<'a>>)),
     Do((Box<Node<'a>>, Box<Node<'a>>)),
+    Switch((Box<Node<'a>>, Box<Node<'a>>)),
     For((Box<Node<'a>>, Box<Node<'a>>)),
     With((Box<Node<'a>>, Box<Node<'a>>)),
     Declaration((&'a str, Vec<Node<'a>>)),
@@ -45,6 +46,7 @@ pub enum Node<'a> {
     Try((Box<Node<'a>>, Option<Box<Node<'a>>>, Option<Box<Node<'a>>>)),
     Catch((Option<Box<Node<'a>>>, Box<Node<'a>>)),
     Label((Box<Node<'a>>, Box<Node<'a>>)),
+    Case((Box<Node<'a>>, Box<Node<'a>>)),
 
     Args(Vec<Node<'a>>),
     ListPattern(Vec<Option<Node<'a>>>),
@@ -59,7 +61,19 @@ pub enum Node<'a> {
 }
 
 pub fn block(i: &str) -> ParseResult<Node> {
-    ws(map(many(labeled), Node::Block))(i)
+    ws(map(many(case), Node::Block))(i)
+}
+
+fn case<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let label = middle(ws(tag("case")), ws(ident), ws(tag(":")));
+    let inner = map(pair(boxed(label), boxed(case)), Node::Case);
+    ws(choice((inner, default)))(i)
+}
+
+fn default<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let label = pair(ws(tag("default")), ws(tag(":")));
+    let inner = map(right(label, boxed(default)), Node::Default);
+    ws(choice((inner, labeled)))(i)
 }
 
 fn labeled<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -81,6 +95,7 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
             imports,
             exports,
             try_catch,
+            switch,
             cont,
             brk,
             ret,
@@ -116,6 +131,12 @@ fn catch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     let exception = middle(ws(tag("(")), boxed(pattern), ws(tag(")")));
     let inner = right(tag("catch"), pair(opt(exception), boxed(braces)));
     ws(map(inner, Node::Catch))(i)
+}
+
+fn switch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+    let expr = middle(ws(tag("(")), expression, ws(tag(")")));
+    let inner = right(ws(tag("switch")), pair(boxed(expr), boxed(braces)));
+    map(inner, Node::Switch)(i)
 }
 
 fn cont<'a>(i: &'a str) -> ParseResult<Node<'a>> {
@@ -607,6 +628,10 @@ where
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),
+        Node::Switch((a, b)) => Node::Switch((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
         Node::For((a, b)) => Node::For((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
@@ -645,6 +670,10 @@ where
             Box::new(walk(*b.clone(), visit)),
         )),
         Node::Label((a, b)) => Node::Label((
+            Box::new(walk(*a.clone(), visit)),
+            Box::new(walk(*b.clone(), visit)),
+        )),
+        Node::Case((a, b)) => Node::Case((
             Box::new(walk(*a.clone(), visit)),
             Box::new(walk(*b.clone(), visit)),
         )),
