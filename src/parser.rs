@@ -763,8 +763,8 @@ fn makechain2<'a>(e: (Node<'a>, Vec<(&'a str, Node<'a>)>)) -> Node<'a> {
 
 pub fn tag(tag: &'static str) -> impl Fn(&str) -> ParseResult<&str> {
     move |i| {
-        if i.starts_with(tag) {
-            Ok((&i[tag.len()..], &i[..tag.len()]))
+        if let Some(prefix) = i.strip_prefix(tag) {
+            Ok((prefix, &i[..tag.len()]))
         } else {
             Err((i, ParserError::Tag(tag.to_string())))
         }
@@ -856,8 +856,8 @@ where
 pub fn one_of<'a>(opts: &'a [&str]) -> impl Fn(&'a str) -> ParseResult<&str> {
     move |i| {
         for opt in opts {
-            if i.starts_with(opt) {
-                return Ok((&i[opt.len()..], &i[..opt.len()]));
+            if let Some(prefix) = i.strip_prefix(opt) {
+                return Ok((prefix, &i[..opt.len()]))
             }
         }
         Err((i, ParserError::Choice))
