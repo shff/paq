@@ -8,17 +8,19 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Get Tarpaulin
-      run: |
-        curl https://api.github.com/repos/xd009642/tarpaulin/releases/latest |\
-          jq -r '.assets[0].browser_download_url' |\
-          xargs curl -L |\
-          tar zxv -C /usr/share/rust/.cargo/bin
+    # - name: Get Tarpaulin
+    #   run: |
+    #     curl https://api.github.com/repos/xd009642/tarpaulin/releases/latest |\
+    #       jq -r '.assets[0].browser_download_url' |\
+    #       xargs curl -L |\
+    #       tar zxv -C /usr/share/rust/.cargo/bin
     - name: Submodules
       run: git submodule update --init
     - name: Format
       run: cargo fmt -- --check
     - name: Test
-      run: cargo tarpaulin --coveralls ${{ secrets.COVERALLS_TOKEN }}
+      run: cargo test
+    # - name: Test
+    #   run: cargo tarpaulin --coveralls ${{ secrets.COVERALLS_TOKEN }}
     - name: Lint
       run: cargo clippy -- -D warnings -D clippy::all -D clippy::nursery
