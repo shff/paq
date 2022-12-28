@@ -857,7 +857,7 @@ pub fn one_of<'a>(opts: &'a [&str]) -> impl Fn(&'a str) -> ParseResult<&str> {
     move |i| {
         for opt in opts {
             if let Some(prefix) = i.strip_prefix(opt) {
-                return Ok((prefix, &i[..opt.len()]))
+                return Ok((prefix, &i[..opt.len()]));
             }
         }
         Err((i, ParserError::Choice))

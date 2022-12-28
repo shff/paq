@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread::{spawn, yield_now};
 
@@ -12,19 +13,20 @@ where
     F: 'static + Send + Copy + FnMut(A) -> Result<(B, Vec<A>), Error>,
 {
     let mut pending = HashSet::<A>::new();
+    let finished = Arc::new(AtomicBool::new(false));
     let queue = Arc::new(RwLock::new(VecDeque::new()));
     let (tx, rx) = mpsc::channel();
     pending.insert(first_job.clone());
     queue.write().unwrap().push_back(first_job);
 
     for _ in 0..4 {
-        let tx2 = tx.clone();
-        let pending2 = pending.clone();
-        let queue2 = queue.clone();
+        let tx = tx.clone();
+        let finished = finished.clone();
+        let queue = queue.clone();
         spawn(move || loop {
-            match queue2.write().unwrap().pop_front() {
-                Some(job) => tx2.send((job.clone(), perform(job))).unwrap(),
-                None if pending2.is_empty() => return,
+            match queue.write().unwrap().pop_front() {
+                Some(job) => tx.send((job.clone(), perform(job))).unwrap(),
+                None if finished.load(Ordering::Relaxed) => return,
                 None => yield_now(),
             }
         });
@@ -42,6 +44,7 @@ where
             }
         }
         if pending.is_empty() {
+            finished.store(true, Ordering::Relaxed);
             break;
         }
     }
