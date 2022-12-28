@@ -1,18 +1,20 @@
 pub mod parser;
+pub mod queue;
+pub mod resolve;
 
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 
-pub fn bundle(entry: &PathBuf) -> Result<String, miniqueue::Error> {
-    let modules = miniqueue::run(entry.clone(), |path| {
+pub fn bundle(entry: &PathBuf) -> Result<String, queue::Error> {
+    let modules = queue::run(entry.clone(), |path| {
         let source = read_to_string(&path)?;
 
         let mut deps = HashMap::new();
         let ast = parser::block(&source).expect("Parser error");
         for dep in parser::get_deps(ast.1) {
-            deps.insert(dep.clone(), js_resolve::resolve(dep, &path)?);
+            deps.insert(dep.clone(), resolve::resolve(dep, &path)?);
         }
         let paths = deps.values().cloned().collect();
 

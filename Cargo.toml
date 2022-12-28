@@ -5,8 +5,7 @@ authors = ["Silvio Henrique Ferreira <shferreira@me.com>"]
 edition = "2018"
 
 [dependencies]
-"miniqueue" = "0.1.2"
-"js-resolve" = "0.1.3"
+json = "0.12"
 
 [profile.release]
 panic = 'abort'
