@@ -504,7 +504,8 @@ fn comments<'a>(i: &'a str) -> ParseResult<&'a str> {
 }
 
 fn single_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
-    capture(trio(tag("//"), take_until("\n"), tag("\n")))(i)
+    let comments = choice((tag("//"), tag("<!--"), tag("-->")));
+    capture(trio(comments, take_until("\n"), tag("\n")))(i)
 }
 
 fn multi_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
