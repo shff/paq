@@ -1,61 +1,59 @@
 use paq::parser::{block, expression, get_deps, transform, Node};
 
 #[test]
-fn text_fixtures() {
-    fn assert_parses(path: &str) {
-        let cur_dir = std::env::current_dir().unwrap();
-        let fixtures = cur_dir.join("tests/fixtures/parser");
-        let fullpath = &fixtures.join(path);
-        let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
-        let start = std::time::Instant::now();
+fn text_parse_fixtures() {
+    let cur_dir = std::env::current_dir().unwrap();
+    let fixtures = cur_dir.join("tests/fixtures/parser");
+    let files = std::fs::read_dir(&fixtures).unwrap();
+    for file in files {
+        let path = file.unwrap().path();
+        let source = std::fs::read_to_string(&path).unwrap();
         let ast = block(&source);
-        let elapsed = start.elapsed();
-        println!("Time: {:?} - {}", elapsed, path);
         assert!(ast.is_ok());
-        assert_eq!(ast.unwrap().0.trim(), "", "Expected ''. File: {}", path);
+        assert_eq!(ast.unwrap().0.trim(), "", "Expected ''. File: {}", path.display());
     }
-    assert_parses("basic.js");
-    assert_parses("require.js");
-    assert_parses("exports.js");
-    assert_parses("crazy-indent.js");
-    assert_parses("peter.js");
-    assert_parses("itt_prelude.js");
-    assert_parses("matrix.js");
-    assert_parses("math.js");
 }
 
 #[test]
-fn test_parser_deps() {
-    fn assert_dep(path: &str, substring: &str) {
+fn test_parse_automatic() {
+    let cur_dir = std::env::current_dir().unwrap();
+    let fixtures = cur_dir.join("tests/fixtures/test262-parser-tests/pass");
+    let files = std::fs::read_dir(fixtures).unwrap();
+    for file in files {
+        let path = file.unwrap().path();
+        let source = std::fs::read_to_string(&path).unwrap() + "\n";
+        let ast = block(&source);
+        assert!(ast.is_ok());
+        assert_eq!(ast.unwrap().0.trim(), "");
+    }
+}
+
+#[test]
+fn test_parser_get_deps() {
+    fn assert_deps(path: &str, requires: std::vec::Vec<&str>) {
         let cur_dir = std::env::current_dir().unwrap();
         let entry = cur_dir.join("tests/fixtures/parser_deps").join(path);
         let source = std::fs::read_to_string(&entry).unwrap();
         let ast = block(&source);
         let result = get_deps(ast.unwrap().1);
-        assert!(result.contains(&String::from(substring)))
+        assert_eq!(result, requires);
     }
-    assert_dep("deps-modules.js", "peter");
-    assert_dep("deps-crazy-indent.js", "./math.js");
-    assert_dep("deps-double-quotes.js", "./math");
-    assert_dep("deps-modules-2.js", "itt");
-    assert_dep("deps-relative.js", "./math.js");
-    assert_dep("deps-multiple.js", "math");
-    assert_dep("deps-multiple.js", "./index.js");
-    assert_dep("deps-multiple.js", "fs");
-    assert_dep("deps-comments.js", "fs");
-    assert_dep("deps-if.js", "lodash");
-    assert_dep("deps-else.js", "lodash");
-    assert_dep("deps-for.js", "lodash");
-    assert_dep("deps-for-in.js", "lodash");
-    assert_dep("deps-for-of.js", "lodash");
-    assert_dep("deps-while.js", "lodash");
-    assert_dep("deps-walker-all.js", "lodash");
-    assert_dep("deps-walker-all.js", "underscore");
-    assert_dep("deps-walker-all.js", "debounce");
-    assert_dep("deps-walker-all.js", "assert");
-    assert_dep("deps-lazy.js", "lazily-loaded");
-    assert_dep("deps-class.js", "lodash");
-    assert_dep("deps-class.js", "ramda");
+    assert_deps("deps-modules.js", vec!["peter"]);
+    assert_deps("deps-crazy-indent.js", vec!["./math.js"]);
+    assert_deps("deps-double-quotes.js", vec!["./math"]);
+    assert_deps("deps-modules-2.js", vec!["itt"]);
+    assert_deps("deps-relative.js", vec!["./math.js"]);
+    assert_deps("deps-multiple.js", vec!["math", "./index.js", "fs"]);
+    assert_deps("deps-comments.js", vec!["fs"]);
+    assert_deps("deps-if.js", vec!["lodash"]);
+    assert_deps("deps-else.js", vec!["lodash"]);
+    assert_deps("deps-for.js", vec!["lodash"]);
+    assert_deps("deps-for-in.js", vec!["lodash"]);
+    assert_deps("deps-for-of.js", vec!["lodash"]);
+    assert_deps("deps-while.js", vec!["lodash"]);
+    assert_deps("deps-walker-all.js", vec!["lodash", "underscore", "debounce", "assert"]);
+    assert_deps("deps-lazy.js", vec!["lazily-loaded"]);
+    assert_deps("deps-class.js", vec!["ramda", "lodash"]);
 }
 
 #[test]
@@ -102,6 +100,10 @@ fn test_complex() {
     assert_complete("if (true) for (0;0;0) break;\nelse continue;");
     assert_complete("if (true) for (0;0;0) break; else continue;");
     assert_complete("if (true) 2; else 1;");
+    assert_complete("{ let a }");
+    assert_complete("<!-- hello\n");
+    assert_complete("--> hello\n");
+    assert_complete("a(`<span>${b}</span>`, \n`<a href=\"${c}\">${d}</a>`\n);");
 }
 
 #[test]
@@ -2221,28 +2223,4 @@ fn test_classes() {
             ))
         ))
     );
-}
-
-#[test]
-fn test_automatic() {
-    let cur_dir = std::env::current_dir().unwrap();
-    let pass = cur_dir.join("tests/fixtures/test262-parser-tests/pass");
-    if let Ok(files) = std::fs::read_dir(pass) {
-        let mut files = files
-            .into_iter()
-            .filter_map(|file| {
-                let fullpath = file.unwrap().path();
-                let source = std::fs::read_to_string(&fullpath).expect("Can't open file");
-                let ast = block(&source);
-                let rest = ast.unwrap().0.trim();
-                if rest == "" {
-                    return None;
-                }
-                Some(format!("{:?}", rest))
-            })
-            .collect::<Vec<String>>();
-        files.sort();
-        println!("{}", files.join("\n"));
-        println!("--- {} failures ---", files.len());
-    }
 }
