@@ -60,35 +60,35 @@ pub enum Node<'a> {
     Variable((Option<&'a str>, Box<Node<'a>>)),
 }
 
-pub fn block(i: &str) -> ParseResult<Node> {
+pub fn block(i: &str) -> ParseResult<'_, Node<'_>> {
     ws(map(many(case), Node::Block))(i)
 }
 
-fn case<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn case<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let label = middle(ws(tag("case")), ws(ident), ws(tag(":")));
     let inner = map(pair(boxed(label), boxed(case)), Node::Case);
     ws(choice((inner, default)))(i)
 }
 
-fn default<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn default<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let label = pair(ws(tag("default")), ws(tag(":")));
     let inner = map(right(label, boxed(default)), Node::Default);
     ws(choice((inner, labeled)))(i)
 }
 
-fn labeled<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn labeled<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let label = left(ws(ident), ws(tag(":")));
     let inner = map(pair(boxed(label), boxed(labeled)), Node::Label);
     ws(choice((inner, statement)))(i)
 }
 
-fn statement<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn statement<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     choice((
         braces, condition, while_loop, do_loop, for_loop, with, gotos, function,
     ))(i)
 }
 
-fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn gotos<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let empty = map(peek(tag(";")), |_| Node::Blank);
     left(
         choice((
@@ -108,208 +108,208 @@ fn gotos<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     )(i)
 }
 
-fn imports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn imports<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let from = opt(left(boxed(ws(ident)), ws(tag("from"))));
     let inner = right(ws(tag("import")), pair(from, boxed(ws(quote))));
     map(inner, Node::Import)(i)
 }
 
-fn exports<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn exports<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let default = map(right(ws(tag("default")), boxed(expression)), Node::Default);
     let opts = choice((declaration, function, class, object));
     let inner = right(ws(tag("export")), boxed(choice((opts, default))));
     map(inner, Node::Export)(i)
 }
 
-fn try_catch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn try_catch<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let tryb = right(ws(tag("try")), boxed(braces));
     let finally = right(ws(tag("finally")), boxed(braces));
     map(trio(tryb, opt(boxed(catch)), opt(finally)), Node::Try)(i)
 }
 
-fn catch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn catch<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let exception = middle(ws(tag("(")), boxed(pattern), ws(tag(")")));
     let inner = right(tag("catch"), pair(opt(exception), boxed(braces)));
     ws(map(inner, Node::Catch))(i)
 }
 
-fn switch<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn switch<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let expr = middle(ws(tag("(")), expression, ws(tag(")")));
     let inner = right(ws(tag("switch")), pair(boxed(expr), boxed(braces)));
     map(inner, Node::Switch)(i)
 }
 
-fn cont<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn cont<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(tag("continue"), opt(boxed(ident)));
     ws(map(inner, Node::Continue))(i)
 }
 
-fn brk<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn brk<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(tag("break"), opt(boxed(ident)));
     ws(map(inner, Node::Break))(i)
 }
 
-fn ret<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn ret<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(tag("return"), opt(boxed(expression)));
     ws(map(inner, Node::Return))(i)
 }
 
-fn thrw<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn thrw<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(tag("throw"), boxed(expression));
     ws(map(inner, Node::Throw))(i)
 }
 
-fn declaration<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn declaration<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &["var", "let", "const"];
     let declaration = ws(pair(one_of(ops), chain(ws(tag(",")), mutation)));
     map(declaration, Node::Declaration)(i)
 }
 
-fn condition<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn condition<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let else_block = ws(right(tag("else"), boxed(labeled)));
     let inner = trio(boxed(paren), boxed(labeled), opt(else_block));
     map(ws(right(tag("if"), inner)), Node::If)(i)
 }
 
-fn while_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn while_loop<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = pair(boxed(paren), boxed(labeled));
     map(ws(right(tag("while"), inner)), Node::While)(i)
 }
 
-fn do_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn do_loop<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(tag("do"), boxed(labeled));
     map(ws(outer(inner, ws(tag("while")), boxed(paren))), Node::Do)(i)
 }
 
-fn for_loop<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn for_loop<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let iter = boxed(choice((for_of, for_in, for_trio)));
     let inner = pair(middle(ws(tag("(")), iter, ws(tag(")"))), boxed(labeled));
     map(ws(right(tag("for"), inner)), Node::For)(i)
 }
 
-fn for_trio<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn for_trio<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let a = opt(choice((declaration, expression)));
     let b = right(ws(tag(";")), opt(expression));
     let c = right(ws(tag(";")), opt(expression));
     map(trio(a, b, c), |(a, b, c)| Node::ForTrio(vec![a, b, c]))(i)
 }
 
-fn for_of<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn for_of<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let expr1 = boxed(variable);
     map(outer(expr1, ws(tag("of")), boxed(expression)), Node::ForOf)(i)
 }
 
-fn for_in<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn for_in<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let expr1 = boxed(variable);
     map(outer(expr1, ws(tag("in")), boxed(expression)), Node::ForIn)(i)
 }
 
-fn with<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn with<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = pair(boxed(paren), boxed(labeled));
     map(ws(right(tag("with"), inner)), Node::With)(i)
 }
 
-fn variable<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn variable<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &["var", "let", "const"];
     map(ws(pair(opt(one_of(ops)), boxed(pattern))), Node::Variable)(i)
 }
 
-pub fn expression<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+pub fn expression<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(yield1, tag(",")), makechain2)(i)
 }
 
-fn yield1<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn yield1<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let yield_star = value(pair(tag("yield"), ws(tag("*"))), "yield*");
     map(prefix(yield_star, yield2), makechain)(i)
 }
 
-fn yield2<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn yield2<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(prefix(tag("yield"), mutation), makechain)(i)
 }
 
-fn mutation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn mutation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &[
         "=", "+=", "-=", "**=", "*=", "/=", "%=", "<<=", ">>>=", ">>=", "&=", "^=", "|=",
     ];
     map(infix(ternary, one_of(ops)), makechain2)(i)
 }
 
-fn ternary<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn ternary<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let conds = right(ws(tag("?")), outer(equality, ws(tag(":")), equality));
     ws(map(pair(equality, many(conds)), maketernary))(i)
 }
 
-fn equality<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn equality<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &["===", "==", "!==", "!="];
     map(infix(comparison, one_of(ops)), makechain2)(i)
 }
 
-fn comparison<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn comparison<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &[">=", "<=", ">", "<", "instanceof", "in"];
     map(infix(bitwise, one_of(ops)), makechain2)(i)
 }
 
-fn bitwise<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn bitwise<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &[">>>", ">>", "<<"];
     map(infix(logic_or, one_of(ops)), makechain2)(i)
 }
 
-fn logic_or<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn logic_or<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(logic_and, tag("&&")), makechain2)(i)
 }
 
-fn logic_and<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn logic_and<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(coalesce, tag("||")), makechain2)(i)
 }
 
-fn coalesce<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn coalesce<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(bitwise_or, tag("??")), makechain2)(i)
 }
 
-fn bitwise_or<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn bitwise_or<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(bitwise_xor, tag("|")), makechain2)(i)
 }
 
-fn bitwise_xor<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn bitwise_xor<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(bitwise_and, tag("^")), makechain2)(i)
 }
 
-fn bitwise_and<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn bitwise_and<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(addition, tag("&")), makechain2)(i)
 }
 
-fn addition<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn addition<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(multiplication, one_of(&["+", "-"])), makechain2)(i)
 }
 
-fn multiplication<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn multiplication<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(power, one_of(&["*", "/", "%"])), makechain2)(i)
 }
 
-fn power<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn power<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(infix(negation, tag("**")), makechain2)(i)
 }
 
-fn negation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn negation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &["!", "~"];
     map(prefix(one_of(ops), prefixes), makechain)(i)
 }
 
-fn prefixes<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn prefixes<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &["++", "--", "+", "-", "typeof", "void", "delete", "await"];
     map(prefix(one_of(ops), postfix), makechain)(i)
 }
 
-fn postfix<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn postfix<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &["++", "--"];
     map(pair(creation, many(ws(one_of(ops)))), makechainb)(i)
 }
 
-fn creation<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn creation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(prefix(tag("new"), action), makechain)(i)
 }
 
-fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn action<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let interp = pair(peek(tag("`")), map(string("`"), Node::Interpolation));
     let array = pair(tag("["), left(expression, ws(tag("]"))));
     let opt = pair(tag("?."), ident);
@@ -324,7 +324,7 @@ fn action<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(action, makechain2)(i)
 }
 
-fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn primitive<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let double = map(double, Node::Double);
     ws(choice((
         quote,
@@ -345,114 +345,114 @@ fn primitive<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     )))(i)
 }
 
-fn octal<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn octal<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(choice((tag("0o"), tag("0O"))), number(8));
     ws(map(inner, Node::Octal))(i)
 }
 
-fn hexa<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn hexa<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(choice((tag("0x"), tag("0X"))), number(16));
     ws(map(inner, Node::Hexadecimal))(i)
 }
 
-fn binary<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn binary<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = right(choice((tag("0b"), tag("0B"))), number(2));
     ws(map(inner, Node::BinaryNum))(i)
 }
 
-fn regex<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn regex<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = pair(capture(string("/")), opt(take_while(|c| c.is_alphabetic())));
     ws(map(inner, Node::Regex))(i)
 }
 
-fn interpolate<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn interpolate<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(string("`"), Node::Interpolation)(i)
 }
 
-fn quote<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn quote<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let single_quote = map(string("\""), Node::Str);
     let double_quote = map(string("'"), Node::Str);
     ws(choice((single_quote, double_quote)))(i)
 }
 
-fn ident<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn ident<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(identifier, Node::Ident)(i)
 }
 
-fn idents<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn idents<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = middle(tag("("), chain(ws(tag(",")), identifier), ws(tag(")")));
     ws(map(inner, Node::Idents))(i)
 }
 
-fn identifier<'a>(i: &'a str) -> ParseResult<&'a str> {
+fn identifier<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
     ws(reserved(take_while(|c| c.is_alphanumeric()), RESERVED))(i)
 }
 
-fn object<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn object<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let item = choice((methods, key_value, ident, splat));
     let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
     ws(map(object, Node::Object))(i)
 }
 
-fn field<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn field<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = outer(boxed(ident), ws(tag("=")), boxed(expression));
     ws(map(inner, Node::Field))(i)
 }
 
-fn methods<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn methods<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     ws(choice((statik, getter, setter, shorthand)))(i)
 }
 
-fn statik<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn statik<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = boxed(choice((getter, setter, shorthand)));
     ws(map(right(tag("static"), inner), Node::Static))(i)
 }
 
-fn getter<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn getter<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     ws(map(right(tag("get"), boxed(shorthand)), Node::Getter))(i)
 }
 
-fn setter<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn setter<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     ws(map(right(tag("set"), boxed(shorthand)), Node::Setter))(i)
 }
 
-fn shorthand<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn shorthand<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let computed = middle(tag("["), expression, tag("]"));
     let title = choice((quote, ident, computed));
     let inner = trio(ws(boxed(title)), params, boxed(braces));
     map(inner, Node::Shorthand)(i)
 }
 
-fn paren<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn paren<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let paren = middle(tag("("), boxed(expression), ws(tag(")")));
     ws(map(paren, Node::Paren))(i)
 }
 
-fn list<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn list<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let items = chain(tag(","), ws(opt(choice((splat, yield1)))));
     let list = middle(tag("["), items, ws(tag("]")));
     ws(map(list, Node::List))(i)
 }
 
-fn closure<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn closure<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let params = ws(choice((map(ident, |a| vec![a]), params)));
     let closure = outer(params, ws(tag("=>")), boxed(expression));
     ws(map(closure, Node::Closure))(i)
 }
 
-fn function<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn function<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = trio(ws(opt(identifier)), params, boxed(braces));
     let func = ws(right(tag("function"), inner));
     map(func, Node::Function)(i)
 }
 
-fn generator<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn generator<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = trio(ws(opt(identifier)), params, boxed(braces));
     let func = ws(right(pair(tag("function"), ws(tag("*"))), inner));
     map(func, Node::Generator)(i)
 }
 
-fn class<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn class<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let inner = many(left(choice((field, methods)), end));
     let inner = ws(middle(tag("{"), inner, ws(tag("}"))));
     let extend = ws(opt(right(tag("extends"), boxed(choice((ident, idents))))));
@@ -460,55 +460,55 @@ fn class<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(trio(title, extend, inner), Node::Class)(i)
 }
 
-fn braces<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn braces<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     ws(middle(tag("{"), block, ws(tag("}"))))(i)
 }
 
-fn params<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
+fn params<'a>(i: &'a str) -> ParseResult<'a, Vec<Node<'a>>> {
     let inner = chain(ws(tag(",")), choice((splat, pattern)));
     ws(middle(tag("("), inner, ws(tag(")"))))(i)
 }
 
-fn args<'a>(i: &'a str) -> ParseResult<Vec<Node<'a>>> {
+fn args<'a>(i: &'a str) -> ParseResult<'a, Vec<Node<'a>>> {
     ws(chain(tag(","), choice((splat, expression))))(i)
 }
 
-fn splat<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn splat<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let exp = boxed(right(tag("..."), yield1));
     ws(map(exp, Node::Splat))(i)
 }
 
-fn pattern<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn pattern<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let param = choice((list_pattern, object_pattern, ident));
     let default = right(ws(tag("=")), ws(expression));
     let inner = pair(boxed(param), opt(boxed(default)));
     ws(map(inner, Node::Param))(i)
 }
 
-fn list_pattern<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn list_pattern<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let items = chain(tag(","), ws(opt(choice((splat, pattern)))));
     let inner = middle(tag("["), items, ws(tag("]")));
     ws(map(inner, Node::ListPattern))(i)
 }
 
-fn object_pattern<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn object_pattern<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let items = chain(tag(","), ws(choice((splat, pattern))));
     let inner = middle(tag("{"), items, ws(tag("}")));
     ws(map(inner, Node::ObjPattern))(i)
 }
 
-fn comments<'a>(i: &'a str) -> ParseResult<&'a str> {
+fn comments<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
     let space = opt(take_while(|c| c == ' ' || c == '\t'));
     let multi = capture(trio(tag("/*"), take_until("*/"), tag("*/")));
     capture(many(right(choice((single_comment, multi)), space)))(i)
 }
 
-fn single_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
+fn single_comment<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
     let comments = choice((tag("//"), tag("<!--"), tag("-->")));
     capture(trio(comments, take_until("\n"), tag("\n")))(i)
 }
 
-fn multi_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
+fn multi_comment<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
     capture(trio(
         tag("/*"),
         right(take_until("\n"), tag("\n")),
@@ -516,7 +516,7 @@ fn multi_comment<'a>(i: &'a str) -> ParseResult<&'a str> {
     ))(i)
 }
 
-fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
+fn key_value<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let double_quote = map(string("\""), Node::Str);
     let single_quote = map(string("\'"), Node::Str);
     let computed = middle(tag("["), expression, tag("]"));
@@ -525,7 +525,7 @@ fn key_value<'a>(i: &'a str) -> ParseResult<Node<'a>> {
     map(outer(key, ws(tag(":")), value), Node::KeyValue)(i)
 }
 
-fn end<'a>(i: &'a str) -> ParseResult<&'a str> {
+fn end<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
     let eol = take_while(|c| c == '\n' || c == '\r');
     let brace = value(peek(tag("}")), "");
     choice((
@@ -748,17 +748,17 @@ fn maketernary<'a>(e: (Node<'a>, Vec<(Node<'a>, Node<'a>)>)) -> Node<'a> {
 
 fn makechain<'a>(e: (Vec<&'a str>, Node<'a>)) -> Node<'a> {
     e.0.iter()
-        .fold(e.1, |acc, op| Node::Unary::<'a>(*op, Box::new(acc)))
+        .fold(e.1, |acc, op| Node::Unary::<'a>(op, Box::new(acc)))
 }
 
 fn makechainb<'a>(e: (Node<'a>, Vec<&'a str>)) -> Node<'a> {
     e.1.iter()
-        .fold(e.0, |acc, op| Node::Unary::<'a>(*op, Box::new(acc)))
+        .fold(e.0, |acc, op| Node::Unary::<'a>(op, Box::new(acc)))
 }
 
 fn makechain2<'a>(e: (Node<'a>, Vec<(&'a str, Node<'a>)>)) -> Node<'a> {
     e.1.iter().fold(e.0, |a, (op, b)| {
-        Node::Binary::<'a>(*op, Box::new(a), Box::new(b.clone()))
+        Node::Binary::<'a>(op, Box::new(a), Box::new(b.clone()))
     })
 }
 
@@ -825,7 +825,7 @@ where
     A: Fn(&'a str) -> ParseResult<X>,
     B: Fn(&'a str) -> ParseResult<Y>,
 {
-    move |i| a(i).and_then(|(i, _)| b(i).map(|(i, r2)| (i, r2)))
+    move |i| a(i).and_then(|(i, _)| b(i))
 }
 
 pub fn left<'a, A, B, X, Y>(a: A, b: B) -> impl Fn(&'a str) -> ParseResult<X>
@@ -854,7 +854,7 @@ where
     move |i| a(i).and_then(|(i, x)| b(i).and_then(|(i, _)| c(i).map(|(i, z)| (i, (x, z)))))
 }
 
-pub fn one_of<'a>(opts: &'a [&str]) -> impl Fn(&'a str) -> ParseResult<&str> {
+pub fn one_of<'a>(opts: &'a [&str]) -> impl Fn(&'a str) -> ParseResult<'a, &'a str> {
     move |i| {
         for opt in opts {
             if let Some(prefix) = i.strip_prefix(opt) {
@@ -901,7 +901,7 @@ where
     move |i| p(i).map(|(i2, _)| (i2, &i[..(i2.as_ptr() as usize - i.as_ptr() as usize)]))
 }
 
-pub fn reserved<'a, P>(p: P, words: &'a [&'a str]) -> impl Fn(&'a str) -> ParseResult<&'a str>
+pub fn reserved<'a, P>(p: P, words: &'a [&'a str]) -> impl Fn(&'a str) -> ParseResult<'a, &'a str>
 where
     P: Fn(&'a str) -> ParseResult<&'a str>,
 {
@@ -936,7 +936,7 @@ where
     move |i| {
         p(i).map(|(i, a)| {
             let mut res = vec![a];
-            let mut i = &(*i);
+            let mut i = i;
             while let Ok((next_input, next_item)) = right(&sep, &p)(i) {
                 i = next_input;
                 res.push(next_item);
@@ -950,7 +950,9 @@ where
     }
 }
 
-pub fn infix<'a, P, O, R, S>(p: P, o: O) -> impl Fn(&'a str) -> ParseResult<(R, Vec<(S, R)>)>
+type InfixResult<'a, R, S> = ParseResult<'a, (R, Vec<(S, R)>)>;
+
+pub fn infix<'a, P, O, R, S>(p: P, o: O) -> impl Fn(&'a str) -> InfixResult<'a, R, S>
 where
     P: Fn(&'a str) -> ParseResult<R>,
     O: Fn(&'a str) -> ParseResult<S>,
@@ -1001,7 +1003,7 @@ pub fn number<'a>(b: u32) -> impl Fn(&'a str) -> ParseResult<u64> {
     move |i| mapr(take_while(|c| c.is_digit(b)), |s| u64::from_str_radix(s, b))(i)
 }
 
-pub fn double(i: &str) -> ParseResult<f64> {
+pub fn double(i: &str) -> ParseResult<'_, f64> {
     let digit = |i| take_while(|c| c.is_numeric())(i);
     let sign = |i| opt(one_of(&["+", "-"]))(i);
     let num = value(pair(digit, opt(pair(tag("."), opt(digit)))), 0);
@@ -1010,7 +1012,7 @@ pub fn double(i: &str) -> ParseResult<f64> {
     mapr(capture(trio(sign, choice((num, frac)), exp)), |s| s.parse())(i)
 }
 
-pub const fn eoi(i: &str) -> ParseResult<&str> {
+pub const fn eoi(i: &str) -> ParseResult<'_, &str> {
     if i.is_empty() {
         Ok((i, ""))
     } else {
@@ -1018,7 +1020,7 @@ pub const fn eoi(i: &str) -> ParseResult<&str> {
     }
 }
 
-pub fn whitespace(i: &str) -> ParseResult<&str> {
+pub fn whitespace(i: &str) -> ParseResult<'_, &str> {
     match i.find(|c: char| !c.is_whitespace()) {
         Some(x) => Ok((&i[x..], &i[..x])),
         _ => Ok(("", i)),

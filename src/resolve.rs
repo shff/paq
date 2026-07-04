@@ -14,7 +14,7 @@ pub fn resolve(name: String, context: &Path) -> Result<PathBuf, Error> {
     } else if name.is_empty() {
         load(parent)
     } else {
-        let new_path = parent.join("node_modules").join(&path);
+        let new_path = parent.join("node_modules").join(path);
 
         load(&new_path).or_else(|_| resolve(name, parent))
     }
@@ -55,7 +55,7 @@ fn load(path: &Path) -> Result<PathBuf, Error> {
 pub fn normalize(p: &Path) -> PathBuf {
     p.components().fold(PathBuf::from(""), |path, c| match c {
         Component::Prefix(ref prefix) => PathBuf::from(prefix.as_os_str().to_owned()),
-        Component::RootDir | Component::CurDir => path.join("/"),
+        Component::RootDir | Component::CurDir => PathBuf::from("/"),
         Component::Normal(part) => path.join(part),
         Component::ParentDir => match path.parent() {
             Some(path) => path.to_owned(),
