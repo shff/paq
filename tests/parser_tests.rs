@@ -2224,3 +2224,19 @@ fn test_classes() {
         ))
     );
 }
+
+#[test]
+fn test_html_comment_debug() {
+    use paq::parser::block;
+    let cases = vec![
+        "--> HTML comment\n",
+        ";\n--> HTML comment\n",
+    ];
+    for s in cases {
+        let result = block(s);
+        match result {
+            Ok((rem, _)) => println!("OK remainder: {:?}", rem),
+            Err((rem, e)) => println!("ERR at {:?}: {:?}", rem, e),
+        }
+    }
+}

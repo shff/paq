@@ -67,7 +67,7 @@ pub fn block(i: &str) -> ParseResult<'_, Node<'_>> {
 fn case<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let label = middle(ws(tag("case")), ws(ident), ws(tag(":")));
     let inner = map(pair(boxed(label), boxed(case)), Node::Case);
-    ws(choice((inner, default)))(i)
+    choice((ws(choice((inner, default))), html_comment))(i)
 }
 
 fn default<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -102,6 +102,7 @@ fn gotos<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
             thrw,
             declaration,
             expression,
+            html_comment,
             empty,
         )),
         end,
@@ -516,6 +517,13 @@ fn multi_comment<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
     ))(i)
 }
 
+fn html_comment<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
+    let leading = take_while(|c: char| c.is_whitespace());
+    let close = capture(trio(tag("-->"), take_until("\n"), tag("\n")));
+    let open = capture(trio(tag("<!--"), take_until("\n"), tag("\n")));
+    map(right(opt(leading), choice((close, open))), |_| Node::Blank)(i)
+}
+
 fn key_value<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let double_quote = map(string("\""), Node::Str);
     let single_quote = map(string("\'"), Node::Str);
@@ -527,10 +535,15 @@ fn key_value<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 
 fn end<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
     let eol = take_while(|c| c == '\n' || c == '\r');
+    let eol_then_html = capture(pair(
+        take_while(|c| c == '\n' || c == '\r'),
+        capture(trio(ws(tag("-->")), take_until("\n"), tag("\n"))),
+    ));
     let brace = value(peek(tag("}")), "");
     choice((
         ws(eoi),
         ws(tag(";")),
+        eol_then_html,
         eol,
         single_comment,
         multi_comment,
