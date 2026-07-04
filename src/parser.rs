@@ -307,7 +307,7 @@ fn postfix<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn creation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    map(prefix(tag("new"), action), makechain)(i)
+    choice((new_target, map(prefix(tag("new"), action), makechain)))(i)
 }
 
 fn action<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -325,14 +325,16 @@ fn action<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(action, makechain2)(i)
 }
 
+fn new_target<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
+    map(capture(trio(tag("new"), tag("."), tag("target"))), Node::Ident)(i)
+}
+
 fn primitive<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let double = map(double, Node::Double);
+    let numeric = choice((octal, hexa, binary, double));
     ws(choice((
         quote,
-        octal,
-        hexa,
-        binary,
-        double,
+        numeric,
         generator,
         function,
         object,
@@ -341,6 +343,7 @@ fn primitive<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
         list,
         regex,
         class,
+        new_target,
         ident,
         interpolate,
     )))(i)
