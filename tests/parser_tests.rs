@@ -10,7 +10,12 @@ fn text_parse_fixtures() {
         let source = std::fs::read_to_string(&path).unwrap();
         let ast = block(&source);
         assert!(ast.is_ok());
-        assert_eq!(ast.unwrap().0.trim(), "", "Expected ''. File: {}", path.display());
+        assert_eq!(
+            ast.unwrap().0.trim(),
+            "",
+            "Expected ''. File: {}",
+            path.display()
+        );
     }
 }
 
@@ -51,7 +56,10 @@ fn test_parser_get_deps() {
     assert_deps("deps-for-in.js", vec!["lodash"]);
     assert_deps("deps-for-of.js", vec!["lodash"]);
     assert_deps("deps-while.js", vec!["lodash"]);
-    assert_deps("deps-walker-all.js", vec!["lodash", "underscore", "debounce", "assert"]);
+    assert_deps(
+        "deps-walker-all.js",
+        vec!["lodash", "underscore", "debounce", "assert"],
+    );
     assert_deps("deps-lazy.js", vec!["lazily-loaded"]);
     assert_deps("deps-class.js", vec!["ramda", "lodash"]);
 }
@@ -2228,10 +2236,7 @@ fn test_classes() {
 #[test]
 fn test_html_comment_debug() {
     use paq::parser::block;
-    let cases = vec![
-        "--> HTML comment\n",
-        ";\n--> HTML comment\n",
-    ];
+    let cases = vec!["--> HTML comment\n", ";\n--> HTML comment\n"];
     for s in cases {
         let result = block(s);
         match result {

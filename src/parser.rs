@@ -65,15 +65,35 @@ pub fn block(i: &str) -> ParseResult<'_, Node<'_>> {
 }
 
 fn case<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let label = middle(ws(tag("case")), ws(ident), ws(tag(":")));
-    let inner = map(pair(boxed(label), boxed(case)), Node::Case);
-    choice((ws(choice((inner, default))), html_comment))(i)
+    let label = || middle(ws(tag("case")), ws(expression), ws(tag(":")));
+    let empty = map(
+        right(
+            label(),
+            map(
+                peek(ws(choice((tag("}"), tag("case"), tag("default"))))),
+                |_| Node::Blank,
+            ),
+        ),
+        |n| Node::Case((Box::new(n), Box::new(Node::Blank))),
+    );
+    let inner = map(pair(boxed(label()), boxed(case)), Node::Case);
+    choice((ws(choice((empty, inner, default))), html_comment))(i)
 }
 
 fn default<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let label = pair(ws(tag("default")), ws(tag(":")));
-    let inner = map(right(label, boxed(default)), Node::Default);
-    ws(choice((inner, labeled)))(i)
+    let label = || pair(ws(tag("default")), ws(tag(":")));
+    let empty = map(
+        right(
+            label(),
+            map(
+                peek(ws(choice((tag("}"), tag("case"), tag("default"))))),
+                |_| Node::Blank,
+            ),
+        ),
+        |n| Node::Default(Box::new(n)),
+    );
+    let inner = map(right(label(), boxed(default)), Node::Default);
+    ws(choice((empty, inner, labeled)))(i)
 }
 
 fn labeled<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -109,15 +129,52 @@ fn gotos<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     )(i)
 }
 
+fn import_specifiers<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
+    let mk_alias = || right(ws(tag("as")), ws(ident));
+    let named_item = left(
+        pair(ws(choice((quote, ident))), opt(mk_alias())),
+        ws(opt(tag(","))),
+    );
+    let named = map(middle(ws(tag("{")), many(named_item), ws(tag("}"))), |_| {
+        Node::Blank
+    });
+    let star = map(left(ws(tag("*")), opt(mk_alias())), |_| Node::Blank);
+    choice((star, named))(i)
+}
+
 fn imports<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let from = opt(left(boxed(ws(ident)), ws(tag("from"))));
-    let inner = right(ws(tag("import")), pair(from, boxed(ws(quote))));
+    let default_bind = left(boxed(ws(ident)), ws(opt(tag(","))));
+    let specifiers = map(import_specifiers, |_| None);
+    let default_then_spec = map(
+        pair(default_bind, opt(map(import_specifiers, |_| Node::Blank))),
+        |(b, _)| Some(b),
+    );
+    let binding = choice((default_then_spec, specifiers));
+    let with_from = pair(binding, right(ws(tag("from")), boxed(ws(quote))));
+    let bare = map(ws(quote), |q| (None, Box::new(q)));
+    let inner = right(ws(tag("import")), choice((with_from, bare)));
     map(inner, Node::Import)(i)
+}
+
+fn export_specifiers<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
+    let alias = right(ws(tag("as")), ws(choice((quote, ident))));
+    let item = map(pair(ws(choice((quote, ident))), opt(alias)), |_| {
+        Node::Blank
+    });
+    let list = middle(ws(tag("{")), chain(ws(tag(",")), item), ws(tag("}")));
+    let from = opt(right(ws(tag("from")), ws(quote)));
+    map(left(list, from), |_| Node::Object(vec![]))(i)
 }
 
 fn exports<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let default = map(right(ws(tag("default")), boxed(expression)), Node::Default);
-    let opts = choice((declaration, function, class, object));
+    let star = map(
+        left(ws(tag("*")), opt(right(ws(tag("from")), ws(quote)))),
+        |_| Node::Object(vec![]),
+    );
+    let from = opt(right(ws(tag("from")), ws(quote)));
+    let named = map(left(object, from), |o| o);
+    let opts = choice((declaration, function, class, export_specifiers, star, named));
     let inner = right(ws(tag("export")), boxed(choice((opts, default))));
     map(inner, Node::Export)(i)
 }
@@ -195,14 +252,36 @@ fn for_trio<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(trio(a, b, c), |(a, b, c)| Node::ForTrio(vec![a, b, c]))(i)
 }
 
+fn for_lvalue<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
+    let ops = &["var", "let", "const"];
+    let not_in_of = |i: &'a str| {
+        let (rest, node) = pattern(i)?;
+        // reject if the bound name is literally "in" or "of"
+        if let Node::Param((ref n, None)) = node {
+            if let Node::Ident(name) = n.as_ref() {
+                if *name == "in" || *name == "of" {
+                    return Err((i, ParserError::Reserved(name.to_string())));
+                }
+            }
+        }
+        Ok((rest, node))
+    };
+    let with_keyword = ws(pair(opt(one_of(ops)), boxed(not_in_of)));
+    choice((map(with_keyword, Node::Variable), postfix))(i)
+}
+
 fn for_of<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let expr1 = boxed(variable);
-    map(outer(expr1, ws(tag("of")), boxed(expression)), Node::ForOf)(i)
+    map(
+        outer(boxed(for_lvalue), ws(tag("of")), boxed(expression)),
+        Node::ForOf,
+    )(i)
 }
 
 fn for_in<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let expr1 = boxed(variable);
-    map(outer(expr1, ws(tag("in")), boxed(expression)), Node::ForIn)(i)
+    map(
+        outer(boxed(for_lvalue), ws(tag("in")), boxed(expression)),
+        Node::ForIn,
+    )(i)
 }
 
 fn with<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -225,7 +304,8 @@ fn yield1<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn yield2<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    map(prefix(tag("yield"), mutation), makechain)(i)
+    let bare_yield = map(ws(tag("yield")), Node::Ident);
+    choice((map(prefix(tag("yield"), mutation), makechain), bare_yield))(i)
 }
 
 fn mutation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -307,7 +387,7 @@ fn postfix<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn creation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    choice((new_target, map(prefix(tag("new"), action), makechain)))(i)
+    map(prefix(tag("new"), action), makechain)(i)
 }
 
 fn action<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -326,7 +406,10 @@ fn action<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn new_target<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    map(capture(trio(tag("new"), tag("."), tag("target"))), Node::Ident)(i)
+    map(
+        capture(trio(tag("new"), tag("."), tag("target"))),
+        Node::Ident,
+    )(i)
 }
 
 fn primitive<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -388,12 +471,44 @@ fn idents<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     ws(map(inner, Node::Idents))(i)
 }
 
+fn unicode_escape(i: &str) -> ParseResult<&str> {
+    let hex_braced = middle(
+        tag("{"),
+        take_while(|c: char| c.is_ascii_hexdigit()),
+        tag("}"),
+    );
+    let hex4 = take_while(|c: char| c.is_ascii_hexdigit());
+    capture(right(tag("\\u"), choice((hex_braced, hex4))))(i)
+}
+
 fn identifier<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
-    ws(reserved(take_while(|c| c.is_alphanumeric()), RESERVED))(i)
+    let mk_ident_char = || {
+        take_while(|c: char| {
+            c.is_alphanumeric()
+                || c == '_'
+                || c == '$'
+                || c == '\u{200C}'
+                || c == '\u{200D}'
+                || c == '\u{2028}'
+                || c == '\u{2029}'
+                || (!c.is_ascii() && (c.is_alphabetic() || c == '‿'))
+        })
+    };
+    ws(reserved(
+        capture(pair(
+            choice((unicode_escape, mk_ident_char())),
+            many(choice((unicode_escape, mk_ident_char()))),
+        )),
+        RESERVED,
+    ))(i)
 }
 
 fn object<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let item = choice((methods, key_value, ident, splat));
+    let shorthand_default = map(
+        pair(boxed(ident), right(ws(tag("=")), boxed(expression))),
+        |(k, v)| Node::Param((k, Some(v))),
+    );
+    let item = choice((methods, key_value, shorthand_default, ident, splat));
     let object = middle(tag("{"), chain(ws(tag(",")), item), ws(tag("}")));
     ws(map(object, Node::Object))(i)
 }
@@ -421,9 +536,13 @@ fn setter<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn shorthand<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let computed = middle(tag("["), expression, tag("]"));
-    let title = choice((quote, ident, computed));
-    let inner = trio(ws(boxed(title)), params, boxed(braces));
+    let mk_title = || choice((quote, ident, middle(tag("["), expression, tag("]"))));
+    let gen_title = right(ws(tag("*")), mk_title());
+    let inner = trio(
+        ws(boxed(choice((gen_title, mk_title())))),
+        params,
+        boxed(braces),
+    );
     map(inner, Node::Shorthand)(i)
 }
 
@@ -440,7 +559,8 @@ fn list<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 
 fn closure<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let params = ws(choice((map(ident, |a| vec![a]), params)));
-    let closure = outer(params, ws(tag("=>")), boxed(expression));
+    let body = choice((braces, expression));
+    let closure = outer(params, ws(tag("=>")), boxed(body));
     ws(map(closure, Node::Closure))(i)
 }
 
@@ -457,7 +577,8 @@ fn generator<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn class<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let inner = many(left(choice((field, methods)), end));
+    let empty = map(ws(tag(";")), |_| Node::Blank);
+    let inner = many(left(choice((field, methods, empty)), opt(end)));
     let inner = ws(middle(tag("{"), inner, ws(tag("}"))));
     let extend = ws(opt(right(tag("extends"), boxed(choice((ident, idents))))));
     let title = ws(right(tag("class"), opt(identifier)));
@@ -495,8 +616,14 @@ fn list_pattern<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     ws(map(inner, Node::ListPattern))(i)
 }
 
+fn key_value_pattern<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
+    let key = ws(boxed(choice((quote, ident))));
+    let value = boxed(pattern);
+    map(outer(key, ws(tag(":")), value), Node::KeyValue)(i)
+}
+
 fn object_pattern<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let items = chain(tag(","), ws(choice((splat, pattern))));
+    let items = chain(tag(","), ws(choice((splat, key_value_pattern, pattern))));
     let inner = middle(tag("{"), items, ws(tag("}")));
     ws(map(inner, Node::ObjPattern))(i)
 }
@@ -508,7 +635,7 @@ fn comments<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
 }
 
 fn single_comment<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
-    let comments = choice((tag("//"), tag("<!--"), tag("-->")));
+    let comments = choice((tag("//"), tag("<!--")));
     capture(trio(comments, take_until("\n"), tag("\n")))(i)
 }
 
@@ -537,17 +664,19 @@ fn key_value<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn end<'a>(i: &'a str) -> ParseResult<'a, &'a str> {
-    let eol = take_while(|c| c == '\n' || c == '\r');
+    let mk_eol = || take_while(|c| c == '\n' || c == '\r');
     let eol_then_html = capture(pair(
-        take_while(|c| c == '\n' || c == '\r'),
+        mk_eol(),
         capture(trio(ws(tag("-->")), take_until("\n"), tag("\n"))),
     ));
     let brace = value(peek(tag("}")), "");
+    let ws_eol = capture(trio(whitespace, comments, mk_eol()));
     choice((
         ws(eoi),
         ws(tag(";")),
         eol_then_html,
-        eol,
+        ws_eol,
+        mk_eol(),
         single_comment,
         multi_comment,
         ws(brace),
@@ -1022,7 +1151,13 @@ pub fn number<'a>(b: u32) -> impl Fn(&'a str) -> ParseResult<u64> {
 pub fn double(i: &str) -> ParseResult<'_, f64> {
     let digit = |i| take_while(|c| c.is_numeric())(i);
     let sign = |i| opt(one_of(&["+", "-"]))(i);
-    let num = value(pair(digit, opt(pair(tag("."), opt(digit)))), 0);
+    let not_ident_after_dot = peek(choice((
+        take_while(|c: char| c.is_numeric() || c == 'e' || c == 'E'),
+        whitespace,
+        eoi,
+    )));
+    let dot_digit = left(pair(tag("."), opt(digit)), not_ident_after_dot);
+    let num = value(pair(digit, opt(dot_digit)), 0);
     let frac = value(pair(tag("."), digit), 0);
     let exp = opt(trio(choice((tag("e"), tag("E"))), sign, digit));
     mapr(capture(trio(sign, choice((num, frac)), exp)), |s| s.parse())(i)
