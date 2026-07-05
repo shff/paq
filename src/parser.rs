@@ -61,7 +61,9 @@ pub enum Node<'a> {
 }
 
 pub fn block(i: &str) -> ParseResult<'_, Node<'_>> {
-    ws(left(map(many(case), Node::Block), right(whitespace, comments)))(i)
+    let multi = |i| capture(trio(tag("/*"), take_until("*/"), tag("*/")))(i);
+    let trailing = capture(many(right(ws(multi), opt(take_while(|c| c == ' ' || c == '\t')))));
+    ws(left(map(many(case), Node::Block), trailing))(i)
 }
 
 fn case<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -1339,14 +1341,15 @@ pub fn number<'a>(b: u32) -> impl Fn(&'a str) -> ParseResult<u64> {
 pub fn double(i: &str) -> ParseResult<'_, f64> {
     let digit = |i| take_while(|c| c.is_numeric())(i);
     let sign = |i| opt(one_of(&["+", "-"]))(i);
-    fn not_ident_after_dot(i: &str) -> ParseResult<'_, &str> {
+    // Reject "." when immediately followed by an identifier char (e.g. `01.a` should not eat the dot)
+    fn not_ident_start(i: &str) -> ParseResult<'_, &str> {
         if i.starts_with(|c: char| c.is_alphabetic() || c == '_' || c == '$') {
             Err((i, ParserError::Tag("not_ident".to_string())))
         } else {
             Ok((i, ""))
         }
     }
-    let dot_digit = left(pair(tag("."), opt(digit)), not_ident_after_dot);
+    let dot_digit = right(peek(pair(tag("."), not_ident_start)), pair(tag("."), opt(digit)));
     let num = value(pair(digit, opt(dot_digit)), 0);
     let frac = value(pair(tag("."), digit), 0);
     let exp = opt(trio(choice((tag("e"), tag("E"))), sign, digit));
