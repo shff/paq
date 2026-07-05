@@ -77,7 +77,8 @@ fn case<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
         |n| Node::Case((Box::new(n), Box::new(Node::Blank))),
     );
     let inner = map(pair(boxed(label()), boxed(case)), Node::Case);
-    choice((ws(choice((empty, inner, default))), html_comment))(i)
+    let line_comment = map(right(whitespace, single_comment), |_| Node::Blank);
+    choice((ws(choice((empty, inner, default))), html_comment, line_comment))(i)
 }
 
 fn default<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -388,7 +389,8 @@ fn postfix<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn creation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    choice((map(prefix(tag("new"), action), makechain), action))(i)
+    let new_expr = map(right(ws(tag("new")), boxed(creation)), |e| Node::Unary("new", e));
+    choice((new_expr, action))(i)
 }
 
 fn action<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
@@ -1300,11 +1302,13 @@ pub fn number<'a>(b: u32) -> impl Fn(&'a str) -> ParseResult<u64> {
 pub fn double(i: &str) -> ParseResult<'_, f64> {
     let digit = |i| take_while(|c| c.is_numeric())(i);
     let sign = |i| opt(one_of(&["+", "-"]))(i);
-    let not_ident_after_dot = peek(choice((
-        take_while(|c: char| c.is_numeric() || c == 'e' || c == 'E'),
-        whitespace,
-        eoi,
-    )));
+    fn not_ident_after_dot(i: &str) -> ParseResult<'_, &str> {
+        if i.starts_with(|c: char| c.is_alphabetic() || c == '_' || c == '$') {
+            Err((i, ParserError::Tag("not_ident".to_string())))
+        } else {
+            Ok((i, ""))
+        }
+    }
     let dot_digit = left(pair(tag("."), opt(digit)), not_ident_after_dot);
     let num = value(pair(digit, opt(dot_digit)), 0);
     let frac = value(pair(tag("."), digit), 0);
