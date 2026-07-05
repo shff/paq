@@ -55,7 +55,8 @@ fn load(path: &Path) -> Result<PathBuf, Error> {
 pub fn normalize(p: &Path) -> PathBuf {
     p.components().fold(PathBuf::from(""), |path, c| match c {
         Component::Prefix(ref prefix) => PathBuf::from(prefix.as_os_str().to_owned()),
-        Component::RootDir | Component::CurDir => PathBuf::from("/"),
+        Component::RootDir => PathBuf::from("/"),
+        Component::CurDir => path,
         Component::Normal(part) => path.join(part),
         Component::ParentDir => match path.parent() {
             Some(path) => path.to_owned(),

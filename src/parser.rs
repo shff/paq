@@ -289,6 +289,7 @@ fn with<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     map(ws(right(tag("with"), inner)), Node::With)(i)
 }
 
+#[allow(dead_code)]
 fn variable<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     let ops = &["var", "let", "const"];
     map(ws(pair(opt(one_of(ops)), boxed(pattern))), Node::Variable)(i)
@@ -471,7 +472,7 @@ fn idents<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
     ws(map(inner, Node::Idents))(i)
 }
 
-fn unicode_escape(i: &str) -> ParseResult<&str> {
+fn unicode_escape(i: &str) -> ParseResult<'_, &str> {
     let hex_braced = middle(
         tag("{"),
         take_while(|c: char| c.is_ascii_hexdigit()),
@@ -717,6 +718,154 @@ pub fn get_deps(root: Node) -> Vec<String> {
         None
     });
     deps.replace(vec![])
+}
+
+/// Returns each top-level statement with its (start, end) byte offsets into `source`.
+pub fn stmts_with_spans(source: &str) -> Vec<(Node<'_>, usize, usize)> {
+    let mut offset = 0usize; // current position in source (bytes consumed so far)
+    let mut result = Vec::new();
+    loop {
+        let i = &source[offset..];
+        if i.is_empty() {
+            break;
+        }
+        let prev_remaining = i.len();
+        match case(i) {
+            Ok((after, node)) => {
+                let consumed = prev_remaining - after.len();
+                let start = offset;
+                let end = offset + consumed;
+                if !matches!(node, Node::Blank) || end > start {
+                    result.push((node, start, end));
+                }
+                if consumed == 0 {
+                    break; // no progress
+                }
+                offset = end;
+            }
+            Err(_) => break,
+        }
+    }
+    result
+}
+
+/// Extracts (exported_name, local_name) pairs from an import specifier list like `{ foo, bar as baz }`.
+/// Returns empty vec if the source doesn't contain a `{` specifier block.
+pub fn parse_import_names(stmt_source: &str) -> Vec<(String, String)> {
+    let mk_alias = || right(ws(tag("as")), ws(ident));
+    let named_item = left(
+        pair(ws(choice((quote, ident))), opt(mk_alias())),
+        ws(opt(tag(","))),
+    );
+    let named = middle(ws(tag("{")), many(named_item), ws(tag("}")));
+    // find the opening brace in the statement
+    let start = match stmt_source.find('{') {
+        Some(pos) => &stmt_source[pos..],
+        None => return vec![],
+    };
+    match named(start) {
+        Ok((_, items)) => items
+            .into_iter()
+            .map(|(name_node, alias)| {
+                let exported = match &name_node {
+                    Node::Ident(s) => s.to_string(),
+                    Node::Str(s) => s.clone(),
+                    _ => String::new(),
+                };
+                let local = alias.map(|a| match a {
+                    Node::Ident(s) => s.to_string(),
+                    _ => String::new(),
+                }).unwrap_or_else(|| exported.clone());
+                (exported, local)
+            })
+            .filter(|(e, _)| !e.is_empty())
+            .collect(),
+        Err(_) => vec![],
+    }
+}
+
+/// Collects all Ident nodes in `root` with their (name, start, end) byte positions
+/// relative to `base_ptr` (the address of the first byte of the source slice `root` was parsed from).
+pub fn collect_ident_positions<'a>(root: &Node<'a>, base_ptr: usize, out: &mut Vec<(&'a str, usize, usize)>) {
+    match root {
+        Node::Ident(s) => {
+            let start = s.as_ptr() as usize - base_ptr;
+            out.push((s, start, start + s.len()));
+        }
+        Node::Block(children) | Node::Object(children) | Node::Args(children)
+        | Node::ObjPattern(children) => {
+            for c in children { collect_ident_positions(c, base_ptr, out); }
+        }
+        Node::List(items) | Node::ListPattern(items) => {
+            for n in items.iter().flatten() { collect_ident_positions(n, base_ptr, out); }
+        }
+        Node::Declaration((_, children)) => {
+            for c in children { collect_ident_positions(c, base_ptr, out); }
+        }
+        Node::Variable((_, inner)) => collect_ident_positions(inner, base_ptr, out),
+        Node::Param((a, b)) => {
+            collect_ident_positions(a, base_ptr, out);
+            if let Some(b) = b { collect_ident_positions(b, base_ptr, out); }
+        }
+        Node::Function((_, params, body)) | Node::Generator((_, params, body)) => {
+            for p in params { collect_ident_positions(p, base_ptr, out); }
+            collect_ident_positions(body, base_ptr, out);
+        }
+        Node::Closure((params, body)) => {
+            for p in params { collect_ident_positions(p, base_ptr, out); }
+            collect_ident_positions(body, base_ptr, out);
+        }
+        Node::Shorthand((key, params, body)) => {
+            collect_ident_positions(key, base_ptr, out);
+            for p in params { collect_ident_positions(p, base_ptr, out); }
+            collect_ident_positions(body, base_ptr, out);
+        }
+        Node::Class((_, super_, body)) => {
+            if let Some(s) = super_ { collect_ident_positions(s, base_ptr, out); }
+            for m in body { collect_ident_positions(m, base_ptr, out); }
+        }
+        Node::Field((k, v)) | Node::KeyValue((k, v)) | Node::Binary(_, k, v) => {
+            collect_ident_positions(k, base_ptr, out);
+            collect_ident_positions(v, base_ptr, out);
+        }
+        Node::Unary(_, a) | Node::Getter(a) | Node::Setter(a) | Node::Static(a)
+        | Node::Export(a) | Node::Default(a) | Node::Return(Some(a))
+        | Node::Continue(Some(a)) | Node::Break(Some(a)) | Node::Throw(a)
+        | Node::Paren(a) | Node::Splat(a) => collect_ident_positions(a, base_ptr, out),
+        Node::If((cond, then, else_)) => {
+            collect_ident_positions(cond, base_ptr, out);
+            collect_ident_positions(then, base_ptr, out);
+            if let Some(e) = else_ { collect_ident_positions(e, base_ptr, out); }
+        }
+        Node::Ternary(a, b, c) => {
+            collect_ident_positions(a, base_ptr, out);
+            collect_ident_positions(b, base_ptr, out);
+            collect_ident_positions(c, base_ptr, out);
+        }
+        Node::While((a, b)) | Node::Do((a, b)) | Node::Switch((a, b))
+        | Node::For((a, b)) | Node::ForOf((a, b)) | Node::ForIn((a, b))
+        | Node::With((a, b)) | Node::Label((a, b)) | Node::Case((a, b)) => {
+            collect_ident_positions(a, base_ptr, out);
+            collect_ident_positions(b, base_ptr, out);
+        }
+        Node::Try((body, catch, finally)) => {
+            collect_ident_positions(body, base_ptr, out);
+            if let Some(c) = catch { collect_ident_positions(c, base_ptr, out); }
+            if let Some(f) = finally { collect_ident_positions(f, base_ptr, out); }
+        }
+        Node::Catch((binding, body)) => {
+            if let Some(b) = binding { collect_ident_positions(b, base_ptr, out); }
+            collect_ident_positions(body, base_ptr, out);
+        }
+        Node::Import((binding, path)) => {
+            if let Some(b) = binding { collect_ident_positions(b, base_ptr, out); }
+            collect_ident_positions(path, base_ptr, out);
+        }
+        Node::ForTrio(items) => {
+            for n in items.iter().flatten() { collect_ident_positions(n, base_ptr, out); }
+        }
+        _ => {}
+    }
 }
 
 fn walk<V>(node: Node, mut visit: V) -> Node

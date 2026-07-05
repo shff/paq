@@ -1,4 +1,4 @@
-use paq::parser::{block, expression, get_deps, transform, Node};
+use paq::parser::{block, expression, get_deps, parse_import_names, stmts_with_spans, transform, Node};
 
 #[test]
 fn text_parse_fixtures() {
@@ -24,12 +24,27 @@ fn test_parse_automatic() {
     let cur_dir = std::env::current_dir().unwrap();
     let fixtures = cur_dir.join("tests/fixtures/test262-parser-tests/pass");
     let files = std::fs::read_dir(fixtures).unwrap();
+    let mut failures = vec![];
     for file in files {
         let path = file.unwrap().path();
         let source = std::fs::read_to_string(&path).unwrap() + "\n";
         let ast = block(&source);
-        assert!(ast.is_ok());
-        assert_eq!(ast.unwrap().0.trim(), "");
+        let ok = ast.is_ok();
+        let remainder = if ok {
+            ast.unwrap().0.trim().to_string()
+        } else {
+            String::new()
+        };
+        if !ok || !remainder.is_empty() {
+            failures.push(format!(
+                "{}: {:?}",
+                path.file_name().unwrap().to_string_lossy(),
+                remainder
+            ));
+        }
+    }
+    if !failures.is_empty() {
+        panic!("{} failure(s):\n{}", failures.len(), failures.join("\n"));
     }
 }
 
@@ -2231,6 +2246,37 @@ fn test_classes() {
             ))
         ))
     );
+}
+
+#[test]
+fn test_stmts_with_spans_simple() {
+    let src = "const x = 1\nconst y = 2\n";
+    let (_, block_node) = block(src).unwrap();
+    if let Node::Block(stmts) = &block_node {
+        assert_eq!(stmts.len(), 2);
+    }
+    let spans = stmts_with_spans(src);
+    assert_eq!(spans.len(), 2, "expected 2 statements, got {}: {:?}", spans.len(),
+        spans.iter().map(|(_, s, e)| &src[*s..*e]).collect::<Vec<_>>());
+    assert_eq!(src[spans[0].1..spans[0].2].trim(), "const x = 1");
+    assert_eq!(src[spans[1].1..spans[1].2].trim(), "const y = 2");
+}
+
+#[test]
+fn test_stmts_with_spans_export() {
+    let src = "export const x = 1\nexport default x\n";
+    let spans = stmts_with_spans(src);
+    assert_eq!(spans.len(), 2, "expected 2 statements, got {}: {:?}", spans.len(),
+        spans.iter().map(|(_, s, e)| &src[*s..*e]).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_parse_import_names_basic() {
+    let names = parse_import_names("import { foo, bar as baz } from './x'");
+    assert_eq!(names, vec![
+        ("foo".to_string(), "foo".to_string()),
+        ("bar".to_string(), "baz".to_string()),
+    ]);
 }
 
 #[test]
