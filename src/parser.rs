@@ -61,7 +61,7 @@ pub enum Node<'a> {
 }
 
 pub fn block(i: &str) -> ParseResult<'_, Node<'_>> {
-    ws(map(many(case), Node::Block))(i)
+    ws(left(map(many(case), Node::Block), right(whitespace, comments)))(i)
 }
 
 fn case<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
