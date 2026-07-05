@@ -451,8 +451,45 @@ fn binary<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn regex<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    let inner = pair(capture(string("/")), opt(take_while(|c| c.is_alphabetic())));
+    let inner = pair(capture(regex_body), opt(take_while(|c| c.is_alphabetic())));
     ws(map(inner, Node::Regex))(i)
+}
+
+fn regex_body(i: &str) -> ParseResult<'_, &str> {
+    if !i.starts_with('/') {
+        return Err((i, ParserError::Tag("/".to_string())));
+    }
+    let bytes = i.as_bytes();
+    let mut pos = 1; // skip opening /
+    while pos < bytes.len() {
+        match bytes[pos] {
+            b'/' => {
+                pos += 1;
+                return Ok((&i[pos..], &i[..pos]));
+            }
+            b'\\' => {
+                pos += 1; // skip backslash
+                if pos < bytes.len() {
+                    pos += 1; // skip escaped char
+                }
+            }
+            b'[' => {
+                pos += 1;
+                while pos < bytes.len() && bytes[pos] != b']' {
+                    if bytes[pos] == b'\\' {
+                        pos += 1;
+                    }
+                    pos += 1;
+                }
+                if pos < bytes.len() {
+                    pos += 1; // skip ]
+                }
+            }
+            b'\n' => return Err((i, ParserError::Tag("regex".to_string()))),
+            _ => pos += 1,
+        }
+    }
+    Err((i, ParserError::Tag("regex".to_string())))
 }
 
 fn interpolate<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
