@@ -388,7 +388,7 @@ fn postfix<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
 }
 
 fn creation<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
-    map(prefix(tag("new"), action), makechain)(i)
+    choice((map(prefix(tag("new"), action), makechain), action))(i)
 }
 
 fn action<'a>(i: &'a str) -> ParseResult<'a, Node<'a>> {
